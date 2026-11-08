@@ -751,7 +751,7 @@ function terrainJob(tr,budget,done){
     const c0=BIOME[t0===WATER?SAND:t0],c1=BIOME[t1===WATER?SAND:t1],c2=BIOME[t2===WATER?SAND:t2],c3=BIOME[t3===WATER?SAND:t3];
     r=c0[0]*w0+c1[0]*w1+c2[0]*w2+c3[0]*w3;gg=c0[1]*w0+c1[1]*w1+c2[1]*w2+c3[1]*w3;b=c0[2]*w0+c1[2]*w1+c2[2]*w2+c3[2]*w3;
     const f=samp(FO,fx,fy),m=samp(MT,fx,fy),n1=nz(X*3,Y*3),vv=.9+nz(X,Y)*.1+nz(X*4+7,Y*4+3)*.08;r*=vv;gg*=vv;b*=vv;
-    if(f>.25){const crown=.7+nz(X*1.6+17,Y*1.6+31)*.6,a=clamp((f-.25)/.5,0,1);r*=1-a+crown*a;gg*=1-a+crown*a;b*=1-a+crown*a}
+    if(f>.25){const crown=.82+nz(X*1.6+17,Y*1.6+31)*.3,a=clamp((f-.25)/.5,0,1);r*=1-a+crown*a;gg*=1-a+crown*a;b*=1-a+crown*a}
     const des=(t0===DESERT?w0:0)+(t1===DESERT?w1:0)+(t2===DESERT?w2:0)+(t3===DESERT?w3:0);if(des>.2){const dune=.93+Math.sin(X*.22+Y*.09+nz(X,Y)*9)*.07;r*=dune;gg*=dune;b*=dune}
     if(h<.345){const a=clamp((.345-h)/.015,0,1);r=r*(1-a)+232*a;gg=gg*(1-a)+216*a;b=b*(1-a)+160*a}
     if(m>.5){const rock=.88+n1*.28;r=r*.45+120*rock*.55;gg=gg*.45+110*rock*.55;b=b*.45+100*rock*.55}
@@ -762,12 +762,26 @@ function terrainJob(tr,budget,done){
     r*=sh;gg*=sh;b*=sh;const l=(r+gg+b)/3;r=l+(r-l)*1.12;gg=l+(gg-l)*1.12;b=l+(b-l)*1.12;r=(r-128)*1.06+128;gg=(gg-128)*1.06+128;b=(b-128)*1.06+128;
     D[k]=r;D[k+1]=gg;D[k+2]=b;D[k+3]=255}};
   let phase=0,row=0;
-  const finish=()=>{g.putImageData(img,0,0);g.save();g.scale(1/fs,1/fs);drawRivers(g);g.restore();done(cvs,HT,tw,th)};
+  const finish=()=>{g.putImageData(img,0,0);g.save();g.scale(1/fs,1/fs);drawTrees(g);drawRivers(g);g.restore();done(cvs,HT,tw,th)};
   const step=()=>{const t0=performance.now();
     while(budget===0||performance.now()-t0<budget){if(phase===0){heightRow(row++);if(row>=th){phase=1;row=0}}else{colorRow(row++);if(row>=th){finish();return}}}
     setTimeout(step,0)};
   step();
 }
+// individual trees: round leafy crowns in forests, pointed firs on hills, a few lone trees in the fields
+function drawTrees(g){
+  const trees=[];
+  for(let i=0;i<W*H;i++){const t=TER[i];let n=0,fir=0;
+    if(t===FOREST){n=7;fir=hash(i,1,71)<.25?1:0}else if(t===HILL){n=hash(i,2,71)<.35?2:0;fir=1}else if(t===GRASS){n=hash(i,3,71)<.12?1:0}
+    for(let k=0;k<n;k++){const x=tx(i)*TS+1+hash(i,k,72)*14,y=ty(i)*TS+1+hash(i,k,73)*14,hh=HEIGHT&&0;trees.push([x,y,fir||(t===FOREST&&hash(i,k,74)<.15)?1:0,hash(i,k,75)])}}
+  trees.sort((a,b)=>a[1]-b[1]);
+  for(const [x,y,fir,r] of trees){const s=2.6+r*1.8,dark=.75+r*.3;
+    g.fillStyle="rgba(10,25,8,.32)";g.beginPath();g.ellipse(x+s*.55,y+s*.55,s*1.05,s*.7,0,0,7);g.fill();
+    if(fir){g.fillStyle=`rgb(${28*dark|0},${64*dark|0},${36*dark|0})`;g.beginPath();g.moveTo(x,y-s*1.7);g.lineTo(x+s*1.05,y+s*.6);g.lineTo(x-s*1.05,y+s*.6);g.closePath();g.fill();
+      g.fillStyle=`rgba(120,170,100,.35)`;g.beginPath();g.moveTo(x,y-s*1.7);g.lineTo(x-s*.25,y+s*.2);g.lineTo(x-s*1.0,y+s*.55);g.closePath();g.fill()}
+    else{g.fillStyle="#4a3420";g.fillRect(x-.5,y,1,s*.7);
+      g.fillStyle=`rgb(${(46+r*20)*dark|0},${(92+r*26)*dark|0},${(38+r*10)*dark|0})`;g.beginPath();g.arc(x,y-s*.2,s,0,7);g.fill();
+      g.fillStyle=`rgba(150,200,110,.45)`;g.beginPath();g.arc(x-s*.35,y-s*.55,s*.5,0,7);g.fill()}}}
 function drawRivers(g){
   g.lineCap="round";g.lineJoin="round";
   const curves=RIVER_PATHS.map((path,r)=>{const pts=path.filter((_,j)=>j%2===0||j===path.length-1).map(i=>[tx(i)*TS+8,ty(i)*TS+8]);
