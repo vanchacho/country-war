@@ -1354,8 +1354,15 @@ function battle(a,def){
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){if(Math.abs(dx)+Math.abs(dy)>r)continue;const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);
       if(!(i in def.tiles))continue;if(i===def.capital&&i!==a.target)continue;tiles[i]=def.tiles[i]}
     capital=a.target===def.capital}
-  const lootFrac=!win?0:mode==="raid"?.24:blocked?0:capital?.4:.12,loot={};for(const k of RK)loot[k]=Math.floor((def.res?.[k]||0)*lootFrac);
-  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,at:Date.now()};
+  // everything of the enemy's that the army marched through on the way in
+  const trail=[],pp=a.path||[],safe=i=>wallList.slice(breakN).some(w=>Math.max(Math.abs(tx(w)-tx(i)),Math.abs(ty(w)-ty(i)))<=1);
+  for(let j=1;j<pp.length;j++){const x0=tx(pp[j-1]),y0=ty(pp[j-1]),x1=tx(pp[j]),y1=ty(pp[j]),n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0))||1;
+    for(let q=0;q<=n;q++){const t=idx(Math.round(x0+(x1-x0)*q/n),Math.round(y0+(y1-y0)*q/n));if(t in (def.tiles||{})&&!trail.includes(t)&&t!==def.capital&&def.tiles[t]!=="wall"&&!safe(t))trail.push(t)}}
+  const ravaged=[];
+  if(win&&!blocked&&mode!=="raid")for(const t of trail)if(!(t in tiles))tiles[t]=def.tiles[t];
+  if(win&&mode==="raid")for(const t of trail)if(def.tiles[t])ravaged.push(t);
+  const lootFrac=!win?0:mode==="raid"?.24+ravaged.length*.02:blocked?0:capital?.4:.12,loot={};for(const k of RK)loot[k]=Math.floor((def.res?.[k]||0)*Math.min(.6,lootFrac));
+  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,ravaged,at:Date.now()};
 }
 const unitSum=u=>UK.reduce((t,k)=>t+(u?.[k]||0),0);
 function unitsHTML(u){const ks=UK.filter(k=>u?.[k]);return ks.length?`<div class="cost" style="gap:4px 10px">${ks.map(k=>`<span title="${UNITS[k].n}">${icn(k,1)}${u[k]}</span>`).join("")}</div>`:'<span class="muted">—</span>'}
@@ -1440,7 +1447,7 @@ function showReport(a){
     ${!ic?`<p class="muted" style="margin:12px 0 0;font-size:12px">${MODES[r.mode||"direct"].n}${a.naval?" · ზღვით":""}${r.wallsDestroyed?.length?` · დაინგრა ${r.wallsDestroyed.length} გალავანი`:""}${r.starving?" · დამცველები შიმშილობდნენ":""}</p>`:""}
     ${!ic&&r.win&&r.blocked?`<p style="margin:10px 0 0;color:var(--brass2)">ბრძოლა მოიგო, მაგრამ გალავანმა გაუძლო და ქალაქში ვერ შევიდა. საჭიროა კატაპულტები ან დრაკონი.</p>`:""}
     ${ic?`<p style="margin:14px 0 0">${r.win?"მტრის ჯარი უკუიქცა და სახლში ბრუნდება.":"მტრის ჯარმა გაარღვია და გზას აგრძელებს."}</p>`:
-      r.win&&r.mode==="raid"?`<p style="margin:14px 0 0">დარბევა წარმატებულია.</p>${loot.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">ნადავლი:</span>${loot.map(k=>`<span class="row" style="gap:3px">${icn(k,1)}${fmt(r.loot[k])}</span>`).join("")}</div>`:""}`:r.win&&!r.blocked?`<p style="margin:14px 0 0">დაპყრობილია ${r.tilesN} უჯრა${r.capital?", დედაქალაქი დაეცა":""}.</p>${(()=>{const bs=Object.values(r.tiles||{}).filter(b=>b&&b!=="capital"&&B[b]);return bs.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">${a.from===ME?"შენი გახდა":"დაკარგე"}:</span>${bs.map(b=>`<span class="row" style="gap:3px">${icn(b,1)}${B[b].n}</span>`).join("")}</div>`:""})()}${loot.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">ნადავლი:</span>${loot.map(k=>`<span class="row" style="gap:3px">${icn(k,1)}${fmt(r.loot[k])}</span>`).join("")}</div>`:""}`:r.win?"":`<p style="margin:14px 0 0">შეტევა მოგერიებულია.</p>`}
+      r.win&&r.mode==="raid"?`<p style="margin:14px 0 0">დარბევა წარმატებულია${r.ravaged?.length?`, გზაზე დაინგრა ${r.ravaged.length} შენობა`:""}.</p>${loot.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">ნადავლი:</span>${loot.map(k=>`<span class="row" style="gap:3px">${icn(k,1)}${fmt(r.loot[k])}</span>`).join("")}</div>`:""}`:r.win&&!r.blocked?`<p style="margin:14px 0 0">დაპყრობილია ${r.tilesN} უჯრა${r.capital?", დედაქალაქი დაეცა":""}.</p>${(()=>{const bs=Object.values(r.tiles||{}).filter(b=>b&&b!=="capital"&&B[b]);return bs.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">${a.from===ME?"შენი გახდა":"დაკარგე"}:</span>${bs.map(b=>`<span class="row" style="gap:3px">${icn(b,1)}${B[b].n}</span>`).join("")}</div>`:""})()}${loot.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">ნადავლი:</span>${loot.map(k=>`<span class="row" style="gap:3px">${icn(k,1)}${fmt(r.loot[k])}</span>`).join("")}</div>`:""}`:r.win?"":`<p style="margin:14px 0 0">შეტევა მოგერიებულია.</p>`}
     <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn gold" id="rpClose">კარგი</button></div></div>`;
   $("#app").appendChild(ov);paintIcons(ov);ov.querySelectorAll("[data-flagc]").forEach(cn=>drawFlag(cn.getContext("2d"),countries[cn.dataset.flagc]?.flag,0,0,36,24));
   ov.querySelector("#rpClose").onclick=()=>ov.remove();
@@ -1480,6 +1487,7 @@ async function applyDefender(a){
   await mutate("countries/"+a.to,cur=>{if(!cur||(cur.applied||[]).includes(a.id))return;const c=materialize(cur,Date.now());
     for(const k of UK)c.army[k]=Math.floor((c.army[k]||0)*(1-r.defLoss));
     for(const i of r.wallsDestroyed||[])if(c.tiles[i]==="wall")c.tiles[i]="";
+    for(const i of r.ravaged||[])if(c.tiles[i]&&c.tiles[i]!=="capital")c.tiles[i]="";
     if(c.siege&&c.siege.id===a.id)c.siege=null;
     if(r.win){for(const i in r.tiles)delete c.tiles[i];for(const k of RK)c.res[k]=Math.max(0,c.res[k]-(r.loot[k]||0));
       if(r.capital||!(c.capital in c.tiles)){const keys=Object.keys(c.tiles).map(Number);
