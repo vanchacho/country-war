@@ -640,7 +640,7 @@ function frame(){
       for(let m=0;m<many&&cnt<260;m++){const sd=hash(i,m,77),nb=N4(i).filter(n=>n in c.tiles);const j=nb.length?nb[Math.floor(sd*nb.length)]:i;
         const ph=tt*(.25+sd*.25)+sd*20,f=(Math.sin(ph)+1)/2,ox=(hash(i,m,5)-.5)*8,oy=(hash(i,m,6)-.5)*6;
         const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy;
-        drawPerson(ctx,x,y+3,clamp(9/z,5,8),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
+        drawPerson(ctx,x,y+3,clamp(5/z,3,4.5),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
   // armies: banner with flag, main unit, head-count; dashed route and pulsing target
   const k=clamp(1.5/z,.8,3),pulse=(now%1200)/1200;
   for(const a of Object.values(attacks)){
@@ -655,7 +655,7 @@ function frame(){
     ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.ellipse(P.x,P.y+8*k,9*k,3*k,0,0,7);ctx.fill();
     {const dir=Math.atan2(P.ey-P.y,P.ex-P.x),bx=-Math.cos(dir),by=-Math.sin(dir),px=-by,py=bx,nShow=Math.min(12,Math.max(3,Math.ceil(N/4)));
       for(let m=0;m<nShow;m++){const row=Math.floor(m/3)+1,colI=m%3-1,sx=P.x+bx*row*8*k+px*colI*7*k,sy=P.y+by*row*8*k+py*colI*7*k;
-        drawPerson(ctx,sx,sy+4*k,7*k,col,SKIN[m%SKIN.length],now/90+m*1.7,true,null,col)}}
+        drawPerson(ctx,sx,sy+4*k,4.5*k,col,SKIN[m%SKIN.length],now/90+m*1.7,true,null,col)}}
     ctx.fillStyle="#2a241b";ctx.fillRect(P.x+6*k,P.y-20*k,1.6*k,20*k);drawFlag(ctx,C?.flag,P.x+7.6*k,P.y-20*k,14*k,9*k);
     ctx.fillStyle=col;ctx.strokeStyle=ic?"#f2c771":"#fff";ctx.lineWidth=2*k;ctx.beginPath();ctx.arc(P.x,P.y,9*k,0,7);ctx.fill();ctx.stroke();
     drawIcon(ctx,main,P.x,P.y,13*k);
