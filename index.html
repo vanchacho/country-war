@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="ka">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body style="margin:0">
+<title>Country War</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;600;700&family=Noto+Serif+Georgian:wght@600;800&display=swap">
+<style>
+/* War room: the whole screen is the map; brass-trimmed ink panels float over it */
+:root{
+  --ink:#121821; --panel:#1a2230; --panel2:#222d3e; --line:#33435a; --fg:#ece6d6; --muted:#97a3b5;
+  --brass:#d4a24a; --brass2:#f2c771; --danger:#e3624f; --ok:#73c27a;
+  --display:"Noto Serif Georgian",Georgia,serif; --body:"Noto Sans Georgian",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--ink);color:var(--fg);font-family:var(--body);overflow:hidden;font-size:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select{font:inherit;color:var(--fg);background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--brass2);outline-offset:2px}
+#app{position:fixed;inset:0}
+#map{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block;cursor:grab}
+#map.drag{cursor:grabbing}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 12px;font-weight:600;transition:background .15s,border-color .15s}
+.btn:hover:not(:disabled){border-color:var(--brass);background:#2a374b}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.gold{background:var(--brass);color:#1a1408;border-color:var(--brass2)}
+.btn.gold:hover:not(:disabled){background:var(--brass2)}
+.btn.red{background:#5a2620;border-color:var(--danger)}
+.btn.sm{padding:4px 9px;font-size:12px}
+.muted{color:var(--muted)}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);letter-spacing:.03em}
+.tag.war{color:#ffb4a8;border-color:var(--danger);background:#3a1a17}
+.tag.peace{color:#bfe8c2;border-color:#3f6f45}
+/* HUD */
+#hud{position:absolute;top:8px;left:8px;right:8px;display:flex;gap:8px;align-items:stretch;pointer-events:none;flex-wrap:wrap}
+#hud>*{pointer-events:auto}
+.plate{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(6px)}
+#who{display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px}
+#who canvas{border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+#who .nm{font-family:var(--display);font-weight:800;font-size:16px;line-height:1.1}
+#who .rl{font-size:11px;color:var(--muted)}
+#res{display:flex;gap:2px;padding:4px;flex-wrap:wrap}
+.r{display:flex;flex-direction:column;padding:3px 10px;min-width:70px;border-radius:7px}
+.r b{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.r small{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.r small.neg{color:var(--danger)}
+.r .k{font-size:10px;letter-spacing:.06em;color:var(--brass);text-transform:uppercase;white-space:nowrap}
+/* side panel */
+#side{position:absolute;top:84px;right:8px;bottom:8px;width:370px;display:flex;flex-direction:column;overflow:hidden}
+#tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
+#tabs button{flex:1;background:none;border:0;padding:10px 6px;font-size:12.5px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+#tabs button.on{color:var(--brass2);border-bottom-color:var(--brass)}
+#tabs .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-left:4px;vertical-align:middle}
+#pane{flex:1;overflow-y:auto;padding:14px}
+#pane h3{font-family:var(--display);font-size:15px;margin:16px 0 8px;color:var(--brass2);text-wrap:balance}
+#pane h3:first-child{margin-top:0}
+.row{display:flex;align-items:center;gap:8px}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:flex;gap:10px;align-items:center;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.item .ic{font-size:22px;width:30px;text-align:center;flex:none}
+.item .tx{flex:1;min-width:0}
+.item .tx b{display:block;font-size:13.5px}
+.item .tx span{font-size:11.5px;color:var(--muted)}
+.cost{font-size:11.5px;font-variant-numeric:tabular-nums}
+.cost .no{color:var(--danger)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px}
+.kv span:nth-child(even){font-variant-numeric:tabular-nums;text-align:right}
+#collapse{display:none}
+/* tile card */
+#tile{position:absolute;left:8px;bottom:8px;width:330px;padding:12px 14px;max-height:50%;overflow:auto}
+#tile h4{margin:0 0 2px;font-family:var(--display);font-size:15px}
+#tile .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+#tile .x{position:absolute;top:6px;right:8px;background:none;border:0;font-size:18px;color:var(--muted)}
+#place{position:absolute;left:50%;top:92px;transform:translateX(-50%);padding:8px 14px;display:flex;gap:10px;align-items:center}
+/* overlays */
+.overlay{position:absolute;inset:0;background:rgba(8,11,16,.72);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:20}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:min(560px,100%);box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:100%;overflow:auto}
+.card h1{font-family:var(--display);font-weight:800;font-size:34px;margin:0;letter-spacing:.01em;color:var(--brass2)}
+.card h2{font-family:var(--display);font-size:20px;margin:0 0 6px}
+.card .sub{margin:4px 0 18px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
+.field input{font-size:15px}
+.flagEd{display:grid;grid-template-columns:180px 1fr;gap:16px;align-items:start;margin:6px 0 14px}
+.flagEd canvas{width:180px;height:120px;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+.pats{display:flex;flex-wrap:wrap;gap:5px}
+.pats button{width:40px;height:28px;padding:0;border:2px solid var(--line);border-radius:4px;background:var(--ink)}
+.pats button.on{border-color:var(--brass2)}
+.pats canvas{width:36px;height:24px;display:block;box-shadow:none;border-radius:2px}
+.cols{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:end}
+.cols label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);align-items:center}
+.cols input[type=color]{width:42px;height:32px;padding:2px;border-radius:6px}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatches button{width:30px;height:30px;border-radius:50%;border:3px solid transparent;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+.swatches button.on{border-color:#fff}
+.swatches button:disabled{opacity:.18;cursor:not-allowed}
+.modal .units{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.modal .units .item input{width:80px}
+#toasts{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;z-index:40;pointer-events:none}
+.toast{background:var(--panel2);border:1px solid var(--line);padding:8px 14px;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.4);font-size:13px;animation:tin .2s ease-out}
+.toast.err{border-color:var(--danger);color:#ffd0c8}
+.toast.good{border-color:var(--ok)}
+@keyframes tin{from{transform:translateY(8px);opacity:0}}
+.chat{display:flex;flex-direction:column;gap:6px}
+.msg{font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.msg b{margin-right:4px}
+.msg.sys{color:var(--brass2);font-size:12px}
+.msg time{color:var(--muted);font-size:10.5px;margin-left:4px}
+.log{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.bar{height:6px;background:var(--ink);border-radius:3px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--brass)}
+#banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:440px;text-align:center;padding:22px;z-index:30}
+@media (max-width:760px){
+  #side{top:auto;left:8px;right:8px;width:auto;height:46%}
+  #side.min{height:44px}
+  #collapse{display:block;position:absolute;right:6px;top:4px;z-index:2;background:none;border:0;font-size:18px;color:var(--muted);padding:6px 10px}
+  #tabs{padding-right:40px}
+  #tile{left:8px;right:8px;width:auto;bottom:calc(46% + 16px);max-height:34%}
+  #side.min ~ #tile{bottom:60px}
+  .r{min-width:58px;padding:2px 6px}
+  .r b{font-size:13px}
+  #who .nm{font-size:14px}
+  .flagEd{grid-template-columns:1fr}
+  #place{top:auto;bottom:calc(46% + 16px)}
+}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+</style>
+
+<div id="app">
+  <canvas id="map" aria-label="რუკა"></canvas>
+  <div id="hud" hidden>
+    <div id="who" class="plate"><canvas id="myFlag" width="42" height="28"></canvas><div><div class="nm" id="myName"></div><div class="rl" id="myRuler"></div></div></div>
+    <div id="res" class="plate"></div>
+  </div>
+  <div id="side" class="plate" hidden>
+    <button id="collapse" aria-label="ჩაკეცვა">▾</button>
+    <div id="tabs" role="tablist"></div>
+    <div id="pane"></div>
+  </div>
+  <div id="tile" class="plate" hidden></div>
+  <div id="place" class="plate" hidden></div>
+  <div id="toasts"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+"use strict";
+/* ================= utils ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=n=>{n=Math.floor(n||0);return Math.abs(n)>=100000?(n/1000).toFixed(0)+"k":Math.abs(n)>=10000?(n/1000).toFixed(1)+"k":String(n)};
+const fmtR=n=>(n>=0?"+":"")+(Math.abs(n)>=100?Math.round(n):n.toFixed(1));
+const mmss=ms=>{ms=Math.max(0,ms);const s=Math.ceil(ms/1000),m=Math.floor(s/60);return m+":"+String(s%60).padStart(2,"0")};
+function hash(x,y,s){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1442695041);h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967296}
+function strHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  const a=hash(xi,yi,s),b=hash(xi+1,yi,s),c=hash(xi,yi+1,s),d=hash(xi+1,yi+1,s);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
+function fbm(x,y,s){let t=0,a=1,f=1,n=0;for(let o=0;o<5;o++){t+=vnoise(x*f,y*f,s+o*17)*a;n+=a;a*=.5;f*=2}return t/n}
+
+/* ================= world ================= */
+const W=150,H=96,TS=16,SEED=20261108;
+const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7;
+const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო"];
+const TER=new Uint8Array(W*H), ELEV=new Float32Array(W*H);
+const idx=(x,y)=>y*W+x, tx=i=>i%W, ty=i=>(i/W)|0;
+const N4=i=>{const x=tx(i),y=ty(i),r=[];if(x>0)r.push(i-1);if(x<W-1)r.push(i+1);if(y>0)r.push(i-W);if(y<H-1)r.push(i+W);return r};
+function genWorld(){
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const nx=x/W-.5,ny=y/H-.5,d=Math.sqrt(nx*nx+ny*ny*1.2)*2;
+    ELEV[idx(x,y)]=fbm(x/24,y/24,SEED)*1.2-Math.pow(d,3)*.7+fbm(x/7,y/7,SEED+5)*.08;
+  }
+  // thresholds by percentile so the land share stays stable (~58% land)
+  const sorted=Float32Array.from(ELEV).sort(),q=p=>sorted[Math.floor(p*(sorted.length-1))];
+  const tW=q(.42),tS=q(.46),tH=q(.84),tM=q(.93);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=idx(x,y),e=ELEV[i],m=fbm(x/20,y/20,SEED+99);let t;
+    if(e<tW)t=WATER;else if(e<tS)t=SAND;else if(e>tM)t=MOUNTAIN;else if(e>tH)t=HILL;
+    else if(m>.56)t=FOREST;else if(m<.40)t=DESERT;else t=GRASS;
+    TER[i]=t;ELEV[i]=(e-tW)/(tM-tW)*.45+.33; // normalise: sea level .33
+  }
+  // rivers flow downhill from highlands to the sea
+  const srcs=[];
+  for(let y=4;y<H-4;y+=2)for(let x=4;x<W-4;x+=2){const i=idx(x,y);if((TER[i]===HILL||TER[i]===MOUNTAIN)&&hash(x,y,SEED+7)<.35)srcs.push(i)}
+  srcs.sort((a,b)=>hash(a,0,SEED+3)-hash(b,0,SEED+3));
+  const picked=[];
+  for(const s of srcs){if(picked.length>=16)break;if(picked.every(p=>Math.hypot(tx(p)-tx(s),ty(p)-ty(s))>12))picked.push(s)}
+  for(const s of picked){
+    let cur=s,up=0;const seen=new Set([cur]);
+    for(let step=0;step<400;step++){
+      if(TER[cur]===WATER)break;
+      const merge=TER[cur]===RIVER&&step>0;
+      TER[cur]=RIVER;if(merge)break;
+      let best=-1,be=1e9;
+      for(const n of N4(cur)){if(seen.has(n))continue;const e=ELEV[n]+hash(n,step,SEED)*.004;if(e<be){be=e;best=n}}
+      if(best<0)break;
+      if(be>ELEV[cur]&&++up>6){ // stuck in a basin: becomes a small lake
+        for(const n of [cur,...N4(cur)])if(TER[n]!==MOUNTAIN)TER[n]=WATER;break}
+      RIVER_EDGES.push([cur,best]);seen.add(best);cur=best;
+    }
+  }
+}
+const RIVER_EDGES=[];
+genWorld();
+// 5 spawn regions, as far apart as possible
+const SPAWNS=(()=>{
+  const cand=[];
+  for(let y=6;y<H-6;y+=2)for(let x=6;x<W-6;x+=2){const i=idx(x,y);if(TER[i]!==GRASS)continue;
+    let land=0,tot=0;for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){tot++;const t=TER[idx(x+dx,y+dy)];if(t!==WATER&&t!==RIVER)land++}
+    if(land/tot>.85)cand.push(i)}
+  const out=[];let first=cand[0],bd=1e9;
+  for(const c of cand){const d=Math.hypot(tx(c)-W*.22,ty(c)-H*.3);if(d<bd){bd=d;first=c}}
+  out.push(first);
+  while(out.length<5&&cand.length){let best=cand[0],bv=-1;for(const c of cand){let m=1e9;for(const o of out)m=Math.min(m,Math.hypot(tx(c)-tx(o),ty(c)-ty(o)));if(m>bv){bv=m;best=c}}out.push(best)}
+  return out;
+})();
+const nearRiver=i=>N4(i).some(n=>TER[n]===RIVER);
+
+/* ================= rules ================= */
+const RES={gold:{n:"ოქრო",k:"ხაზინა"},food:{n:"საკვები",k:"საკვები"},wood:{n:"ხე",k:"ხე"},stone:{n:"ქვა",k:"ქვა"},iron:{n:"რკინა",k:"რკინა"}};
+const RK=["gold","food","wood","stone","iron"];
+const LAND=[SAND,GRASS,FOREST,HILL,DESERT];
+const B={
+  capital:{n:"დედაქალაქი",i:"🏰",prod:{gold:6,food:8,wood:3,stone:2},pop:30,noBuild:true},
+  house:{n:"სახლი",i:"🏠",cost:{wood:40,gold:20},pop:15,on:LAND,d:"+15 მოსახლე: მეტი გადასახადი და ადგილი ჯარისთვის"},
+  farm:{n:"ფერმა",i:"🌾",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT],d:"+8 საკვები/წთ. მდინარესთან ×1.5, უდაბნოში ×0.5"},
+  lumber:{n:"სახერხი",i:"🪓",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"+6 ხე/წთ. შენდება მხოლოდ ტყეში"},
+  quarry:{n:"ქვის სამტეხლო",i:"⛏️",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"+4 ქვა/წთ. ბორცვზე ან მთაზე"},
+  mine:{n:"რკინის მაღარო",i:"⚒️",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:"+2.5 რკინა/წთ მთაზე, ბორცვზე ×0.6"},
+  market:{n:"ბაზარი",i:"🏪",cost:{wood:80,stone:50,gold:60},prod:{gold:10},on:LAND,d:"+10 ოქრო/წთ და ვაჭრობის უფლება"},
+  barracks:{n:"ყაზარმა",i:"⚔️",cost:{wood:90,stone:40,gold:50},on:LAND,d:"ამზადებს ხმლიან მეომრებს და შუბოსნებს"},
+  range:{n:"სასროლეთი",i:"🎯",cost:{wood:110,gold:60},on:LAND,d:"ამზადებს მშვილდოსნებს"},
+  stable:{n:"თავლა",i:"🐎",cost:{wood:120,stone:60,gold:100},on:LAND,d:"ცხენოსნები: რაინდი, შვილდოსანი მხედარი"},
+  workshop:{n:"სახელოსნო",i:"🛠️",cost:{wood:160,stone:120,iron:30,gold:120},on:LAND,d:"აგებს კატაპულტებს"},
+  tower:{n:"საგუშაგო კოშკი",i:"🗼",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"+25% დაცვა 3 უჯრის რადიუსში და ისრების ზალპი"},
+  wall:{n:"გალავანი",i:"🧱",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა 2 უჯრის რადიუსში. დახატე საზღვარზე"},
+};
+const BUILD_ORDER=["house","farm","lumber","quarry","mine","market","barracks","range","stable","workshop","tower","wall"];
+const UNITS={
+  sword:{n:"ხმლიანი მეომარი",i:"🗡️",atk:10,def:8,spd:3,pop:1,up:.15,time:8,cost:{gold:15,food:10,iron:2},req:["barracks"],d:"მყარი ქვეითი"},
+  spear:{n:"შუბოსანი",i:"🔱",atk:6,def:12,spd:3,pop:1,up:.12,time:6,cost:{gold:10,food:10,wood:6},req:["barracks"],d:"კარგი დამცველი, ძლიერია ცხენოსნებთან"},
+  archer:{n:"მშვილდოსანი",i:"🏹",atk:12,def:5,spd:3,pop:1,up:.15,time:8,cost:{gold:14,food:8,wood:12},req:["range"],d:"შორიდან მსროლელი"},
+  harcher:{n:"შვილდოსანი მხედარი",i:"🏇",atk:15,def:7,spd:1.5,pop:2,up:.35,time:14,cost:{gold:40,food:20,wood:12},req:["range","stable"],d:"ყველაზე სწრაფი"},
+  knight:{n:"რაინდი",i:"🛡️",atk:22,def:16,spd:1.8,pop:2,up:.45,time:18,cost:{gold:60,food:20,iron:10},req:["stable"],d:"მძიმე ცხენოსანი"},
+  catapult:{n:"კატაპულტი",i:"🪨",atk:28,def:2,spd:5,pop:3,up:.6,time:30,cost:{gold:80,wood:70,stone:25},req:["workshop"],d:"ანგრევს გალავნის და კოშკის დაცვას"},
+};
+const UK=Object.keys(UNITS);
+const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
+const PRICE={food:.5,wood:.6,stone:.9,iron:2};
+const OFFLINE_CAP=24*3600e3;
+
+function stats(c){
+  let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0},cnt={};
+  for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
+    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;for(const r in d.prod)prod[r]+=d.prod[r]*m}}
+  let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
+  let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
+  const civ=Math.max(0,pop-army);
+  prod.gold+=civ*.35-up;prod.food-=civ*.1+army*.25;
+  return {pop,army,units,queued,civ,prod,cnt};
+}
+function materialize(c,now){
+  if(!c)return c;
+  const from=c.t||now,dt=Math.min(Math.max(0,now-from),OFFLINE_CAP)/60000;
+  const s=stats(c);c.res=c.res||{};
+  for(const k of RK)c.res[k]=Math.max(0,(c.res[k]||0)+s.prod[k]*dt);
+  c.army=c.army||{};const left=[];
+  for(const q of c.queue||[]){if(q.done<=now)c.army[q.u]=(c.army[q.u]||0)+q.n;else left.push(q)}
+  c.queue=left;c.t=now;return c;
+}
+const buildCost=(c,b)=>{const n=(stats(c).cnt[b]||0),m=b==="wall"?1+n*.01:1+n*.15,o={};for(const k in B[b].cost)o[k]=Math.ceil(B[b].cost[k]*m);return o};
+const claimCost=c=>({gold:Math.ceil(10+Object.keys(c.tiles||{}).length*.6)});
+const canPay=(c,cost)=>Object.keys(cost).every(k=>(c.res[k]||0)>=cost[k]);
+function pay(c,cost,mult=1){for(const k in cost){if((c.res[k]||0)<cost[k]*mult)throw new Error("არ გყოფნის: "+resName(k,c));}for(const k in cost)c.res[k]-=cost[k]*mult}
+const resName=(k,c)=>k==="gold"?(c?.currency||"ოქრო"):RES[k].n;
+function costHTML(cost,c,mult=1){return Object.keys(cost).map(k=>`<span class="${c&&(c.res[k]||0)<cost[k]*mult?"no":""}">${fmt(cost[k]*mult)} ${esc(resName(k,c))}</span>`).join(" · ")}
+
+/* ================= state ================= */
+let db=null,user=null,ME=null,DEMO=false;
+const HOLDER=Math.random().toString(36).slice(2);
+let countries={},attacks={},chat=[];
+let OWNER=new Int16Array(W*H).fill(-1),ORDER=[];
+let selected=-1,placing=null,tab="land",lastChatSeen=0;
+
+/* ================= storage (real or local demo) ================= */
+function mockDB(){
+  const KEY="cw_demo_v1";let store={};const load=()=>{try{store=JSON.parse(localStorage.getItem(KEY)||"{}")}catch{store={}}};load();
+  const subs=new Set(),notify=()=>{for(const f of subs)f()};
+  let bc=null;try{bc=new BroadcastChannel("cw_demo");bc.onmessage=()=>{load();notify()}}catch{}
+  const changed=()=>{try{localStorage.setItem(KEY,JSON.stringify(store))}catch{};bc&&bc.postMessage(1);setTimeout(notify,0)};
+  const cp=o=>JSON.parse(JSON.stringify(o));
+  const snap=p=>({id:p.split("/").pop(),exists:!!store[p],data:()=>store[p]?cp(store[p]):undefined,metadata:{fromCache:false,hasPendingWrites:false}});
+  const docRef=p=>({id:p.split("/").pop(),path:p,get:async()=>snap(p),set:async d=>{store[p]=cp(d);changed()},update:async d=>{store[p]={...store[p],...cp(d)};changed()},
+    delete:async()=>{delete store[p];changed()},acquire:async()=>({acquired:true}),onSnapshot:n=>{const f=()=>n(snap(p));subs.add(f);setTimeout(f,0);return()=>subs.delete(f)},collection:s=>colRef(p+"/"+s)});
+  const colRef=p=>{const list=()=>Object.keys(store).filter(k=>k.startsWith(p+"/")&&k.split("/").length===p.split("/").length+1).map(snap);
+    return {path:p,doc:id=>docRef(p+"/"+(id||Math.random().toString(36).slice(2,14))),get:async()=>{const d=list();return{docs:d,size:d.length,empty:!d.length}},
+      onSnapshot:n=>{const f=()=>{const d=list();n({docs:d,size:d.length,empty:!d.length,docChanges:()=>[],metadata:{fromCache:false}})};subs.add(f);setTimeout(f,0);return()=>subs.delete(f)}}};
+  return {doc:docRef,collection:colRef};
+}
+/* Firebase backend for the public web version: paste the project's config here */
+const FIREBASE_CONFIG=null;
+async function fireDB(){
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const fs=firebase.firestore();try{fs.settings({ignoreUndefinedProperties:true})}catch{}
+  const cred=await firebase.auth().signInAnonymously();
+  const wrap=s=>({id:s.id,exists:s.exists,data:()=>s.data(),metadata:s.metadata});
+  const docRef=p=>{const r=fs.doc(p);return{id:r.id,path:p,_r:r,get:async()=>wrap(await r.get()),set:d=>r.set(d),update:d=>r.update(d),delete:()=>r.delete(),
+    onSnapshot:(n,e)=>r.onSnapshot(s=>n(wrap(s)),e),collection:s=>colRef(p+"/"+s)}};
+  const colRef=p=>{const c=fs.collection(p);return{path:p,doc:id=>docRef(id?p+"/"+id:c.doc().path),
+    get:async()=>{const q=await c.get();return{docs:q.docs.map(wrap),size:q.size,empty:q.empty}},
+    onSnapshot:(n,e)=>c.onSnapshot(q=>n({docs:q.docs.map(wrap),size:q.size,empty:q.empty,docChanges:()=>[],metadata:q.metadata}),e)}};
+  return {db:{doc:docRef,collection:colRef,tx:fn=>fs.runTransaction(fn)},uid:cred.user.uid};
+}
+async function mutate(path,fn){
+  if(db.tx)return db.tx(async t=>{const r=db.doc(path)._r,s=await t.get(r);const cur=s.exists?JSON.parse(JSON.stringify(s.data())):null;
+    const next=await fn(cur);if(next===undefined||next===null)return null;t.set(r,next);return next});
+  const ref=db.doc(path);
+  for(let i=0;;i++){
+    let r;try{r=await ref.acquire({holder:HOLDER,ttlMs:1500})}catch(e){r={acquired:true}}
+    if(r.acquired)break;
+    if(i>14)throw new Error("სერვერი დაკავებულია, სცადე ხელახლა");
+    await sleep(180+Math.random()*220);
+  }
+  const s=await ref.get();
+  const cur=s.exists?JSON.parse(JSON.stringify(s.data())):null;
+  const next=await fn(cur);
+  if(next===undefined||next===null)return null;
+  await ref.set(next);return next;
+}
+const mutateMe=fn=>mutate("countries/"+ME,cur=>{if(!cur)throw new Error("ქვეყანა ვერ მოიძებნა");const c=materialize(cur,Date.now());const r=fn(c);return r===false?undefined:c});
+const pushLog=(c,msg)=>{c.log=[{t:Date.now(),m:msg},...(c.log||[])].slice(0,25)};
+async function postChat(text,sys=false){
+  try{await mutate("chat/main",cur=>{cur=cur||{msgs:[]};cur.msgs=[...(cur.msgs||[]),{u:sys?"":ME,x:String(text).slice(0,300),t:Date.now(),s:sys?1:0}].slice(-80);return cur})}catch(e){}
+}
+
+/* ================= derived ================= */
+const alive=()=>Object.values(countries).filter(c=>c.alive!==false);
+const me=()=>countries[ME]&&countries[ME].alive!==false?countries[ME]:null;
+const live=uid=>{const c=countries[uid];return c?materialize(JSON.parse(JSON.stringify(c)),Date.now()):null};
+const atWar=(a,b)=>{const A=countries[a],Bc=countries[b];return !!(A&&Bc&&((A.wars||[]).includes(b)||(Bc.wars||[]).includes(a)))};
+function rebuildOwners(){
+  OWNER.fill(-1);ORDER=alive().sort((a,b)=>(a.created||0)-(b.created||0));
+  ORDER.forEach((c,n)=>{for(const k in c.tiles||{}){const i=+k;if(OWNER[i]<0)OWNER[i]=n}});
+  drawTerritory();
+}
+const ownerOf=i=>OWNER[i]>=0?ORDER[OWNER[i]]:null;
+const isMine=i=>{const o=ownerOf(i);return o&&o.uid===ME};
+const adjMine=i=>N4(i).some(isMine);
+
+/* ================= flags ================= */
+const PATS=["solid","h3","v3","h2","cross","nordic","diag","quarter","saltire","border"];
+const EMBLEMS=["","★","✦","☀","✚","♛","⚜","☾","⚔","♞","✠","❖"];
+function drawFlag(ctx,f,x,y,w,h){
+  f=f||{p:"solid",c:["#888","#ccc","#444"],e:"",ec:"#fff"};const [a,b,c]=f.c;
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  ctx.fillStyle=a;ctx.fillRect(x,y,w,h);
+  const r=(X,Y,Ww,Hh,col)=>{ctx.fillStyle=col;ctx.fillRect(x+X*w,y+Y*h,Ww*w,Hh*h)};
+  switch(f.p){
+    case"h3":r(0,1/3,1,1/3,b);r(0,2/3,1,1/3,c);break;
+    case"v3":r(1/3,0,1/3,1,b);r(2/3,0,1/3,1,c);break;
+    case"h2":r(0,.5,1,.5,b);break;
+    case"cross":r(.42,0,.16,1,b);r(0,.38,1,.24,b);break;
+    case"nordic":r(.3,0,.14,1,b);r(0,.42,1,.16,b);r(.33,0,.08,1,c);r(0,.46,1,.08,c);break;
+    case"diag":ctx.fillStyle=b;ctx.beginPath();ctx.moveTo(x+w,y);ctx.lineTo(x+w,y+h);ctx.lineTo(x,y+h);ctx.fill();break;
+    case"quarter":r(.5,0,.5,.5,b);r(0,.5,.5,.5,b);break;
+    case"saltire":ctx.strokeStyle=b;ctx.lineWidth=h*.18;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+w,y+h);ctx.moveTo(x+w,y);ctx.lineTo(x,y+h);ctx.stroke();break;
+    case"border":ctx.strokeStyle=b;ctx.lineWidth=h*.24;ctx.strokeRect(x,y,w,h);break;
+  }
+  if(f.e){ctx.fillStyle=f.ec||c;ctx.textAlign="center";ctx.textBaseline="middle";ctx.font=`700 ${h*.55}px serif`;ctx.fillText(f.e,x+w/2,y+h/2+h*.03)}
+  ctx.restore();
+}
+
+/* ================= rendering ================= */
+const cv=$("#map"),ctx=cv.getContext("2d");
+let vw=0,vh=0,dpr=1;const cam={x:W*TS/2,y:H*TS/2,z:1};
+const terrCv=document.createElement("canvas"),ownCv=document.createElement("canvas");
+terrCv.width=ownCv.width=W*TS;terrCv.height=ownCv.height=H*TS;
+function drawTerrain(){
+  const g=terrCv.getContext("2d");
+  const base={[SAND]:[216,199,143],[GRASS]:[124,163,88],[FOREST]:[76,118,60],[HILL]:[150,148,104],[MOUNTAIN]:[132,124,114],[DESERT]:[214,182,112]};
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=idx(x,y),t=TER[i],X=x*TS,Y=y*TS,v=hash(x,y,11)*.12-.06;
+    if(t===WATER){const d=clamp((.33-ELEV[i])*3,0,1);g.fillStyle=`rgb(${48-d*22|0},${108-d*40|0},${140-d*30|0})`;g.fillRect(X,Y,TS,TS);
+      if(hash(x,y,3)<.08){g.fillStyle="rgba(255,255,255,.12)";g.fillRect(X+4,Y+7,6,1)}continue}
+    if(t===RIVER){g.fillStyle="rgb(124,163,88)";g.fillRect(X,Y,TS,TS);continue}
+    const [r,gg,b]=base[t],sh=1+v+(ELEV[i]-.5)*.25;
+    g.fillStyle=`rgb(${r*sh|0},${gg*sh|0},${b*sh|0})`;g.fillRect(X,Y,TS,TS);
+    for(let k=0;k<3;k++){const px=hash(x,y,20+k)*TS|0,py=hash(x,y,40+k)*TS|0;g.fillStyle=hash(x,y,60+k)<.5?"rgba(0,0,0,.07)":"rgba(255,255,255,.07)";g.fillRect(X+px,Y+py,2,2)}
+    if(t===FOREST){for(let k=0;k<3;k++){const px=3+hash(x,y,80+k)*10,py=4+hash(x,y,90+k)*9;g.fillStyle="rgba(28,58,28,.85)";g.beginPath();g.arc(X+px,Y+py,3,0,7);g.fill();g.fillStyle="rgba(120,170,90,.35)";g.fillRect(X+px-1,Y+py-2,2,1)}}
+    if(t===MOUNTAIN){g.fillStyle="rgba(70,64,58,.9)";g.beginPath();g.moveTo(X+2,Y+14);g.lineTo(X+8,Y+3);g.lineTo(X+14,Y+14);g.fill();g.fillStyle="rgba(245,245,245,.9)";g.beginPath();g.moveTo(X+6,Y+6.5);g.lineTo(X+8,Y+3);g.lineTo(X+10,Y+6.5);g.fill()}
+    if(t===HILL){g.strokeStyle="rgba(80,74,48,.6)";g.lineWidth=1.3;g.beginPath();g.arc(X+8,Y+12,5,Math.PI*1.1,Math.PI*1.9);g.stroke()}
+    if(t===DESERT&&hash(x,y,5)<.25){g.fillStyle="rgba(150,110,50,.35)";g.fillRect(X+3,Y+10,8,1)}
+  }
+  // rivers drawn as connected water ribbons
+  g.lineCap="round";
+  for(const pass of [[7,"rgb(40,96,132)"],[4.5,"rgb(70,138,178)"]]){
+    g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();
+    for(const [a,b] of RIVER_EDGES){g.moveTo(tx(a)*TS+8,ty(a)*TS+8);g.lineTo(tx(b)*TS+8,ty(b)*TS+8)}
+    g.stroke();
+  }
+  // coast
+  g.fillStyle="rgba(240,230,190,.35)";
+  for(let i=0;i<W*H;i++){if(TER[i]===WATER||TER[i]===RIVER)continue;for(const n of N4(i)){if(TER[n]!==WATER)continue;const x=tx(i)*TS,y=ty(i)*TS;
+    if(n===i-1)g.fillRect(x,y,1.5,TS);if(n===i+1)g.fillRect(x+TS-1.5,y,1.5,TS);if(n===i-W)g.fillRect(x,y,TS,1.5);if(n===i+W)g.fillRect(x,y+TS-1.5,TS,1.5)}}
+}
+function drawTerritory(){
+  const g=ownCv.getContext("2d");g.clearRect(0,0,ownCv.width,ownCv.height);
+  for(let i=0;i<W*H;i++){const o=OWNER[i];if(o<0)continue;const col=ORDER[o].color;const x=tx(i)*TS,y=ty(i)*TS;
+    g.globalAlpha=.3;g.fillStyle=col;g.fillRect(x,y,TS,TS);g.globalAlpha=1;
+    for(const n of N4(i)){if(OWNER[n]===o)continue;g.fillStyle=col;
+      if(n===i-1)g.fillRect(x,y,2.5,TS);if(n===i+1)g.fillRect(x+TS-2.5,y,2.5,TS);if(n===i-W)g.fillRect(x,y,TS,2.5);if(n===i+W)g.fillRect(x,y+TS-2.5,TS,2.5)}
+    const X=tx(i),Y=ty(i);if(X===0)g.fillRect(x,y,2.5,TS);if(Y===0)g.fillRect(x,y,TS,2.5);
+  }
+  g.globalAlpha=1;
+}
+function resize(){dpr=Math.min(2,window.devicePixelRatio||1);vw=cv.clientWidth;vh=cv.clientHeight;cv.width=vw*dpr|0;cv.height=vh*dpr|0}
+const s2w=(sx,sy)=>[(sx-vw/2)/cam.z+cam.x,(sy-vh/2)/cam.z+cam.y];
+function clampCam(){cam.z=clamp(cam.z,.3,3.5);cam.x=clamp(cam.x,0,W*TS);cam.y=clamp(cam.y,0,H*TS)}
+let hoverTile=-1;
+function frame(){
+  const now=Date.now();
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#1d3f57";ctx.fillRect(0,0,vw,vh);
+  const z=cam.z;ctx.setTransform(dpr*z,0,0,dpr*z,dpr*(vw/2-cam.x*z),dpr*(vh/2-cam.y*z));
+  ctx.imageSmoothingEnabled=z<1;
+  ctx.drawImage(terrCv,0,0);ctx.drawImage(ownCv,0,0);
+  const [ax,ay]=s2w(0,0),[bx,by]=s2w(vw,vh);
+  const x0=clamp(Math.floor(ax/TS)-1,0,W-1),x1=clamp(Math.ceil(bx/TS)+1,0,W-1),y0=clamp(Math.floor(ay/TS)-1,0,H-1),y1=clamp(Math.ceil(by/TS)+1,0,H-1);
+  const vis=i=>{const x=tx(i),y=ty(i);return x>=x0&&x<=x1&&y>=y0&&y<=y1};
+  // walls
+  ctx.lineCap="round";
+  for(const c of ORDER){for(const k in c.tiles){if(c.tiles[k]!=="wall")continue;const i=+k;if(!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8;
+    for(const n of [i+1,i+W]){if(c.tiles[n]==="wall"&&(n!==i+1||tx(i)<W-1)){ctx.strokeStyle="#4b4740";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx(n)*TS+8,ty(n)*TS+8);ctx.stroke();ctx.strokeStyle="#b7ae9c";ctx.lineWidth=3.5;ctx.stroke()}}
+    ctx.fillStyle="#4b4740";ctx.fillRect(cx-4.5,cy-4.5,9,9);ctx.fillStyle="#c9c0ad";ctx.fillRect(cx-3,cy-3,6,6)}}
+  // buildings
+  if(z>.45){ctx.textAlign="center";ctx.textBaseline="middle";ctx.font="11px serif";
+    for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;ctx.fillText(B[b]?.i||"",tx(i)*TS+8,ty(i)*TS+9)}}}
+  // capitals with flags
+  for(const c of ORDER){const i=c.capital;if(i==null||!vis(i))continue;const x=tx(i)*TS,y=ty(i)*TS;
+    ctx.font="15px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("🏰",x+8,y+9);
+    ctx.fillStyle="#2a241b";ctx.fillRect(x+13,y-14,1.5,18);drawFlag(ctx,c.flag,x+14.5,y-14,16,10.5);
+    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.8)";ctx.fillRect(x+8-w/2,y+17,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+22.5)}}
+  // armies
+  for(const a of Object.values(attacks)){
+    let p,from=a.fromTile,to=a.target;
+    if(a.status==="marching")p=clamp((now-a.launch)/(a.arrive-a.launch),0,1);
+    else if(a.status==="returning"&&a.result?.survivorsN>0){p=1-clamp((now-a.arrive)/(a.returnAt-a.arrive),0,1)}else continue;
+    const fx=tx(from)*TS+8,fy=ty(from)*TS+8,txx=tx(to)*TS+8,tyy=ty(to)*TS+8,x=fx+(txx-fx)*p,y=fy+(tyy-fy)*p;
+    const col=countries[a.from]?.color||"#fff";
+    if(a.status==="marching"){ctx.setLineDash([3,3]);ctx.strokeStyle=col;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(txx,tyy);ctx.stroke();ctx.setLineDash([])}
+    ctx.fillStyle=col;ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,6.5,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#fff";ctx.font="8px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(a.status==="marching"?"⚔":"↩",x,y+.5);
+  }
+  if(placing&&hoverTile>=0){const ok=isMine(hoverTile)&&!countries[ME].tiles[hoverTile]&&B.wall.on.includes(TER[hoverTile]);
+    ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(tx(hoverTile)*TS+1,ty(hoverTile)*TS+1,TS-2,TS-2)}
+  if(selected>=0){ctx.strokeStyle="#f2c771";ctx.lineWidth=2;ctx.strokeRect(tx(selected)*TS,ty(selected)*TS,TS,TS);ctx.strokeStyle="rgba(0,0,0,.5)";ctx.lineWidth=1;ctx.strokeRect(tx(selected)*TS-1.5,ty(selected)*TS-1.5,TS+3,TS+3)}
+  requestAnimationFrame(frame);
+}
+/* input: drag, wheel, pinch, tap */
+const ptrs=new Map();let dragStart=null,moved=false,pinch=null;
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1){dragStart={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};moved=false}
+  if(ptrs.size===2){const [p,q]=[...ptrs.values()];pinch={d:Math.hypot(p.x-q.x,p.y-q.y),z:cam.z};moved=true}});
+cv.addEventListener("pointermove",e=>{const r=cv.getBoundingClientRect();const [wx,wy]=s2w(e.clientX-r.left,e.clientY-r.top);
+  const tX=Math.floor(wx/TS),tY=Math.floor(wy/TS);hoverTile=tX>=0&&tX<W&&tY>=0&&tY<H?idx(tX,tY):-1;
+  if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2&&pinch){const [p,q]=[...ptrs.values()];cam.z=pinch.z*Math.hypot(p.x-q.x,p.y-q.y)/pinch.d;clampCam();return}
+  if(dragStart){const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;if(Math.hypot(dx,dy)>6){moved=true;cv.classList.add("drag")}
+    if(moved&&!placing){cam.x=dragStart.cx-dx/cam.z;cam.y=dragStart.cy-dy/cam.z;clampCam()}
+    if(placing&&moved&&ptrs.size===1)placeWallAt(hoverTile)}});
+const endPtr=e=>{ptrs.delete(e.pointerId);cv.classList.remove("drag");
+  if(ptrs.size===0){if(!moved&&dragStart&&hoverTile>=0){placing?placeWallAt(hoverTile):selectTile(hoverTile)}dragStart=null;pinch=null}
+  else if(ptrs.size===1){const [p]=[...ptrs.values()];dragStart={x:p.x,y:p.y,cx:cam.x,cy:cam.y};pinch=null}};
+cv.addEventListener("pointerup",endPtr);cv.addEventListener("pointercancel",endPtr);
+cv.addEventListener("wheel",e=>{e.preventDefault();const r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;const [wx,wy]=s2w(sx,sy);
+  cam.z*=Math.exp(-e.deltaY*.0015);clampCam();cam.x=wx-(sx-vw/2)/cam.z;cam.y=wy-(sy-vh/2)/cam.z;clampCam()},{passive:false});
+addEventListener("keydown",e=>{if(e.key==="Escape"){if(placing)stopPlacing();else{selected=-1;renderTile()}}});
+addEventListener("resize",resize);
+
+/* ================= UI ================= */
+function toast(m,kind=""){const t=document.createElement("div");t.className="toast "+kind;t.textContent=m;$("#toasts").appendChild(t);setTimeout(()=>t.remove(),3500)}
+async function act(fn,okMsg){try{await fn();if(okMsg)toast(okMsg,"good")}catch(e){toast(e?.message||String(e),"err")}finally{renderAll()}}
+function renderHUD(){
+  const c0=me();if(!c0){$("#hud").hidden=true;return}$("#hud").hidden=false;
+  const c=live(ME),s=stats(c);
+  const mf=$("#myFlag").getContext("2d");mf.clearRect(0,0,42,28);drawFlag(mf,c.flag,0,0,42,28);
+  $("#myName").textContent=c.name;$("#myRuler").textContent="მმართველი "+c.ruler;
+  const cell=(k,label,val,rate)=>`<div class="r" title="${esc(label)}"><span class="k">${esc(label)}</span><b>${val}</b>${rate!=null?`<small class="${rate<0?"neg":""}">${fmtR(rate)}/წთ</small>`:""}</div>`;
+  $("#res").innerHTML=cell("gold",c.currency,fmt(c.res.gold),s.prod.gold)+cell("food","საკვები",fmt(c.res.food),s.prod.food)+cell("wood","ხე",fmt(c.res.wood),s.prod.wood)+
+    cell("stone","ქვა",fmt(c.res.stone),s.prod.stone)+cell("iron","რკინა",fmt(c.res.iron),s.prod.iron)+
+    `<div class="r"><span class="k">მოსახლე</span><b>${s.pop}</b><small>ჯარი ${s.army+s.queued}/${s.pop}</small></div>`;
+  document.querySelectorAll("[data-until]").forEach(el=>{el.textContent=mmss(+el.dataset.until-Date.now())});
+}
+const TABS=[["land","ქვეყანა"],["army","ჯარი"],["war","ომი"],["trade","ვაჭრობა"],["chat","ჩატი"]];
+function renderTabs(){
+  const unread=chat.some(m=>m.t>lastChatSeen&&m.u!==ME);const warAlert=Object.values(attacks).some(a=>a.to===ME&&a.status==="marching");
+  $("#tabs").innerHTML=TABS.map(([k,n])=>`<button role="tab" data-tab="${k}" class="${tab===k?"on":""}">${n}${(k==="chat"&&unread&&tab!=="chat")||(k==="war"&&warAlert)?'<span class="dot"></span>':""}</button>`).join("");
+}
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;tab=b.dataset.tab;$("#side").classList.remove("min");renderAll(true)});
+$("#collapse").addEventListener("click",()=>{$("#side").classList.toggle("min");$("#collapse").textContent=$("#side").classList.contains("min")?"▴":"▾"});
+function renderPane(force){
+  const pane=$("#pane");
+  if(!force&&pane.contains(document.activeElement)&&document.activeElement.matches("input,select"))return;
+  const c=live(ME);if(!c){pane.innerHTML="";return}
+  const s=stats(c);let h="";
+  if(tab==="land"){
+    h+=`<h3>${esc(c.name)}</h3><div class="kv">
+      <span>მმართველი</span><span>${esc(c.ruler)}</span><span>ვალუტა</span><span>${esc(c.currency)}</span>
+      <span>ტერიტორია</span><span>${Object.keys(c.tiles).length} უჯრა</span><span>მოსახლეობა</span><span>${s.pop} (მშვიდობიანი ${s.civ})</span>
+      <span>ჯარისკაცები</span><span>${s.units}</span><span>გადასახადი</span><span>+${(s.civ*.35).toFixed(1)}/წთ</span></div>
+      <p class="muted" style="font-size:12px">დააჭირე რუკაზე უჯრას: საკუთარზე ააშენე, მეზობელი თავისუფალი უჯრა შემოიერთე, მტრისას შეუტიე.</p>
+      <h3>შენობები</h3><div class="list">`;
+    const bs=BUILD_ORDER.filter(b=>s.cnt[b]);
+    h+=bs.length?bs.map(b=>`<div class="item"><span class="ic">${B[b].i}</span><span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b><span>${esc(B[b].d)}</span></span></div>`).join(""):`<p class="muted">ჯერ არაფერი აგიშენებია. დაიწყე ფერმით და სახლით.</p>`;
+    h+=`</div><h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,12).map(l=>`<div>${new Date(l.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} · ${esc(l.m)}</div>`).join("")||"<div>ცარიელია</div>"}</div>
+      <h3>გალავანი</h3><button class="btn" id="wallMode">🧱 გალავნის ხატვა</button> <span class="muted" style="font-size:12px">${costHTML(buildCost(c,"wall"),c)} თითო</span>`;
+    h+=`<h3>სხვა</h3><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>`;
+    if(isOwnerViewer)h+=` <button class="btn sm red" id="resetWorld">მთელი სამყაროს წაშლა</button>`;
+  }
+  if(tab==="army"){
+    h+=`<h3>ჯარი</h3><p class="muted" style="font-size:12px;margin-top:0">ადგილი: ${s.army+s.queued} / ${s.pop}. მეტი ადგილისთვის ააშენე სახლები. ჯარი შენახვაზე ჭამს საკვებს და ოქროს.</p><div class="list">`;
+    for(const u of UK){const d=UNITS[u],ok=d.req.every(r=>s.cnt[r]),n=c.army[u]||0;
+      h+=`<div class="item"><span class="ic">${d.i}</span><span class="tx"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b>
+        <span>⚔${d.atk} 🛡${d.def} · ${d.d}</span><div class="cost">${ok?costHTML(d.cost,c):`<span class="no">საჭიროა: ${d.req.map(r=>B[r].n).join(", ")}</span>`}</div></span>
+        <span class="row" style="flex-direction:column;gap:4px"><button class="btn sm" data-train="${u}" data-n="1" ${ok?"":"disabled"}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${ok?"":"disabled"}>+5</button></span></div>`}
+    h+=`</div>`;
+    if(c.queue.length){h+=`<h3>წვრთნა</h3><div class="list">`+c.queue.map(q=>`<div class="item"><span class="ic">${UNITS[q.u].i}</span><span class="tx"><b>${UNITS[q.u].n} × ${q.n}</b><span>მზად იქნება <span data-until="${q.done}">${mmss(q.done-Date.now())}</span></span></span></div>`).join("")+`</div>`}
+  }
+  if(tab==="war"){
+    const others=Object.values(countries).filter(o=>o.uid!==ME);
+    h+=`<h3>ქვეყნები (${alive().length}/5)</h3><div class="list">`;
+    if(!others.length)h+=`<p class="muted">ჯერ მარტო ხარ. გაუგზავნე ლინკი მეგობრებს.</p>`;
+    for(const o of others){const dead=o.alive===false,w=atWar(ME,o.uid),theyOffer=(o.peace||[]).includes(ME),iOffer=(c.peace||[]).includes(o.uid),os=stats(o);
+      h+=`<div class="item"><canvas width="36" height="24" data-flag="${esc(o.uid)}" style="flex:none;border-radius:2px"></canvas><span class="tx"><b style="color:${o.color}">${esc(o.name)}</b>
+        <span>${esc(o.ruler)} · ${Object.keys(o.tiles||{}).length} უჯრა · ~${os.units} ჯარისკაცი</span></span>
+        <span class="row" style="flex-direction:column;align-items:flex-end;gap:4px">${dead?'<span class="tag">დამარცხდა</span>':w?'<span class="tag war">ომი</span>':'<span class="tag peace">მშვიდობა</span>'}
+        ${dead?"":w?(theyOffer?`<button class="btn sm gold" data-accept="${esc(o.uid)}">მშვიდობის მიღება</button>`:iOffer?'<span class="muted" style="font-size:11px">ზავი შეთავაზებულია</span>':`<button class="btn sm" data-peace="${esc(o.uid)}">ზავის შეთავაზება</button>`)
+          :`<button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`}</span></div>`}
+    h+=`</div><h3>ლაშქრობები</h3><div class="list">`;
+    const mine=Object.values(attacks).filter(a=>a.from===ME||a.to===ME).sort((a,b)=>b.launch-a.launch).slice(0,15);
+    if(!mine.length)h+=`<p class="muted">ჯერ არ ყოფილა ბრძოლა. მტრის უჯრაზე დააჭირე და აირჩიე "შეტევა".</p>`;
+    for(const a of mine){const out=a.from===ME,o=countries[out?a.to:a.from],r=a.result;let st="";
+      if(a.status==="marching")st=`${out?"შენი ჯარი მიდის":"მტერი მოდის!"} <span data-until="${a.arrive}">${mmss(a.arrive-Date.now())}</span>`;
+      else if(r){const won=out?r.win:!r.win;st=`${won?"გამარჯვება":"დამარცხება"} · დანაკარგი: ${out?r.atkLostN:r.defLostN}${r.win&&r.tilesN?` · ${r.tilesN} უჯრა ${out?"დაიპყრე":"დაკარგე"}`:""}${r.capital?" · დედაქალაქი დაეცა!":""}`;
+        if(a.status==="returning"&&out)st+=` · ბრუნდება <span data-until="${a.returnAt}">${mmss(a.returnAt-Date.now())}</span>`}
+      h+=`<div class="item"><span class="ic">${out?"⚔️":"🛡️"}</span><span class="tx"><b>${out?"შეტევა: ":"თავდასხმა: "}${esc(o?.name||"?")}</b><span>${st}</span></span></div>`}
+    h+=`</div>`;
+  }
+  if(tab==="trade"){
+    const hasM=s.cnt.market>0;
+    h+=`<h3>ბაზარი</h3>`;
+    if(!hasM)h+=`<p class="muted">ვაჭრობისთვის ააშენე ბაზარი 🏪.</p>`;
+    else{h+=`<div class="list">`+["food","wood","stone","iron"].map(k=>`<div class="item"><span class="tx"><b>${RES[k].n}</b><span>გაყიდვა ${PRICE[k]} · ყიდვა ${(PRICE[k]*1.6).toFixed(2)} ${esc(c.currency)}</span></span>
+      <button class="btn sm" data-sell="${k}">გაყიდე 20</button><button class="btn sm" data-buy="${k}">იყიდე 20</button></div>`).join("")+`</div>`}
+    const others=alive().filter(o=>o.uid!==ME);
+    h+=`<h3>საჩუქარი / ხარკი</h3>`;
+    if(!others.length)h+=`<p class="muted">სხვა ქვეყნები ჯერ არ არის.</p>`;
+    else h+=`<div class="list"><label class="field">ვის<select id="gTo">${others.map(o=>`<option value="${esc(o.uid)}">${esc(o.name)}</option>`).join("")}</select></label>
+      <div class="row"><select id="gRes">${RK.map(k=>`<option value="${k}">${esc(resName(k,c))}</option>`).join("")}</select><input id="gAmt" type="number" min="1" value="50" style="width:90px"><button class="btn gold" id="gSend">გაგზავნა</button></div></div>`;
+  }
+  if(tab==="chat"){
+    lastChatSeen=Date.now();
+    h+=`<div class="chat" id="chatBox">${chat.slice(-60).map(m=>m.s?`<div class="msg sys">${esc(m.x)}<time>${new Date(m.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</time></div>`:
+      `<div class="msg"><b style="color:${countries[m.u]?.color||"#ccc"}">${esc(countries[m.u]?.ruler||"?")}</b>${esc(m.x)}<time>${new Date(m.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</time></div>`).join("")||'<p class="muted">შეტყობინებები ჯერ არ არის.</p>'}</div>
+      <form id="chatForm" class="row" style="margin-top:12px"><input id="chatIn" maxlength="300" placeholder="მისწერე ყველას…" style="flex:1" autocomplete="off"><button class="btn gold">გაგზავნა</button></form>`;
+  }
+  pane.innerHTML=h;
+  pane.querySelectorAll("[data-flag]").forEach(cn=>drawFlag(cn.getContext("2d"),countries[cn.dataset.flag]?.flag,0,0,36,24));
+  if(tab==="chat"){pane.scrollTop=pane.scrollHeight}
+}
+$("#pane").addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;const d=t.dataset;
+  if(d.train)act(()=>trainUnits(d.train,+d.n),`წვრთნა დაიწყო: ${UNITS[d.train].n} × ${d.n}`);
+  if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
+  if(d.peace)act(()=>offerPeace(d.peace),"ზავი შეთავაზებულია");
+  if(d.accept)act(()=>acceptPeace(d.accept),"მშვიდობა დამყარდა");
+  if(d.sell)act(()=>market(d.sell,20,true));
+  if(d.buy)act(()=>market(d.buy,20,false));
+  if(t.id==="gSend")act(()=>sendGift($("#gTo").value,$("#gRes").value,+$("#gAmt").value),"გაგზავნილია");
+  if(t.id==="wallMode")startPlacing();
+  if(t.id==="abandon"){if(t.dataset.sure){act(abandon)}else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება";}}
+  if(t.id==="resetWorld"){if(t.dataset.sure){act(resetWorld,"სამყარო გასუფთავდა")}else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
+});
+$("#pane").addEventListener("submit",e=>{if(e.target.id!=="chatForm")return;e.preventDefault();const v=$("#chatIn").value.trim();if(!v)return;$("#chatIn").value="";postChat(v)});
+
+/* tile card */
+function selectTile(i){selected=i;renderTile()}
+function renderTile(){
+  const el=$("#tile");if(selected<0||!me()){el.hidden=true;return}el.hidden=false;
+  const i=selected,o=ownerOf(i),c=live(ME),t=TER[i],b=o?o.tiles[i]:"";
+  let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${TNAME[t]}${b?" · "+B[b].n:""}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span>${o.uid===ME?" (შენი)":""}`:"თავისუფალი მიწა"} · (${tx(i)}, ${ty(i)})${t===RIVER?" · მდინარეზე აშენება არ შეიძლება":""}</div><div class="acts">`;
+  if(o&&o.uid===ME){
+    if(!b){const opts=BUILD_ORDER.filter(k=>B[k].on.includes(t));
+      if(!opts.length)h+=`<span class="muted">აქ ვერაფერს ააშენებ.</span>`;
+      h+=`</div><div class="list" style="margin-top:8px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px"><span class="ic">${B[k].i}</span><span class="tx"><b>${B[k].n}</b><span>${esc(B[k].d)}</span><div class="cost">${costHTML(cost,c)}</div></span><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button></div>`}).join("")+`</div><div>`}
+    else if(b!=="capital")h+=`<button class="btn sm red" data-demolish="1">დანგრევა</button>`;
+    else h+=`<span class="muted">შენი დედაქალაქი. +30 მოსახლე და საწყისი შემოსავალი.</span>`;
+  }else if(!o){
+    if(t===WATER)h+=`<span class="muted">ზღვას ვერ დაიკავებ.</span>`;
+    else if(adjMine(i)){const cost=claimCost(c);h+=`<button class="btn sm gold" data-claim="1">მიწის შემოერთება · ${costHTML(cost,c)}</button>`}
+    else h+=`<span class="muted">შემოსაერთებლად უჯრა შენს საზღვარს უნდა ესაზღვრებოდეს.</span>`;
+  }else{
+    if(o.alive===false){}else if(atWar(ME,o.uid))h+=`<button class="btn sm red" data-attack="1">⚔ შეტევა</button>`;
+    else h+=`<span class="muted">შესატევად ჯერ ომი გამოუცხადე (ომის ჩანართი).</span> <button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`;
+  }
+  h+=`</div>`;el.innerHTML=h;
+}
+$("#tile").addEventListener("click",e=>{const t=e.target.closest("button");if(!t)return;const d=t.dataset;
+  if(t.id==="tileX"){selected=-1;renderTile();return}
+  if(d.build){if(d.build==="wall"){act(()=>buildAt(selected,"wall"),"გალავანი აშენდა")}else act(()=>buildAt(selected,d.build),B[d.build].n+" აშენდა")}
+  if(d.claim)act(()=>claim(selected),"მიწა შემოიერთე");
+  if(d.demolish)act(()=>demolish(selected),"დაინგრა");
+  if(d.attack)openAttack(selected);
+  if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
+});
+function startPlacing(){placing="wall";$("#place").hidden=false;$("#place").innerHTML=`<span>🧱 დააჭირე ან გადაატარე შენს უჯრებს გალავნის ასაშენებლად</span><button class="btn sm gold" id="stopPl">დასრულება</button>`;$("#stopPl").onclick=stopPlacing}
+function stopPlacing(){placing=null;$("#place").hidden=true}
+let wallBusy=new Set();
+function placeWallAt(i){if(i<0||!isMine(i)||countries[ME].tiles[i]||wallBusy.has(i)||!B.wall.on.includes(TER[i]))return;wallBusy.add(i);
+  countries[ME].tiles[i]="wall";rebuildOwners();
+  buildAt(i,"wall").catch(e=>{delete countries[ME].tiles[i];toast(e.message,"err");stopPlacing()}).finally(()=>wallBusy.delete(i))}
+
+/* attack dialog */
+function openAttack(target){
+  const c=live(ME),o=ownerOf(target);if(!c||!o)return;
+  const ov=document.createElement("div");ov.className="overlay";
+  const avail=UK.filter(u=>(c.army[u]||0)>0);
+  const os=stats(o);const walls=countNear(o,target,"wall",2),towers=countNear(o,target,"tower",3);
+  ov.innerHTML=`<div class="card modal"><h2>შეტევა: ${esc(o.name)}</h2><p class="muted" style="margin:0">სამიზნე: ${TNAME[TER[target]]}${o.capital===target?" · დედაქალაქი!":""} · მტრის ჯარი ~${os.units} · გალავანი ${walls} · კოშკი ${towers}</p>
+    ${avail.length?`<div class="units">${avail.map(u=>`<div class="item"><span class="ic">${UNITS[u].i}</span><span class="tx"><b>${UNITS[u].n}</b><span>გყავს ${c.army[u]}</span></span><input type="number" min="0" max="${c.army[u]}" value="${c.army[u]}" data-u="${u}"></div>`).join("")}</div>
+    <p id="atkInfo" class="muted"></p>`:`<p>ჯარი არ გყავს. ჯერ გაწვრთენი ჯარისკაცები ყაზარმაში.</p>`}
+    <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="aCancel">გაუქმება</button>${avail.length?'<button class="btn red" id="aGo">⚔ ლაშქრობა</button>':""}</div></div>`;
+  $("#app").appendChild(ov);
+  const pick=()=>{const u={};ov.querySelectorAll("[data-u]").forEach(inp=>{const n=clamp(Math.floor(+inp.value||0),0,c.army[inp.dataset.u]);if(n)u[inp.dataset.u]=n});return u};
+  const info=()=>{const u=pick(),el=ov.querySelector("#atkInfo");if(!el)return;const A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0);el.textContent=`შეტევის ძალა ${A} · გზაში ${mmss(travelTime(c.capital,target,u))}`};
+  info();ov.addEventListener("input",info);
+  ov.querySelector("#aCancel").onclick=()=>ov.remove();
+  const go=ov.querySelector("#aGo");if(go)go.onclick=()=>{const u=pick();ov.remove();act(()=>launchAttack(target,u),"ჯარი გაემართა!")};
+}
+
+/* ================= actions ================= */
+function countNear(c,t,type,r){let n=0;const X=tx(t),Y=ty(t);for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;if(c.tiles?.[idx(x,y)]===type)n++}return n}
+function travelTime(from,to,units){
+  const spd=Math.max(...Object.keys(units).filter(u=>units[u]>0).map(u=>UNITS[u].spd),1);
+  const x0=tx(from),y0=ty(from),x1=tx(to),y1=ty(to),d=Math.hypot(x1-x0,y1-y0);
+  let rivers=0,prev=false;for(let k=0;k<=d;k++){const p=d?k/d:0,i=idx(Math.round(x0+(x1-x0)*p),Math.round(y0+(y1-y0)*p));const r=TER[i]===RIVER||TER[i]===WATER;if(r&&!prev)rivers++;prev=r}
+  return Math.max(20,(d*spd+rivers*8))*1000;
+}
+async function buildAt(i,b){
+  const o=ownerOf(i);if(!o||o.uid!==ME)throw new Error("ეს უჯრა შენი არ არის");
+  await mutateMe(c=>{if(!(i in c.tiles))throw new Error("ეს უჯრა შენი არ არის");if(c.tiles[i])throw new Error("აქ უკვე რაღაც დგას");
+    if(!B[b].on.includes(TER[i]))throw new Error(B[b].n+" აქ ვერ აშენდება");pay(c,buildCost(c,b));c.tiles[i]=b;if(b!=="wall")pushLog(c,B[b].n+" აშენდა")});
+}
+async function demolish(i){await mutateMe(c=>{if(!c.tiles[i]||c.tiles[i]==="capital")return false;c.tiles[i]=""})}
+async function claim(i){
+  if(ownerOf(i))throw new Error("უჯრა უკვე დაკავებულია");if(TER[i]===WATER)throw new Error("ზღვას ვერ დაიკავებ");if(!adjMine(i))throw new Error("უჯრა შენს საზღვარს არ ესაზღვრება");
+  await mutateMe(c=>{if(i in c.tiles)return false;pay(c,claimCost(c));c.tiles[i]=""});
+}
+async function trainUnits(u,n){
+  await mutateMe(c=>{const s=stats(c),d=UNITS[u];if(!d.req.every(r=>s.cnt[r]))throw new Error("საჭიროა: "+d.req.map(r=>B[r].n).join(", "));
+    if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები");pay(c,d.cost,n);
+    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+d.time*n*1000}]});
+}
+async function declareWar(t){
+  const o=countries[t];await mutateMe(c=>{if((c.wars||[]).includes(t))return false;c.wars=[...(c.wars||[]),t];c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"ომი გამოუცხადე: "+o.name)});
+  await mutate("countries/"+t,cur=>{if(!cur)return;pushLog(cur,"ომი გამოგიცხადა: "+countries[ME].name);cur.peace=(cur.peace||[]).filter(x=>x!==ME);return cur});
+  postChat(`⚔ ომი! ${countries[ME].name} → ${o.name}`,true);
+}
+async function offerPeace(t){await mutateMe(c=>{if((c.peace||[]).includes(t))return false;c.peace=[...(c.peace||[]),t]});postChat(`🕊 ზავის შეთავაზება: ${countries[ME].name} → ${countries[t].name}`,true)}
+async function acceptPeace(t){
+  if(!(countries[t]?.peace||[]).includes(ME))throw new Error("ზავი არ არის შეთავაზებული");
+  await mutateMe(c=>{c.wars=(c.wars||[]).filter(x=>x!==t);c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"მშვიდობა: "+countries[t].name)});
+  await mutate("countries/"+t,cur=>{if(!cur)return;cur.wars=(cur.wars||[]).filter(x=>x!==ME);cur.peace=(cur.peace||[]).filter(x=>x!==ME);pushLog(cur,"მშვიდობა: "+countries[ME].name);return cur});
+  postChat(`🕊 ${countries[ME].name} და ${countries[t].name} ზავი დადეს`,true);
+}
+async function market(k,n,sell){await mutateMe(c=>{if(!stats(c).cnt.market)throw new Error("ააშენე ბაზარი");
+  if(sell){pay(c,{[k]:n});c.res.gold+=n*PRICE[k]}else{pay(c,{gold:n*PRICE[k]*1.6});c.res[k]+=n}})}
+async function sendGift(t,k,n){n=Math.floor(n);if(!(n>0))throw new Error("მიუთითე რაოდენობა");const o=countries[t];if(!o)throw new Error("ქვეყანა ვერ მოიძებნა");
+  await mutateMe(c=>{pay(c,{[k]:n});pushLog(c,`გაუგზავნე ${n} ${resName(k,c)} → ${o.name}`)});
+  await mutate("countries/"+t,cur=>{if(!cur)return;cur.res[k]=(cur.res[k]||0)+n;pushLog(cur,`საჩუქარი (${countries[ME].name}): ${n} ${k==="gold"?"ოქრო":RES[k].n}`);return cur});
+  postChat(`🎁 საჩუქარი: ${countries[ME].name} → ${o.name}`,true);
+}
+async function launchAttack(target,units){
+  const o=ownerOf(target);if(!o)throw new Error("სამიზნე არ არის");if(!atWar(ME,o.uid))throw new Error("ამ ქვეყანასთან ომში არ ხარ");
+  if(!Object.values(units).some(n=>n>0))throw new Error("აირჩიე ჯარისკაცები");
+  const ref=db.collection("attacks").doc();let doc;
+  await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს");}for(const u in units)c.army[u]-=units[u];
+    const now=Date.now(),tt=travelTime(c.capital,target,units);doc={id:ref.id,from:ME,to:o.uid,units,target,fromTile:c.capital,launch:now,arrive:now+tt,status:"marching"};pushLog(c,"ლაშქრობა დაიწყო: "+o.name)});
+  await ref.set(doc);
+  postChat(`🏹 ლაშქრობა: ${countries[ME].name} → ${o.name}`,true);
+}
+function battle(a,def){
+  const u=a.units,rnd=k=>.9+hash(strHash(a.id),k,SEED)*.2;
+  const cav=(u.harcher||0)+(u.knight||0),tot=UK.reduce((s,k)=>s+(u[k]||0),0)||1,f=cav/tot;
+  let A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0)*rnd(1);
+  const walls=countNear(def,a.target,"wall",2),towers=countNear(def,a.target,"tower",3),cats=u.catapult||0;
+  let bonus=Math.min(1.2,walls*.12)+Math.min(.75,towers*.25)+(def.capital===a.target?.3:0);bonus*=Math.max(0,1-cats*.1);
+  const terr={[HILL]:.2,[MOUNTAIN]:.4,[FOREST]:.1}[TER[a.target]]||0;
+  let D=(UK.reduce((s,k)=>s+(def.army[k]||0)*UNITS[k].def*(k==="spear"?1+f:1),0)+30+(def.capital===a.target?80:0))*(1+bonus+terr)+towers*25;D*=rnd(2);
+  const win=A>D;let atkLoss,defLoss;
+  if(win){atkLoss=clamp(.5*Math.pow(D/A,1.3),.03,.9);defLoss=clamp(.6+.3*(A/D-1),.6,1)}else{atkLoss=clamp(.55+.3*(D/Math.max(A,1)-1),.55,1);defLoss=clamp(.5*Math.pow(A/D,1.3),.02,.9)}
+  const survivors={};let survivorsN=0,atkLostN=0;for(const k in u){survivors[k]=Math.floor(u[k]*(1-atkLoss));survivorsN+=survivors[k];atkLostN+=u[k]-survivors[k]}
+  let defLostN=0;for(const k of UK)defLostN+=(def.army[k]||0)-Math.floor((def.army[k]||0)*(1-defLoss));
+  const tiles={};let capital=false;
+  if(win){const r=A>2*D?2:1,X=tx(a.target),Y=ty(a.target);
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){if(Math.abs(dx)+Math.abs(dy)>r)continue;const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);
+      if(!(i in def.tiles))continue;if(i===def.capital&&i!==a.target)continue;tiles[i]=def.tiles[i]}
+    capital=a.target===def.capital}
+  const lootFrac=win?(capital?.4:.12):0,loot={};for(const k of RK)loot[k]=Math.floor((def.res[k]||0)*lootFrac);
+  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,tiles,tilesN:Object.keys(tiles).length,capital,loot};
+}
+const busyA=new Set();
+async function resolveAttacks(){
+  if(!db||!ME)return;const now=Date.now();
+  for(const a of Object.values(attacks)){
+    if(busyA.has(a.id))continue;
+    const involved=a.from===ME||a.to===ME;
+    const anyOnline=true; // any player may resolve; locks keep it consistent
+    try{
+      if(a.status==="marching"&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);
+        let res=null;
+        await mutate("attacks/"+a.id,async cur=>{if(!cur||cur.status!=="marching")return;const ds=await db.doc("countries/"+cur.to).get();
+          const def=ds.exists?materialize(JSON.parse(JSON.stringify(ds.data())),Date.now()):{tiles:{},army:{},res:{}};
+          if(def.alive===false){def.tiles={};def.army={}}
+          res=battle(cur,def);cur.result=res;cur.status="returning";cur.returnAt=cur.arrive+(cur.arrive-cur.launch);return cur});
+        if(res){const A=countries[a.from],Dd=countries[a.to];postChat(res.win?`🔥 გამარჯვება: ${A?.name} → ${Dd?.name}, +${res.tilesN} უჯრა${res.capital?". დედაქალაქი დაეცა!":""}`:`🛡 შეტევა მოგერიებულია: ${A?.name} → ${Dd?.name}`,true)}
+      }
+      if(a.status==="returning"&&a.result){
+        const D=countries[a.to];if(D&&!(D.applied||[]).includes(a.id)&&(a.to===ME||a.from===ME||now-a.arrive>15000)){busyA.add(a.id);await applyDefender(a)}
+        const A=countries[a.from];if(A&&!(A.applied||[]).includes(a.id)&&(involved||now-a.arrive>15000)){busyA.add(a.id);await applyAttacker(a)}
+        if(a.from===ME&&a.returnAt<=now){busyA.add(a.id);await collect(a)}
+      }
+      if(a.status==="done"&&a.from===ME&&now-a.returnAt>3*3600e3){busyA.add(a.id);await db.doc("attacks/"+a.id).delete()}
+    }catch(e){console.warn(e)}finally{busyA.delete(a.id)}
+  }
+}
+async function applyDefender(a){
+  const r=a.result;
+  await mutate("countries/"+a.to,cur=>{if(!cur||(cur.applied||[]).includes(a.id))return;const c=materialize(cur,Date.now());
+    for(const k of UK)c.army[k]=Math.floor((c.army[k]||0)*(1-r.defLoss));
+    if(r.win){for(const i in r.tiles)delete c.tiles[i];for(const k of RK)c.res[k]=Math.max(0,c.res[k]-(r.loot[k]||0));
+      if(r.capital||!(c.capital in c.tiles)){const keys=Object.keys(c.tiles).map(Number);
+        if(!keys.length){c.alive=false;pushLog(c,"შენი ქვეყანა დაეცა")}
+        else{const old=c.capital;keys.sort((p,q)=>Math.hypot(tx(p)-tx(old),ty(p)-ty(old))-Math.hypot(tx(q)-tx(old),ty(q)-ty(old)));c.capital=keys[0];c.tiles[keys[0]]="capital";pushLog(c,"დედაქალაქი გადავიდა ახალ ადგილას")}}
+      pushLog(c,`დამარცხება (${countries[a.from]?.name||"მტერი"}): -${r.tilesN} უჯრა, -${r.defLostN} ჯარისკაცი`)}
+    else pushLog(c,`შეტევა მოიგერიე (${countries[a.from]?.name||"მტერი"}), დანაკარგი ${r.defLostN}`);
+    c.applied=[a.id,...(c.applied||[])].slice(0,60);return c});
+}
+async function applyAttacker(a){
+  const r=a.result;
+  await mutate("countries/"+a.from,cur=>{if(!cur||(cur.applied||[]).includes(a.id))return;const c=materialize(cur,Date.now());
+    if(r.win&&c.alive!==false)for(const i in r.tiles)c.tiles[i]=r.tiles[i]==="capital"?"":r.tiles[i];
+    pushLog(c,r.win?`გამარჯვება (${countries[a.to]?.name||""}): +${r.tilesN} უჯრა`:`შეტევა ჩაიშალა (${countries[a.to]?.name||""})`);
+    c.applied=[a.id,...(c.applied||[])].slice(0,60);return c});
+}
+async function collect(a){
+  const key=a.id+":c";
+  await mutateMe(c=>{if((c.applied||[]).includes(key))return false;for(const k in a.result.survivors)c.army[k]=(c.army[k]||0)+a.result.survivors[k];
+    for(const k of RK)c.res[k]+=a.result.loot[k]||0;if(a.result.survivorsN)pushLog(c,`ჯარი დაბრუნდა (${a.result.survivorsN})${a.result.win?" ნადავლით":""}`);c.applied=[key,...(c.applied||[])].slice(0,60)});
+  await mutate("attacks/"+a.id,cur=>{if(!cur)return;cur.status="done";return cur});
+}
+async function abandon(){
+  await mutate("meta/slots",cur=>{cur=cur||{slots:{}};for(const k in cur.slots)if(cur.slots[k]===ME)delete cur.slots[k];return cur});
+  const nm=countries[ME]?.name;await db.doc("countries/"+ME).delete();delete countries[ME];postChat(`🏳 ${nm} გაქრა რუკიდან`,true);showOnboarding();
+}
+async function resetWorld(){
+  for(const id in countries)await db.doc("countries/"+id).delete();
+  for(const id in attacks)await db.doc("attacks/"+id).delete();
+  await db.doc("meta/slots").delete();await db.doc("chat/main").delete();showOnboarding();
+}
+
+/* ================= onboarding ================= */
+const draft={ruler:"",name:"",currency:"",flag:{p:"h3",c:["#c8102e","#ffffff","#1f3a93"],e:"★",ec:"#f2c771"},color:null};
+function showOnboarding(){
+  $("#hud").hidden=true;$("#side").hidden=true;$("#tile").hidden=true;
+  let ov=$("#onb");if(ov)ov.remove();ov=document.createElement("div");ov.id="onb";ov.className="overlay";
+  const taken=alive().map(c=>c.color),full=alive().length>=5;
+  if(!draft.color||taken.includes(draft.color))draft.color=COLORS.find(c=>!taken.includes(c));
+  ov.innerHTML=`<div class="card">
+    <h1>Country War</h1><p class="sub">დააარსე ქვეყანა ნულიდან, ააშენე ეკონომიკა, შეკრიბე ჯარი და დაიპყარი მეზობლები. ${alive().length}/5 ქვეყანა უკვე არსებობს.</p>
+    ${full?`<p>სამყარო სავსეა: 5 ქვეყანა უკვე არსებობს. შეგიძლია რუკას უყურო.</p><button class="btn gold" id="oWatch">რუკის ნახვა</button>`:`
+    <label class="field">შენი სახელი (მმართველი)<input id="oRuler" maxlength="20" value="${esc(draft.ruler)}" placeholder="მაგ. დავით აღმაშენებელი"></label>
+    <label class="field">ქვეყნის სახელი<input id="oName" maxlength="22" value="${esc(draft.name)}" placeholder="მაგ. ქართლის სამეფო"></label>
+    <label class="field">ვალუტის სახელი<input id="oCur" maxlength="14" value="${esc(draft.currency)}" placeholder="მაგ. დრამა, ლარი, ოქრო"></label>
+    <div class="field" style="margin-bottom:4px">დროშა</div>
+    <div class="flagEd"><canvas id="oFlag" width="360" height="240"></canvas><div>
+      <div class="pats">${PATS.map(p=>`<button data-pat="${p}" class="${draft.flag.p===p?"on":""}" aria-label="${p}"><canvas width="72" height="48" data-pp="${p}"></canvas></button>`).join("")}</div>
+      <div class="cols"><label>ფერი 1<input type="color" data-ci="0" value="${draft.flag.c[0]}"></label><label>ფერი 2<input type="color" data-ci="1" value="${draft.flag.c[1]}"></label>
+      <label>ფერი 3<input type="color" data-ci="2" value="${draft.flag.c[2]}"></label><label>გერბი<select id="oEm">${EMBLEMS.map(e=>`<option ${draft.flag.e===e?"selected":""} value="${e}">${e||"არა"}</option>`).join("")}</select></label>
+      <label>გერბის ფერი<input type="color" id="oEc" value="${draft.flag.ec}"></label></div></div></div>
+    <div class="field">ქვეყნის ფერი რუკაზე</div>
+    <div class="swatches" style="margin-bottom:18px">${COLORS.map(c=>`<button data-col="${c}" style="background:${c}" class="${draft.color===c?"on":""}" ${taken.includes(c)?"disabled":""} aria-label="ფერი"></button>`).join("")}</div>
+    <button class="btn gold" id="oGo" style="width:100%;padding:12px;font-size:16px">ქვეყნის დაარსება</button>`}
+  </div>`;
+  $("#app").appendChild(ov);
+  const redraw=()=>{const f=ov.querySelector("#oFlag");if(!f)return;const g=f.getContext("2d");g.clearRect(0,0,360,240);drawFlag(g,draft.flag,0,0,360,240);
+    ov.querySelectorAll("[data-pp]").forEach(cn=>{const g2=cn.getContext("2d");drawFlag(g2,{...draft.flag,p:cn.dataset.pp,e:""},0,0,72,48)})};
+  redraw();
+  ov.addEventListener("input",e=>{const t=e.target;if(t.id==="oRuler")draft.ruler=t.value;if(t.id==="oName")draft.name=t.value;if(t.id==="oCur")draft.currency=t.value;
+    if(t.dataset.ci)draft.flag.c[+t.dataset.ci]=t.value;if(t.id==="oEm")draft.flag.e=t.value;if(t.id==="oEc")draft.flag.ec=t.value;redraw()});
+  ov.addEventListener("change",e=>{if(e.target.id==="oEm"){draft.flag.e=e.target.value;redraw()}});
+  ov.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+    if(b.dataset.pat){draft.flag.p=b.dataset.pat;ov.querySelectorAll("[data-pat]").forEach(x=>x.classList.toggle("on",x===b));redraw()}
+    if(b.dataset.col){draft.color=b.dataset.col;ov.querySelectorAll("[data-col]").forEach(x=>x.classList.toggle("on",x===b))}
+    if(b.id==="oWatch"){ov.remove()}
+    if(b.id==="oGo"){b.disabled=true;foundCountry().then(()=>{ov.remove();renderAll(true)}).catch(err=>{toast(err.message||String(err),"err");b.disabled=false})}});
+}
+async function foundCountry(){
+  const ruler=draft.ruler.trim(),name=draft.name.trim(),currency=draft.currency.trim()||"ოქრო";
+  if(!ruler)throw new Error("ჩაწერე შენი სახელი");if(!name)throw new Error("დაარქვი სახელი ქვეყანას");
+  let slot=-1;
+  await mutate("meta/slots",async cur=>{cur=cur||{slots:{}};
+    for(const k in cur.slots){if(cur.slots[k]===ME){slot=+k;return cur}}
+    for(let k=0;k<5;k++){const u=cur.slots[k];if(!u){slot=k;break}const s=await db.doc("countries/"+u).get();if(!s.exists||s.data().alive===false){slot=k;break}}
+    if(slot<0)throw new Error("სამყარო სავსეა (5/5)");cur.slots[slot]=ME;return cur});
+  const sp=SPAWNS[slot],tiles={};const X=tx(sp),Y=ty(sp);
+  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){if(Math.abs(dx)+Math.abs(dy)>3)continue;const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(TER[i]===WATER||OWNER[i]>=0)continue;tiles[i]=""}
+  tiles[sp]="capital";
+  const taken=alive().filter(c=>c.uid!==ME).map(c=>c.color);const color=taken.includes(draft.color)?COLORS.find(c=>!taken.includes(c)):draft.color;
+  const doc={uid:ME,ruler,name,currency,color,flag:JSON.parse(JSON.stringify(draft.flag)),slot,capital:sp,created:Date.now(),t:Date.now(),alive:true,
+    res:{gold:150,food:100,wood:120,stone:40,iron:0},tiles,army:{},queue:[],wars:[],peace:[],applied:[],log:[{t:Date.now(),m:"ქვეყანა დაარსდა"}]};
+  await db.doc("countries/"+ME).set(doc);countries[ME]=doc;rebuildOwners();
+  cam.x=X*TS+8;cam.y=Y*TS+8;cam.z=1.8;
+  postChat(`👑 დაარსდა ახალი ქვეყანა: ${name} (მმართველი ${ruler})`,true);
+}
+
+/* ================= boot ================= */
+let isOwnerViewer=false,booted=false,lastPane=0;
+function renderAll(force){
+  if(!booted)return;
+  const has=!!me();$("#side").hidden=!has;
+  if(has){renderTabs();renderPane(force);}
+  renderHUD();renderTile();
+}
+function banner(html){const b=document.createElement("div");b.id="banner";b.className="plate";b.innerHTML=html;$("#app").appendChild(b)}
+async function boot(){
+  resize();drawTerrain();drawTerritory();requestAnimationFrame(frame);
+  const cl=window.claude;
+  if(cl&&typeof cl.use==="function"){
+    const [d,u]=await Promise.all([cl.use("db"),cl.use("user")]);db=d;user=u;
+    if(!db||!user){banner(`<h2 style="font-family:var(--display);margin:0 0 8px">შესვლა საჭიროა</h2><p class="muted">სათამაშოდ შედი claude.ai-ზე იმ ანგარიშით, რომელზეც ეს თამაში გაგიზიარეს. მასპინძელმა უნდა მოგიწვიოს რედაქტორად.</p>`);return}
+    ME=await user.id();isOwnerViewer=await user.isOwner();
+    if(!ME){banner(`<p>შენი ანგარიში ვერ ამოვიცანი. შედი claude.ai-ზე და გახსენი ლინკი ხელახლა.</p>`);return}
+    try{const cw=await user.can("data.write");if(cw===false){banner(`<h2 style="font-family:var(--display);margin:0 0 8px">მხოლოდ ყურება</h2><p class="muted">ამ ლინკით მხოლოდ რუკის ნახვა შეგიძლია. სათამაშოდ მასპინძელმა უნდა მოგიწვიოს რედაქტორად.</p>`)}}catch{}
+  }else if(FIREBASE_CONFIG&&window.firebase){
+    try{const f=await fireDB();db=f.db;ME=f.uid}catch(e){banner(`<h2 style="font-family:var(--display);margin:0 0 8px">სერვერთან კავშირი ვერ დამყარდა</h2><p class="muted">${esc(e.message||e)}</p>`);return}
+    isOwnerViewer=location.hash==="#admin";
+  }else{
+    DEMO=true;db=mockDB();
+    try{ME=sessionStorage.getItem("cw_uid")||("demo_"+Math.random().toString(36).slice(2,8));sessionStorage.setItem("cw_uid",ME)}catch{ME="demo_local"}
+    isOwnerViewer=true;
+  }
+  ME=String(ME);
+  let gotC=false;const timer=setTimeout(()=>{if(!gotC)toast("სერვერთან კავშირი ნელია…","err")},10000);
+  db.collection("countries").onSnapshot(s=>{gotC=true;clearTimeout(timer);const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,uid:d.id}}countries=next;rebuildOwners();
+    if(!booted){booted=true;const c=me();if(c){cam.x=tx(c.capital)*TS+8;cam.y=ty(c.capital)*TS+8;cam.z=1.8}else showOnboarding()}
+    else if(!me()&&!$("#onb")&&countries[ME]?.alive===false){toast("შენი ქვეყანა დაეცა. შეგიძლია ახალი დააარსო.","err");showOnboarding()}
+    renderAll()},e=>toast("მონაცემები ვერ ჩაიტვირთა: "+e.code,"err"));
+  db.collection("attacks").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,id:d.id}}
+    for(const id in next){const a=next[id];if(a.to===ME&&a.status==="marching"&&!attacks[id]&&booted)toast(`⚠ ${countries[a.from]?.name||"მტერი"} გიტევს!`,"err")}
+    attacks=next;renderAll()},()=>{});
+  db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat"){renderPane(false)}else renderTabs()},()=>{});
+  setInterval(()=>{renderHUD();if(Date.now()-lastPane>4000){lastPane=Date.now();renderPane(false);renderTile()}},1000);
+  setInterval(resolveAttacks,2500);
+  if(DEMO)toast("სერვერი ჯერ არ არის ჩართული: თამაში მხოლოდ ამ ბრაუზერში ინახება","err");
+}
+boot();
+</script>
+
+</body>
+</html>
