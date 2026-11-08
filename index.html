@@ -208,7 +208,7 @@ function genWorld(){
     const up=()=>{let i=heap.length-1;while(i>0){const p=(i-1)>>1;if(heap[p][0]<=heap[i][0])break;[heap[p],heap[i]]=[heap[i],heap[p]];i=p}};
     const down=()=>{let i=0;for(;;){const l=i*2+1,r=l+1;let m=i;if(l<heap.length&&heap[l][0]<heap[m][0])m=l;if(r<heap.length&&heap[r][0]<heap[m][0])m=r;if(m===i)break;[heap[m],heap[i]]=[heap[i],heap[m]];i=m}};
     while(heap.length){const [d,u]=heap[0];const last=heap.pop();if(heap.length){heap[0]=last;down()}if(d>dist[u])continue;if(u===e)break;
-      for(const n of N4(u)){const c=cost(n);if(c===Infinity)continue;const nd=d+c;if(nd<dist[n]){dist[n]=nd;prev[n]=u;heap.push([nd,n]);up()}}}
+      const ux=tx(u),uy=ty(u);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const x=ux+dx,y=uy+dy;if(x<0||y<0||x>=W||y>=H)continue;const n=idx(x,y),c=cost(n);if(c===Infinity)continue;const nd=d+c*(dx&&dy?1.42:1);if(nd<dist[n]){dist[n]=nd;prev[n]=u;heap.push([nd,n]);up()}}}
     if(prev[e]<0&&s!==e)return null;const p=[];for(let t=e;t>=0;t=prev[t])p.push(t);return p.reverse()}
   const cx=W/2,cy=H/2;
   for(let r=0;r<4;r++){
@@ -792,6 +792,16 @@ function bsprite(b,v){const key=b+"_"+v;if(BSPR[key])return BSPR[key];const big=
   const c=document.createElement("canvas");c.width=S*BRES;c.height=S*BRES;const g=c.getContext("2d");g.scale(BRES,BRES);if(big)g.translate(16,16);paintBuilding(g,b,v);grain(c,v);BSPR[key]={c,S};return BSPR[key]}
 function grain(c,v){const g=c.getContext("2d"),img=g.getImageData(0,0,c.width,c.height),d=img.data;
   for(let i=0;i<d.length;i+=4){if(d[i+3]<40)continue;const n=(hash(i>>2,v,313)-.5)*18;d[i]=clamp(d[i]+n,0,255);d[i+1]=clamp(d[i+1]+n,0,255);d[i+2]=clamp(d[i+2]+n,0,255)}g.putImageData(img,0,0)}
+const TSPR={};
+function treeSprite(fir,v){const k=fir+"_"+v;if(TSPR[k])return TSPR[k];const c=document.createElement("canvas");c.width=c.height=72;const g=c.getContext("2d");g.scale(3,3);
+  const s=4.6+v*.9,x=12,y=14;g.filter="blur(.8px)";g.fillStyle="rgba(10,25,8,.35)";g.beginPath();g.ellipse(x+2,y+2.4,s*1.05,s*.7,0,0,7);g.fill();g.filter="none";
+  if(fir){const gr=g.createLinearGradient(x-s,0,x+s,0);gr.addColorStop(0,"#3f7a44");gr.addColorStop(1,"#1d4426");g.fillStyle=gr;for(let t=0;t<3;t++){const yy=y-s*1.5+t*s*.75,ww=s*(.55+t*.28);g.beginPath();g.moveTo(x,yy-s*.5);g.lineTo(x+ww,yy+s*.55);g.lineTo(x-ww,yy+s*.55);g.closePath();g.fill()}}
+  else{g.fillStyle="#4a3420";g.fillRect(x-.6,y,1.2,s*.8);const gr=g.createRadialGradient(x-s*.4,y-s*.6,.4,x,y-s*.2,s*1.1);gr.addColorStop(0,"#9cc664");gr.addColorStop(.55,"#4f8a36");gr.addColorStop(1,"#2a5222");g.fillStyle=gr;
+    for(const [ox,oy,r] of [[0,-.2,1],[-.55,.1,.7],[.55,.15,.7],[0,-.75,.65]]){g.beginPath();g.arc(x+ox*s,y+oy*s,r*s,0,7);g.fill()}}
+  return TSPR[k]=c}
+function drawBuildingTrees(g,b,i,cx,cy){if(b==="wall"||b==="bridge"||b==="port"||b==="quarry"||b==="mine")return;const n=b==="capital"?2:hash(i,4,61)<.55?1:hash(i,5,61)<.4?2:0;
+  for(let k=0;k<n;k++){const side=hash(i,k,62)<.5?-1:1,ox=side*(5+hash(i,k,63)*3),oy=3+hash(i,k,64)*4,fir=TER[i]===HILL||hash(i,k,65)<.25,sz=7+hash(i,k,66)*2.5;
+    g.drawImage(treeSprite(fir?1:0,Math.floor(hash(i,k,67)*3)),cx+ox-sz,cy+oy-sz*1.2,sz*2,sz*2)}}
 function drawBridge(g,i,cx,cy){const flowH=TER[i-1]===RIVER||TER[i+1]===RIVER||TER[i-1]===WATER||TER[i+1]===WATER,flowV=TER[i-W]===RIVER||TER[i+W]===RIVER;
   const vert=flowH&&!flowV?true:!flowH&&flowV?false:hash(i,1,9)<.5;g.save();g.translate(cx,cy);if(!vert)g.rotate(Math.PI/2);
   const L=TS*.95,Wd=TS*.42;g.fillStyle="rgba(10,25,35,.35)";g.fillRect(-Wd/2+1.5,-L/2+1.5,Wd,L);
@@ -799,17 +809,17 @@ function drawBridge(g,i,cx,cy){const flowH=TER[i-1]===RIVER||TER[i+1]===RIVER||T
   g.fillStyle="#8a6a44";g.fillRect(-Wd/2+1,-L/2,Wd-2,L);g.strokeStyle="rgba(0,0,0,.25)";g.lineWidth=.3;for(let q=-L/2+1;q<L/2;q+=1.3){g.beginPath();g.moveTo(-Wd/2+1,q);g.lineTo(Wd/2-1,q);g.stroke()}
   g.fillStyle="#b5ab97";g.fillRect(-Wd/2,-L/2,1.1,L);g.fillRect(Wd/2-1.1,-L/2,1.1,L);g.fillStyle="#7a7266";for(const y of [-L/2,L/2-1.4]){g.fillRect(-Wd/2-.4,y,1.9,1.4);g.fillRect(Wd/2-1.5,y,1.9,1.4)}
   g.restore()}
-function drawBuildingSprite(g,b,i,cx,cy,scale=1){if(b==="bridge")return drawBridge(g,i,cx,cy);const v=Math.floor(hash(i,0,5)*3),sp=bsprite(b,v),s=TS*(sp.S/64)*scale;g.drawImage(sp.c,cx-s/2,cy-s/2,s,s)}
+function drawBuildingSprite(g,b,i,cx,cy,scale=1){if(b==="bridge")return drawBridge(g,i,cx,cy);const v=Math.floor(hash(i,0,5)*3),sp=bsprite(b,v),s=TS*(sp.S/64)*scale*(sp.S>64&&b!=="capital"?.72:1);g.drawImage(sp.c,cx-s/2,cy-s/2,s,s)}
 const ROOFS=[["#c0603f","#8e3f29","#6e2f1e"],["#a9653d","#7a4628","#5a331d"],["#7b7e88","#565961","#3f4147"],["#c97a46","#985530","#733f22"]];
 const WALLS=[["#efe2c4","#d6c39c"],["#e6d6b2","#c9b48a"],["#d9cdb8","#bcae94"]];
 function paintBuilding(g,b,v){
   const rnd=k=>hash(v*31+b.length*7,k,991);
   const lin=(x0,y0,x1,y1,stops)=>{const gr=g.createLinearGradient(x0,y0,x1,y1);stops.forEach(([o,c])=>gr.addColorStop(o,c));return gr};
-  const shadow=(f,blur=2.2,a=.42)=>{g.save();g.translate(3.2,3.6);g.filter=`blur(${blur}px)`;g.fillStyle=`rgba(12,18,8,${a})`;f();g.restore();g.filter="none"};
+  const shadow=(f,blur=1.5,a=.4)=>{g.save();g.translate(1.8,2.2);g.filter=`blur(${blur}px)`;g.fillStyle=`rgba(12,18,8,${a})`;f();g.restore();g.filter="none"};
   const ground=(x,y,w,h,col)=>{const gr=g.createRadialGradient(x+w/2,y+h/2,2,x+w/2,y+h/2,Math.max(w,h)/2);gr.addColorStop(0,col);gr.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=gr;g.fillRect(x,y,w,h)};
   // pitched-roof house: back slope lit, front slope shaded, tile rows, ridge cap, eave shadow, timber or plaster front wall
   const house=(x,y,w,d,h,roof,wallSet=WALLS[0],opt={})=>{
-    shadow(()=>{g.fillRect(x-1,y-1,w+2,d+h+1)});
+    shadow(()=>{g.fillRect(x-1,y-1,w+2,d+h+1)});g.save();g.filter="blur(.8px)";g.fillStyle="rgba(10,14,6,.35)";g.fillRect(x-.6,y+d+h-1,w+1.2,2.2);g.restore();g.filter="none";
     g.fillStyle=lin(0,y+d,0,y+d+h,[[0,wallSet[0]],[1,wallSet[1]]]);g.fillRect(x,y+d,w,h);
     g.fillStyle="rgba(90,80,70,.55)";g.fillRect(x,y+d+h*.82,w,h*.18);
     if(opt.timber){g.strokeStyle="#4a3221";g.lineWidth=.7;g.beginPath();for(const q of [x+.4,x+w*.33,x+w*.66,x+w-.4]){g.moveTo(q,y+d);g.lineTo(q,y+d+h*.82)}g.moveTo(x,y+d+h*.42);g.lineTo(x+w,y+d+h*.42);
@@ -917,12 +927,13 @@ function paintBuilding(g,b,v){
 
 function drawRivers(g){
   g.lineCap="round";g.lineJoin="round";
-  const curves=RIVER_PATHS.map((path,r)=>{const pts=path.filter((_,j)=>j%2===0||j===path.length-1).map(i=>[tx(i)*TS+8,ty(i)*TS+8]);
-    return pts.map((pt,j)=>{const a=pts[Math.max(0,j-1)],b=pts[Math.min(pts.length-1,j+1)],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,end=j===0||j===pts.length-1,
-      off=end?0:Math.sin(j*1.1+r*2)*1.6+Math.sin(j*.43+r)*1;return[pt[0]-dy/L*off,pt[1]+dx/L*off]})});
-  const smooth=pts=>{g.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<pts.length-1;j++){const mx=(pts[j][0]+pts[j+1][0])/2,my=(pts[j][1]+pts[j+1][1])/2;g.quadraticCurveTo(pts[j][0],pts[j][1],mx,my)}const l=pts[pts.length-1];g.lineTo(l[0],l[1])};
+  const curves=RIVER_PATHS.map((path,r)=>{let pts=path.map(i=>[tx(i)*TS+8,ty(i)*TS+8]);
+    for(let it=0;it<3;it++){const out=[pts[0]];for(let j=0;j<pts.length-1;j++){const a=pts[j],b=pts[j+1];out.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}out.push(pts[pts.length-1]);pts=out}
+    let dist=0;return pts.map((pt,j)=>{if(j)dist+=Math.hypot(pt[0]-pts[j-1][0],pt[1]-pts[j-1][1]);const a=pts[Math.max(0,j-1)],b=pts[Math.min(pts.length-1,j+1)],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,
+      end=Math.min(j,pts.length-1-j)<6?Math.min(j,pts.length-1-j)/6:1,off=(Math.sin(dist/22+r*2)*2.2+Math.sin(dist/9+r)*.8)*end;return[pt[0]-dy/L*off,pt[1]+dx/L*off]})});
+  const line=pts=>{g.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<pts.length;j++)g.lineTo(pts[j][0],pts[j][1])};
   for(const pass of [[8,"rgba(110,100,60,.3)"],[6,"rgb(38,96,134)"],[3.8,"rgb(66,140,182)"],[1.2,"rgba(190,228,245,.55)"]]){
-    g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();for(const c of curves)if(c.length>1)smooth(c);g.stroke()}}
+    g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();for(const c of curves)if(c.length>1)line(c);g.stroke()}}
 function drawTerrain(){
   terrainJob(8,0,(cvs,HT,tw,th)=>{terrCv.width=tw;terrCv.height=th;terrCv.getContext("2d").drawImage(cvs,0,0);HEIGHT=HT;TR=8;TW=tw;THh=th;buildWaterFX()});
   setTimeout(()=>terrainJob(16,10,(cvs)=>{terrCv.width=cvs.width;terrCv.height=cvs.height;terrCv.getContext("2d").drawImage(cvs,0,0);terrainHi=true}),300);
@@ -989,7 +1000,8 @@ function frame(){
   for(const i of NEUTRAL){if(OWNER[i]>=0||!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8;
     ctx.globalAlpha=.9;drawBuildingSprite(ctx,"village",i,cx,cy,1.05);ctx.globalAlpha=1}
   // buildings
-  if(z>.42){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawBuildingSprite(ctx,b,i,tx(i)*TS+8,ty(i)*TS+8,1.12)}}}
+  if(z>.42){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawBuildingSprite(ctx,b,i,tx(i)*TS+8,ty(i)*TS+8,1)}}
+    for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b)continue;const i=+k;if(!vis(i))continue;drawBuildingTrees(ctx,b,i,tx(i)*TS+8,ty(i)*TS+8)}}}
   // the fleet: built ships idle in the water next to their port, slowly circling
   for(const c of ORDER){const wn=Math.min(c.army?.warship||0,3);if(wn){const pt=nearestPort(c,c.capital);if(pt!=null&&vis(pt)){const water=N4(pt).concat(N4(pt).flatMap(N4)).filter((q,j,arr)=>TER[q]===WATER&&arr.indexOf(q)===j);
       for(let m=0;m<wn&&water.length;m++){const w=water[(m*3+2)%water.length],t=now/1000+m*2.3,x=tx(w)*TS+8+Math.sin(t*.3)*1.4,y=ty(w)*TS+8+Math.sin(t*.45)*.8,dir=Math.atan2(ty(w)-ty(pt),tx(w)-tx(pt))+Math.PI/2+Math.sin(t*.16)*.3;drawWake(ctx,x,y,7,dir,now+m*500,.1);drawGalley(ctx,x,y,clamp(8/z,5,9),c.color,now/600+m,dir)}}}}
@@ -1003,9 +1015,9 @@ function frame(){
       drawWake(ctx,x,y,ss*.6,dir,now+m*400,.12);drawShip(ctx,x,y,ss,c.color,now/500+m,dir,m===0?c.flag:undefined)}}
   // capitals with flags
   for(const c of ORDER){const i=c.capital;if(i==null||!vis(i))continue;const x=tx(i)*TS,y=ty(i)*TS;
-    drawBuildingSprite(ctx,"capital",i,x+8,y+8,1.25);
-    ctx.fillStyle="#2a241b";ctx.fillRect(x+14,y-14,1.5,16);drawFlag(ctx,c.flag,x+15.5,y-14,16,10.5);
-    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+18,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+23.5)}}
+    drawBuildingSprite(ctx,"capital",i,x+8,y+6,1.45);
+    ctx.fillStyle="#2a241b";ctx.fillRect(x+8,y-22,1.3,16);drawFlag(ctx,c.flag,x+9.3,y-22,15,10);
+    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+26,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+31.5)}}
   // villagers: little people walking between buildings and nearby land
   if(z>.7){let cnt=0;const tt=now/1000;
     for(const c of ORDER){for(const key in c.tiles){const b=c.tiles[key];if(!b||b==="wall")continue;const i=+key;if(!vis(i))continue;
