@@ -831,7 +831,14 @@ function frame(){
       Y=P.y-14*k;
     }else if(atSea){const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,ships=Math.min(3,Math.max(1,Math.ceil(N/30)));const bx=-Math.cos(dir),by=-Math.sin(dir);
       for(let m=ships-1;m>=0;m--){const sx=P.x+bx*m*22*k+(-by)*(m%2?9:-9)*k*(m?1:0),sy=P.y+by*m*22*k+bx*(m%2?9:-9)*k*(m?1:0);drawWake(ctx,sx,sy,11*k,dir,now+m*300,1);drawShip(ctx,sx,sy,11*k,col,now/500+m,dir,m===0?C?.flag:undefined)}Y=P.y+10*k}
-    else{const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,bx=-Math.cos(dir),by=-Math.sin(dir),px=-by,py=bx,slots=formationSlots(units,12);
+    else{const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,bx=-Math.cos(dir),by=-Math.sin(dir),px=-by,py=bx;let slots=formationSlots(units,12);
+      // marching into a siege: once the column reaches the siege line, groups peel off and hold their spot while the rest walk on
+      if(P.going&&a.mode==="siege"&&a.siegeLine?.length>1){const path=pathOf(a),L0=a.siegeLine[0];let ls=0,bd=1e9;path.forEach((q,j)=>{const d=Math.hypot(tx(q)-tx(L0),ty(q)-ty(L0));if(d<bd){bd=d;ls=j}});
+        let tot=0,upTo=0;for(let j=1;j<path.length;j++){const d=Math.hypot(tx(path[j])-tx(path[j-1]),ty(path[j])-ty(path[j-1]));tot+=d;if(j<=ls)upTo+=d}
+        const fLs=tot?upTo/tot:0,p=clamp((now-a.launch)/(a.arrive-a.launch),0,1);
+        if(p>fLs){const all=formationSlots(units,16),pf=clamp((p-fLs)/Math.max(.001,1-fLs),0,1),walking=[];
+          all.forEach((u,m)=>{const fm=(m+.5)/all.length;if(fm<=pf){const q=along(a.siegeLine,fm);drawUnitSprite(ctx,u,q.x,q.y+3*k,4.5*k,col,now/400+m,SKIN[m%SKIN.length])}else walking.push(u)});
+          slots=walking}}
       slots.forEach((u,m)=>{const row=Math.floor(m/3)+1,colI=m%3-1,sx=P.x+bx*row*9*k+px*colI*8*k,sy=P.y+by*row*9*k+py*colI*8*k;drawUnitSprite(ctx,u,sx,sy+4*k,4.5*k,col,now/90+m*1.7,SKIN[m%SKIN.length])})}
     // banner: flag, main unit, head-count, composition strip
     const main=UK.filter(u=>units[u]).sort((p,q)=>units[q]*UNITS[q].atk-units[p]*UNITS[p].atk)[0];
