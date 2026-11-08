@@ -351,7 +351,6 @@ const HAIR=["#2b1d14","#5a3a1e","#8a5a2b","#c9a050","#1b1712"];
 function drawPerson(g,x,y,s,body,skin,ph,soldier){
   const w=s*.45,h=s*.75,bob=Math.abs(Math.sin(ph))*s*.12;
   g.fillStyle="rgba(0,0,0,.25)";g.fillRect(x-w/2,y-s*.06,w,s*.12);
-  g.fillStyle="#1b1712";g.fillRect(x-w/2-1,y-h-bob-1,w+2,h+2);
   g.fillStyle=body;g.fillRect(x-w/2,y-h-bob,w,h);
   g.fillStyle=skin;g.fillRect(x-w/2,y-h-bob,w,h*.32); // top part is the face
 }
