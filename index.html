@@ -353,6 +353,7 @@ function drawPerson(g,x,y,s,body,skin,ph,soldier){
   g.fillStyle="rgba(0,0,0,.25)";g.fillRect(x-w/2,y-s*.06,w,s*.12);
   g.fillStyle="#1b1712";g.fillRect(x-w/2-1,y-h-bob-1,w+2,h+2);
   g.fillStyle=body;g.fillRect(x-w/2,y-h-bob,w,h);
+  g.fillStyle=skin;g.fillRect(x-w/2,y-h-bob,w,h*.32); // top part is the face
 }
 const INCOME_HINT={gold:"სოფელი, ბაზარი, მოსახლეობის გადასახადი (სახლი). ჯარი ხარჯავს",food:"ფერმა (მდინარესთან მეტი), სოფელი. მოსახლეობა და ჯარი ჭამს",wood:"სახერხი ტყეში",stone:"ქვის სამტეხლო ბორცვზე ან მთაზე",iron:"რკინის მაღარო მთაზე ან ბორცვზე",mana:"ჯადოქრის კოშკი და ჯადოქრები"};
 const BUILD_ORDER=["village","house","farm","lumber","quarry","mine","market","barracks","range","stable","workshop","magetower","tower","wall"];
