@@ -360,6 +360,7 @@ const UK=Object.keys(UNITS);
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
 const PRICE={food:.5,wood:.6,stone:.9,iron:2};
 const OFFLINE_CAP=24*3600e3;
+const ECO_SPEED=2,TRAIN_SPEED=2,MARCH_SPEED=1.6; // pace of the game
 
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
@@ -369,6 +370,7 @@ function stats(c){
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
   const civ=Math.max(0,pop-army);
   prod.gold+=civ*.35-up;prod.food-=civ*.1+army*.25;prod.mana+=(c.army?.mage||0)*.4;
+  for(const k in prod)prod[k]*=ECO_SPEED;
   const villages=(cnt.village||0)+(cnt.village2||0)+(cnt.village3||0);
   return {pop,army,units,queued,civ,prod,cnt,villages};
 }
@@ -688,7 +690,7 @@ function renderPane(force){
     h+=`<h3>${esc(c.name)}</h3><div class="kv">
       <span>ვალუტა</span><span>${esc(c.currency)}</span><span>ტერიტორია</span><span>${Object.keys(c.tiles).length}</span>
       <span>სოფლები</span><span>${s.villages}</span><span>მოსახლეობა</span><span>${s.pop}</span>
-      <span>ჯარისკაცები</span><span>${s.units}</span><span>გადასახადი</span><span>+${(s.civ*.35).toFixed(1)}/წთ</span></div>
+      <span>ჯარისკაცები</span><span>${s.units}</span><span>გადასახადი</span><span>+${(s.civ*.35*ECO_SPEED).toFixed(1)}/წთ</span></div>
       <h3>შენობები</h3><div class="list">`;
     const bs=Object.keys(B).filter(b=>b!=="wall"&&s.cnt[b]);
     h+=bs.length?bs.map(b=>`<div class="item">${icn(b)}<span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b></span></div>`).join(""):`<p class="muted">დააჭირე შენს მიწას რუკაზე და ააშენე.</p>`;
@@ -845,7 +847,7 @@ function travelTime(from,to,units){
   const spd=Math.max(...Object.keys(units).filter(u=>units[u]>0).map(u=>UNITS[u].spd),1);
   const x0=tx(from),y0=ty(from),x1=tx(to),y1=ty(to),d=Math.hypot(x1-x0,y1-y0);
   let rivers=0,prev=false;for(let k=0;k<=d;k++){const p=d?k/d:0,i=idx(Math.round(x0+(x1-x0)*p),Math.round(y0+(y1-y0)*p));const r=TER[i]===RIVER||TER[i]===WATER;if(r&&!prev)rivers++;prev=r}
-  return Math.max(20,(d*spd+rivers*8))*1000;
+  return Math.max(12,(d*spd+rivers*8)/MARCH_SPEED)*1000;
 }
 async function buildAt(i,b){
   const o=ownerOf(i);if(!o||o.uid!==ME)throw new Error("ეს უჯრა შენი არ არის");
@@ -862,7 +864,7 @@ async function trainUnits(u,n){
   await mutateMe(c=>{const s=stats(c),d=UNITS[u];if(!d.req.every(r=>s.cnt[r]))throw new Error("საჭიროა: "+d.req.map(r=>B[r].n).join(", "));
     if(d.summon&&(c.army.mage||0)<d.mages)throw new Error(`საჭიროა ${d.mages} ჯადოქარი`);
     if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები ან სოფლები");pay(c,d.cost,n);
-    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+d.time*n*1000}];if(d.summon)pushLog(c,d.n+" მოიხმე")});
+    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+d.time*n*1000/TRAIN_SPEED}];if(d.summon)pushLog(c,d.n+" მოიხმე")});
 }
 async function declareWar(t){
   const o=countries[t];await mutateMe(c=>{if((c.wars||[]).includes(t))return false;c.wars=[...(c.wars||[]),t];c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"ომი: "+o.name)});
@@ -1019,7 +1021,7 @@ async function foundCountry(){
   tiles[sp]="capital";
   const taken=alive().filter(c=>c.uid!==ME).map(c=>c.color);const color=taken.includes(draft.color)?COLORS.find(c=>!taken.includes(c)):draft.color;
   const doc={uid:ME,ruler,name,currency,color,flag:JSON.parse(JSON.stringify(draft.flag)),slot,capital:sp,created:Date.now(),t:Date.now(),alive:true,
-    res:{gold:150,food:100,wood:120,stone:40,iron:0,mana:0},tiles,army:{},queue:[],wars:[],peace:[],applied:[],log:[{t:Date.now(),m:"ქვეყანა დაარსდა"}]};
+    res:{gold:300,food:200,wood:250,stone:100,iron:20,mana:0},tiles,army:{},queue:[],wars:[],peace:[],applied:[],log:[{t:Date.now(),m:"ქვეყანა დაარსდა"}]};
   await db.doc("countries/"+ME).set(doc);countries[ME]=doc;rebuildOwners();
   cam.x=X*TS+8;cam.y=Y*TS+8;cam.z=1.8;
   postChat(`ახალი ქვეყანა: ${name} (${ruler})`,true);
