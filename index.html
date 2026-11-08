@@ -325,10 +325,10 @@ const RK=["gold","food","wood","stone","iron","mana"];
 const LAND=[SAND,GRASS,FOREST,HILL,DESERT];
 const B={
   capital:{n:"დედაქალაქი",prod:{gold:6,food:8,wood:3,stone:2},pop:30,noBuild:true},
-  village:{n:"სოფელი",cost:{wood:60,gold:40},prod:{gold:7,food:4},pop:10,on:[GRASS,SAND,DESERT,FOREST],d:"შემოსავალი და მოსახლეობა. შეიძლება გაუმჯობესება"},
-  village2:{n:"დიდი სოფელი",cost:{wood:120,stone:60,gold:120},prod:{gold:15,food:6},pop:20,noBuild:true},
-  village3:{n:"ქალაქი",cost:{wood:150,stone:200,iron:20,gold:300},prod:{gold:28,food:8},pop:35,noBuild:true},
-  house:{n:"სახლი",cost:{wood:40,gold:20},pop:15,on:LAND,d:"+15 მოსახლე"},
+  village:{n:"სოფელი",cost:{wood:60,gold:40},prod:{gold:12,food:7,wood:2},pop:25,on:[GRASS,SAND,DESERT,FOREST],d:"შემოსავალი და მოსახლეობა. შეიძლება გაუმჯობესება"},
+  village2:{n:"დიდი სოფელი",cost:{wood:120,stone:60,gold:120},prod:{gold:24,food:11,wood:3,stone:1},pop:45,noBuild:true},
+  village3:{n:"ქალაქი",cost:{wood:150,stone:200,iron:20,gold:300},prod:{gold:40,food:15,wood:4,stone:2,iron:1},pop:70,noBuild:true},
+  house:{n:"სახლი",cost:{wood:30,gold:15},pop:8,on:LAND,d:"+8 მოსახლე"},
   farm:{n:"ფერმა",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT],d:"საკვები. მდინარესთან მეტი"},
   lumber:{n:"სახერხი",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"ხე. მხოლოდ ტყეში"},
   quarry:{n:"ქვის სამტეხლო",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"ქვა. ბორცვზე ან მთაზე"},
