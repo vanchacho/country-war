@@ -292,6 +292,8 @@ function drawIcon(g,k,x,y,s){
       S(O,1.4,()=>{g.moveTo(24,22);g.lineTo(24,7)});P("#f1e6c8",tri(24.6,8,24.6,20,31,19));break;
     case"ship":P(O,()=>{g.moveTo(2,19);g.lineTo(30,19);g.lineTo(25,28);g.lineTo(7,28);g.closePath()});P("#8a5a2b",()=>{g.moveTo(4,20.2);g.lineTo(28,20.2);g.lineTo(24,26.8);g.lineTo(8,26.8);g.closePath()});
       S(O,1.8,()=>{g.moveTo(16,19);g.lineTo(16,2)});P(O,tri(17,3,17,17,29,16));P("#f1e6c8",tri(17.8,4.6,17.8,16,27,15.2));P(O,tri(15,5,15,17,5,16));P("#e6dcc0",tri(14.2,6.6,14.2,16,7,15.3));break;
+    case"warship":P(O,()=>{g.moveTo(1,19);g.lineTo(31,17);g.lineTo(26,26);g.lineTo(6,26);g.closePath()});P("#6b4423",()=>{g.moveTo(3,20);g.lineTo(29,18.4);g.lineTo(25,24.6);g.lineTo(7,24.6);g.closePath()});
+      for(const sx of [8,13,18,23])C("#c8322b",sx,19.5,1.8);S(O,1.6,()=>{g.moveTo(16,18);g.lineTo(16,3)});P(O,()=>{g.rect(8,4,16,11)});P("#efe6cf",()=>{g.rect(9,5,14,9)});R("#c8322b",11,5,3,9);R("#c8322b",18,5,3,9);break;
     case"camp":P(O,tri(2,28,12,8,22,28));P("#b0844a",tri(4,27,12,10.5,20,27));P(O,tri(10,28,12,22,14,28));
       P(O,tri(14,28,22,12,30,28));P("#c99a5a",tri(16,27,22,14.5,28,27));C("#f08a2c",27,27,2.6);C("#f2c771",27,26.4,1.4);break;
     // units
@@ -383,6 +385,7 @@ function drawUnitSprite(g,u,x,y,s,col,ph,skin){
     const rx=x+s*.05,ry=y-s*1-bob;g.fillStyle=col;g.fillRect(rx-s*.18,ry-s*.55,s*.36,s*.55);g.fillStyle=skin;g.fillRect(rx-s*.18,ry-s*.75,s*.36,s*.22);
     if(u==="knight"){g.strokeStyle="#cfd5db";g.lineWidth=s*.1;g.beginPath();g.moveTo(rx+s*.1,ry-s*.3);g.lineTo(rx+s*1.3,ry-s*.75);g.stroke()}
     else{g.strokeStyle="#a8743f";g.lineWidth=s*.09;g.beginPath();g.arc(rx+s*.3,ry-s*.35,s*.32,-1.2,1.2);g.stroke()}return}
+  if(u==="warship"){drawGalley(g,x,y,s*1.5,col,ph,0);return}
   if(u==="catapult"){drawIcon(g,"catapult",x,y-s*.9,s*2.4);return}
   if(u==="golem"){drawIcon(g,"golem",x,y-s*.9-bob,s*2.1);return}
   if(u==="griffin"||u==="dragon"){const f=1+Math.sin(ph*1.5)*.08,sz=(u==="dragon"?3.2:2.4)*s;g.fillStyle="rgba(0,0,0,.25)";g.beginPath();g.ellipse(x,y,sz*.3,sz*.1,0,0,7);g.fill();
@@ -395,6 +398,18 @@ function drawUnitSprite(g,u,x,y,s,col,ph,skin){
   else if(u==="mage"){g.fillStyle="#3c2a6e";g.beginPath();g.moveTo(x-w*.7,y-h*.95-bob);g.lineTo(x,y-h*1.6-bob);g.lineTo(x+w*.7,y-h*.95-bob);g.fill()}
 }
 // a sailing ship seen from the side: planked hull, two masts with wind-filled sails, the country flag; faces its heading and rocks on the swell
+function drawGalley(g,x,y,s,col,ph,dir){
+  const face=Math.cos(dir||0)<0?-1:1,rock=Math.sin(ph)*.04,bob=Math.sin(ph*1.3)*s*.04;g.save();g.translate(x,y+bob);g.rotate(rock);g.scale(face,1);
+  g.fillStyle="rgba(10,30,45,.35)";g.beginPath();g.ellipse(0,s*.3,s*1.4,s*.15,0,0,7);g.fill();
+  g.strokeStyle="#3a2412";g.lineWidth=s*.05;const os=Math.sin(ph*2.2)*s*.18;g.beginPath();for(let j=-3;j<=3;j++){g.moveTo(j*s*.3,s*.1);g.lineTo(j*s*.3+os,s*.42)}g.stroke();
+  g.fillStyle="#2b1a0d";g.beginPath();g.moveTo(-s*1.35,-s*.02);g.lineTo(s*1.5,-s*.12);g.lineTo(s*1.15,s*.22);g.lineTo(-s*1.05,s*.22);g.closePath();g.fill();
+  g.fillStyle="#5e3b1e";g.beginPath();g.moveTo(-s*1.25,s*.0);g.lineTo(s*1.38,-s*.08);g.lineTo(s*1.08,s*.16);g.lineTo(-s*1,s*.16);g.closePath();g.fill();
+  g.fillStyle="#9aa3ad";g.beginPath();g.moveTo(s*1.5,-s*.12);g.lineTo(s*1.75,s*.05);g.lineTo(s*1.15,s*.12);g.closePath();g.fill();
+  for(let j=-3;j<=3;j++){g.fillStyle=col;g.beginPath();g.arc(j*s*.3,-s*.04,s*.11,0,7);g.fill();g.fillStyle="#f2c771";g.beginPath();g.arc(j*s*.3,-s*.04,s*.04,0,7);g.fill()}
+  g.fillStyle="#2a1a0c";g.fillRect(-s*.04,-s*1.3,s*.08,s*1.25);
+  const puff=1+Math.sin(ph*.7)*.05;g.fillStyle="#efe6cf";g.beginPath();g.moveTo(-s*.55,-s*1.2);g.lineTo(s*.55,-s*1.2);g.quadraticCurveTo(s*.55+s*.25*puff,-s*.75,s*.55,-s*.35);g.lineTo(-s*.55,-s*.35);g.quadraticCurveTo(-s*.55+s*.2*puff,-s*.75,-s*.55,-s*1.2);g.fill();
+  g.fillStyle=col;for(let j=0;j<3;j++)g.fillRect(-s*.55+j*s*.4,-s*1.2,s*.2,s*.85);
+  g.restore()}
 function drawShip(g,x,y,s,col,ph,dir,flag){
   const face=Math.cos(dir||0)<0?-1:1,rock=Math.sin(ph)*.05,bob=Math.sin(ph*1.3)*s*.05;
   g.save();g.translate(x,y+bob);g.rotate(rock);g.scale(face,1);
@@ -480,7 +495,7 @@ function drawSiegeFire(a,spots,cx0,cy0,now,k){const D=countries[a.to];if(!spots.
     const cx=sx+(dx-sx)*ph,cy=sy+(dy-sy)*ph-Math.sin(ph*Math.PI)*8*k,nx=sx+(dx-sx)*(ph+.05),ny=sy+(dy-sy)*(ph+.05)-Math.sin((ph+.05)*Math.PI)*8*k,ang=Math.atan2(ny-cy,nx-cx);
     ctx.strokeStyle="#2a1d12";ctx.lineWidth=.9*k;ctx.beginPath();ctx.moveTo(cx-Math.cos(ang)*3*k,cy-Math.sin(ang)*3*k);ctx.lineTo(cx+Math.cos(ang)*3*k,cy+Math.sin(ang)*3*k);ctx.stroke()}}
 
-const UNIT_ORDER=["knight","harcher","sword","spear","golem","archer","mage","catapult","griffin","dragon"];
+const UNIT_ORDER=["warship","knight","harcher","sword","spear","golem","archer","mage","catapult","griffin","dragon"];
 function formationSlots(units,max){const N=unitSum(units);if(!N)return[];const out=[];
   for(const u of UNIT_ORDER){if(!units[u])continue;const n=Math.max(1,Math.round(units[u]/N*max));for(let i=0;i<n&&out.length<max+3;i++)out.push(u)}return out}
 
@@ -496,12 +511,18 @@ const UNITS={
   mage:{n:"ჯადოქარი",atk:18,def:8,spd:3,pop:1,up:.3,time:15,cost:{gold:50,food:10,iron:5},req:["magetower"]},
   golem:{n:"ქვის გოლემი",atk:14,def:24,spd:4,pop:2,up:.1,time:4,cost:{mana:40},req:["magetower"],summon:1,mages:1},
   griffin:{n:"გრიფონი",atk:26,def:14,spd:1.2,pop:3,up:.2,time:6,cost:{mana:90},req:["magetower"],summon:1,mages:3},
+  warship:{n:"საბრძოლო გემი",atk:30,def:26,spd:.6,pop:3,up:.5,time:25,cost:{wood:150,iron:20,gold:80},req:["port"],naval:1},
   dragon:{n:"დრაკონი",atk:75,def:45,spd:1.4,pop:6,up:.5,time:10,cost:{mana:220},req:["magetower"],summon:1,mages:5},
 };
 const UK=Object.keys(UNITS);
+const isFleet=u=>unitSum(u)>0&&UK.every(k=>!u[k]||UNITS[k].naval);
+const hasFleet=u=>(u?.warship||0)>0;
+const coastal=i=>N4(i).some(n=>TER[n]===WATER);
+const nearestPort=(c,from)=>{const ps=Object.keys(c.tiles||{}).map(Number).filter(i=>c.tiles[i]==="port");return ps.sort((a,b)=>Math.hypot(tx(a)-tx(from),ty(a)-ty(from))-Math.hypot(tx(b)-tx(from),ty(b)-ty(from)))[0]};
 const MODES={direct:{n:"პირდაპირი შეტევა",d:"სწრაფი. გალავანი კატაპულტით ან დრაკონით უნდა გაარღვიო",t:1},
   flank:{n:"უკნიდან შემოვლა",d:"გზა გრძელია, მაგრამ გალავნისა და კოშკების დაცვა ნახევრდება, პატარა გალავანს გვერდს უვლი",t:1.5},
   siege:{n:"ალყა",d:"ქალაქს ალყაში აქცევ: მტერი შიმშილობს, შემოსავალი უნახევრდება, გალავანი სუსტდება. მერე იერიში",t:1},
+  naval:{n:"ზღვის შეტევა",d:"ფლოტი ესხმის მტრის სანაპიროს: ძირავს მის გემებს და ბომბავს სანაპირო შენობებს",t:1},
   raid:{n:"დარბევა",d:"სწრაფი თავდასხმა ნადავლისთვის: ორმაგი ნადავლი, ნაკლები დანაკარგი, მიწას არ იპყრობ",t:.8}};
 const SIEGE_MS=150e3,SHIP_CAP=10,SHIP_COST={wood:80,gold:40};
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
@@ -780,6 +801,8 @@ function frame(){
   // buildings
   if(z>.42){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawIcon(ctx,b,tx(i)*TS+8,ty(i)*TS+8,14)}}}
   // the fleet: built ships idle in the water next to their port, slowly circling
+  for(const c of ORDER){const wn=Math.min(c.army?.warship||0,3);if(wn){const pt=nearestPort(c,c.capital);if(pt!=null&&vis(pt)){const water=N4(pt).concat(N4(pt).flatMap(N4)).filter((q,j,arr)=>TER[q]===WATER&&arr.indexOf(q)===j);
+      for(let m=0;m<wn&&water.length;m++){const w=water[(m*3+2)%water.length],ph=now/12000*Math.PI*2+m*2.3,x=tx(w)*TS+8+Math.cos(ph)*3,y=ty(w)*TS+8+Math.sin(ph)*2,dir=Math.atan2(Math.cos(ph)*2,-Math.sin(ph)*3);drawWake(ctx,x,y,7,dir,now+m*500,.35);drawGalley(ctx,x,y,clamp(8/z,5,9),c.color,now/600+m,dir)}}}}
   for(const c of ORDER){const n=Math.min(c.ships||0,4);if(!n)continue;
     const ports=Object.keys(c.tiles).map(Number).filter(i=>c.tiles[i]==="port");if(!ports.length)continue;
     for(let m=0;m<n;m++){const p=ports[m%ports.length];if(!vis(p))continue;
@@ -829,7 +852,9 @@ function frame(){
       const fl=1+Math.sin(now/120)*.2;ctx.fillStyle="#f08a2c";ctx.beginPath();ctx.arc(P.x+k,P.y-k,2.4*k*fl,0,7);ctx.fill();ctx.fillStyle="#f2c771";ctx.beginPath();ctx.arc(P.x+k,P.y-1.4*k,1.2*k*fl,0,7);ctx.fill();
       formationSlots(units,6).forEach((u,m)=>{const an=m*1.1+.5;drawUnitSprite(ctx,u,P.x+Math.cos(an)*15*k,P.y+Math.sin(an)*9*k+4*k,4.2*k,col,m,SKIN[m%SKIN.length])});
       Y=P.y-14*k;
-    }else if(atSea){const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,ships=Math.min(3,Math.max(1,Math.ceil(N/30)));const bx=-Math.cos(dir),by=-Math.sin(dir);
+    }else if(isFleet(units)){const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,n=Math.min(4,units.warship),bx=-Math.cos(dir),by=-Math.sin(dir);
+      for(let m=n-1;m>=0;m--){const sx=P.x+bx*m*26*k+(-by)*(m%2?10:-10)*k*(m?1:0),sy=P.y+by*m*26*k+bx*(m%2?10:-10)*k*(m?1:0);drawWake(ctx,sx,sy,12*k,dir,now+m*300,1);drawGalley(ctx,sx,sy,9*k,col,now/500+m,dir)}Y=P.y+12*k}
+    else if(atSea){const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,ships=Math.min(3,Math.max(1,Math.ceil(N/30)));const bx=-Math.cos(dir),by=-Math.sin(dir);
       for(let m=ships-1;m>=0;m--){const sx=P.x+bx*m*22*k+(-by)*(m%2?9:-9)*k*(m?1:0),sy=P.y+by*m*22*k+bx*(m%2?9:-9)*k*(m?1:0);drawWake(ctx,sx,sy,11*k,dir,now+m*300,1);drawShip(ctx,sx,sy,11*k,col,now/500+m,dir,m===0?C?.flag:undefined)}Y=P.y+10*k}
     else{const dir=Math.atan2(P.ny-P.y,P.nx-P.x)||0,bx=-Math.cos(dir),by=-Math.sin(dir),px=-by,py=bx;let slots=formationSlots(units,12);
       // marching into a siege: once the column reaches the siege line, groups peel off and hold their spot while the rest walk on
@@ -1139,7 +1164,8 @@ async function redirectArmy(id,an,path){let lift=null;const T=ownerOf(an.target)
   postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""} (გზა შეიცვალა)`,true)}
 function startRouteDraw(src,units,raid){
   const c=countries[ME];if(!c)return;const from=src==="home"?c.capital:src==="move"?c.capital:attacks[src]?.target;if(from==null)return;
-  routeDraw={src,units,raid,from,pts:[from],an:null};placing="route";selected=-1;selectedArmy=null;renderTile();
+  let start=from;if(isFleet(units)&&src==="home"){const pt=nearestPort(c,c.capital);if(pt==null){toast("ფლოტისთვის ნავსადგური გჭირდება","err");return}start=pt}
+  routeDraw={src,units,raid,from:start,pts:[start],an:null};placing="route";selected=-1;selectedArmy=null;renderTile();
   $("#place").hidden=false;$("#place").innerHTML=`<button class="btn sm" id="rtClear">თავიდან</button><button class="btn sm" id="stopPl">გაუქმება</button>`;
   $("#stopPl").onclick=()=>{routeDraw=null;stopPlacing()};$("#rtClear").onclick=()=>{if(routeDraw){routeDraw.pts=[routeDraw.from];routeDraw.an=null}};
 }
@@ -1154,11 +1180,19 @@ function analyzeRoute(){
   if(!routeDraw)return null;if(routeDraw.an)return routeDraw.an;const pts=routeDraw.pts,last=pts[pts.length-1];let res={ok:false};
   if(pts.length<2){routeDraw.an=res;return res}
   const c=countries[ME],sea=pts.some(q=>TER[q]===WATER),inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
+  if(isFleet(routeDraw.units)){ // a war fleet: sails only on the sea
+    if(pts.slice(1,-1).some(q=>TER[q]!==WATER&&!coastal(q))){routeDraw.an={ok:false,why:"ფლოტი მხოლოდ ზღვაზე დადის"};return routeDraw.an}
+    let best=-1,bs=0;for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){const x=tx(last)+dx,y=ty(last)+dy;if(!inb(x,y))continue;const t=idx(x,y);if(!enemyTile(t))continue;const sw=sweepAround(pts,t)+(ownerOf(t).capital===t?1.2:0);if(sw>bs){bs=sw;best=t}}
+    if(best>=0&&bs>=Math.PI*1.3&&!enemyTile(last)){const line=pts.filter(q=>TER[q]===WATER&&Math.hypot(tx(q)-tx(best),ty(q)-ty(best))<=10);res={ok:true,target:best,mode:"siege",line:line.filter((_,j)=>j%Math.max(1,Math.ceil(line.length/24))===0)}}
+    else{let T=enemyTile(last)&&coastal(last)?last:-1;if(T<0)for(const n of N4(last))if(enemyTile(n)){T=n;break}
+      if(T<0){routeDraw.an={ok:false,why:"ფლოტის გზა მტრის სანაპიროსთან დაასრულე"};return routeDraw.an}res={ok:true,target:T,mode:"naval"}}
+    res.path=[...pts];if(res.mode!=="siege"&&res.path[res.path.length-1]!==res.target)res.path.push(res.target);res.naval=false;res.time=pathTravel(res.path,routeDraw.units);
+    routeDraw.an=res;return res}
   // 1) a closed loop around an enemy city or building = siege
   let best=-1,bs=0;const seen=new Set();
   for(const q of [last,...pts.filter((_,j)=>j%4===0)])for(let dy=-7;dy<=7;dy++)for(let dx=-7;dx<=7;dx++){const x=tx(q)+dx,y=ty(q)+dy;if(!inb(x,y))continue;const t=idx(x,y);if(seen.has(t)||!enemyTile(t))continue;seen.add(t);
     const sw=sweepAround(pts,t)+(ownerOf(t).capital===t?1.2:ownerOf(t).tiles[t]?.4:0);if(sw>bs){bs=sw;best=t}}
-  if(best>=0&&bs>=Math.PI*1.3){const foe=ownerOf(best).uid;
+  if(best>=0&&bs>=Math.PI*1.3&&!enemyTile(last)){const foe=ownerOf(best).uid;
     // the siege line is the drawn loop itself, kept outside the enemy's land
     let line=pts.filter(q=>Math.hypot(tx(q)-tx(best),ty(q)-ty(best))<=10&&ownerOf(q)?.uid!==foe&&TER[q]!==WATER);
     if(line.length<3)line=pts.filter(q=>Math.hypot(tx(q)-tx(best),ty(q)-ty(best))<=10&&TER[q]!==WATER);
@@ -1178,7 +1212,7 @@ function analyzeRoute(){
       else res={ok:false,why:"გზა ხმელეთზე დაასრულე"}}}
   if(res.ok){let path=[...pts];if(res.mode==="raid")path=pts.slice(0,res.cut+1);else if(res.mode!=="siege"&&path[path.length-1]!==res.target)path.push(res.target);
     res.path=path;res.naval=path.some(q=>TER[q]===WATER);res.time=pathTravel(path,routeDraw.units)*(res.mode==="raid"?.8:1);
-    if(res.naval){const pop=UK.reduce((t,k)=>t+(routeDraw.units[k]||0)*UNITS[k].pop,0),cap=(c?.ships||0)*SHIP_CAP;
+    if(res.naval){const pop=UK.reduce((t,k)=>t+(UNITS[k].naval?0:(routeDraw.units[k]||0)*UNITS[k].pop),0),cap=(c?.ships||0)*SHIP_CAP;
       if(!stats(c).cnt.port)res.err="ზღვის გადასაკვეთად ნავსადგური და გემები გჭირდება";else if(pop>cap)res.err=`გემები არ გყოფნის (${cap}/${pop} ადგილი)`}}
   routeDraw.an=res;return res}
 const ROUTE_NAME={...Object.fromEntries(Object.entries(MODES).map(([k,m])=>[k,m.n])),camp:"ბანაკი"};
@@ -1217,10 +1251,10 @@ function openSend(){
     ov.innerHTML=`<div class="card modal"><h2>ჯარის გაგზავნა</h2>
       ${camps.length?`<label class="field" style="margin:4px 0 0">საიდან<select id="aSrc"><option value="home">დედაქალაქიდან</option>${camps.map((a,n)=>`<option value="${esc(a.id)}" ${src===a.id?"selected":""}>ბანაკიდან ${n+1} (${unitSum(a.units)})</option>`).join("")}</select></label>`:""}
       ${avail.length?`<div class="units">${avail.map(u=>`<div class="item">${icn(u)}<span class="tx"><b>${UNITS[u].n}</b><span>გყავს ${P[u]}</span></span><input type="number" min="0" max="${P[u]}" value="${picked[src+u]??P[u]}" data-u="${u}"></div>`).join("")}</div>`:`<p>აქ ჯარი არ გყავს.</p>`}
-      <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="aCancel">გაუქმება</button>${avail.length?'<button class="btn gold" id="aDraw">გზის დახატვა</button>':""}</div></div>`;paintIcons(ov)};
+      ${avail.includes("warship")?'<p class="muted" style="font-size:12px;margin:0 0 10px">საბრძოლო გემები ცალკე ფლოტად გაგზავნე და გზა ზღვაზე დახატე.</p>':""}<div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="aCancel">გაუქმება</button>${avail.length?'<button class="btn gold" id="aDraw">გზის დახატვა</button>':""}</div></div>`;paintIcons(ov)};
   $("#app").appendChild(ov);render();
   ov.addEventListener("input",e=>{const t=e.target;if(t.dataset.u)picked[src+t.dataset.u]=t.value;if(t.id==="aSrc"){src=t.value;render()}});
-  ov.addEventListener("click",e=>{if(e.target.id==="aCancel")ov.remove();if(e.target.id==="aDraw"){const u=pick();if(!unitSum(u)){toast("აირჩიე ჯარისკაცები","err");return}ov.remove();startRouteDraw(src,u,false)}});
+  ov.addEventListener("click",e=>{if(e.target.id==="aCancel")ov.remove();if(e.target.id==="aDraw"){const u=pick();if(!unitSum(u)){toast("აირჩიე ჯარისკაცები","err");return}if(hasFleet(u)&&!isFleet(u)){toast("საბრძოლო გემები ცალკე ფლოტად გაგზავნე","err");return}ov.remove();startRouteDraw(src,u,false)}});
 }
 /* camp dialog */
 function openCamp(tile){
@@ -1329,7 +1363,18 @@ async function launchCamp(tile,units,path=null,src="home"){
 async function campReturn(id){await mutate("attacks/"+id,cur=>{if(!cur||cur.status!=="camped")return;const now=Date.now(),sv=cur.units;
   cur.result={survivors:sv,survivorsN:unitSum(sv),loot:{},camp:1,at:now};cur.status="returning";cur.retFrom=cur.target;cur.path=null;cur.arrive=now;cur.returnAt=now+travelTime(cur.target,cur.fromTile,sv);return cur})}
 async function buildShip(){await mutateMe(c=>{if(!stats(c).cnt.port)throw new Error("ააშენე ნავსადგური");pay(c,SHIP_COST);c.ships=(c.ships||0)+1;pushLog(c,"გემი აშენდა")})}
+function navalBattle(a,def){
+  const u=a.units,rnd=k=>.9+hash(strHash(a.id),k,SEED)*.2,towers=countNear(def,a.target,"tower",2);
+  const A=(u.warship||0)*UNITS.warship.atk*rnd(1),D=((def.army?.warship||0)*UNITS.warship.def+towers*30+10)*rnd(2),win=A>D;
+  const hi=Math.max(A,D,1),lo=Math.max(Math.min(A,D),1),wl=clamp(.5*Math.pow(lo/hi,1.3),.03,.9),ll=clamp(.6+.3*(hi/lo-1),.6,1),atkLoss=win?wl:ll,defLoss=win?ll:wl;
+  const survivors={warship:Math.floor((u.warship||0)*(1-atkLoss))},defLost={},dw=def.army?.warship||0;if(dw)defLost.warship=dw-Math.floor(dw*(1-defLoss));
+  const shipsSunk=win?Math.ceil((def.ships||0)*.5):0,ravaged=[];
+  if(win){const X=tx(a.target),Y=ty(a.target);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(def.tiles?.[i]&&def.tiles[i]!=="capital"&&def.tiles[i]!=="wall")ravaged.push(i)}}
+  const loot={};for(const k of RK)loot[k]=win?Math.floor((def.res?.[k]||0)*.08):0;
+  return{win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN:survivors.warship,atkLostN:(u.warship||0)-survivors.warship,defLostN:defLost.warship||0,defLost,
+    defArmy:dw?{warship:dw}:{},tiles:{},tilesN:0,capital:false,loot,mode:a.mode==="siege"?"siege":"naval",wallsDestroyed:[],blocked:false,starving:(def.res?.food||0)<1,ravaged,shipsSunk,sea:1,at:Date.now()}}
 function battle(a,def){
+  if(isFleet(a.units))return navalBattle(a,def);
   const u=a.units,mode=a.mode||"direct",rnd=k=>.9+hash(strHash(a.id),k,SEED)*.2;
   const cav=(u.harcher||0)+(u.knight||0)+(u.griffin||0),tot=unitSum(u)||1,f=cav/tot;
   const A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0)*rnd(1);
@@ -1342,7 +1387,7 @@ function battle(a,def){
   let wallB=Math.min(1.2,wallsLeft*.12)*(mode==="siege"?.5:1),towerB=Math.min(.75,towers*.25);if(mode==="flank"){wallB*=.5;towerB*=.5}
   const bonus=(wallB+towerB+(def.capital===a.target?.3:0))*Math.max(0,1-(u.mage||0)*.06);
   const terr=mode==="flank"?0:({[HILL]:.2,[MOUNTAIN]:.4,[FOREST]:.1}[TER[a.target]]||0);
-  let D=(UK.reduce((s,k)=>s+(def.army?.[k]||0)*UNITS[k].def*(k==="spear"?1+f:1),0)+30+(def.capital===a.target?80:0))*(1+bonus+terr)+towers*25*(mode==="flank"?.5:1);
+  let D=(UK.reduce((s,k)=>s+(def.army?.[k]||0)*UNITS[k].def*(k==="spear"?1+f:1)*(UNITS[k].naval?(coastal(a.target)?.5:0):1),0)+30+(def.capital===a.target?80:0))*(1+bonus+terr)+towers*25*(mode==="flank"?.5:1);
   if(starving)D*=.6;D*=rnd(2);
   const win=A>D;let atkLoss,defLoss;
   if(win){atkLoss=clamp(.5*Math.pow(D/A,1.3),.03,.9);defLoss=clamp(.6+.3*(A/D-1),.6,1)}else{atkLoss=clamp(.55+.3*(D/Math.max(A,1)-1),.55,1);defLoss=clamp(.5*Math.pow(A/D,1.3),.02,.9)}
@@ -1368,8 +1413,9 @@ const unitSum=u=>UK.reduce((t,k)=>t+(u?.[k]||0),0);
 function unitsHTML(u){const ks=UK.filter(k=>u?.[k]);return ks.length?`<div class="cost" style="gap:4px 10px">${ks.map(k=>`<span title="${UNITS[k].n}">${icn(k,1)}${u[k]}</span>`).join("")}</div>`:'<span class="muted">—</span>'}
 function interceptPlan(a,units){
   const c=countries[ME];if(!c)return null;if(a.status==="besieging"||a.status==="camped"){const pts=a.siegeLine?.length?a.siegeLine:[a.target],tile=pts.reduce((b,q)=>Math.hypot(tx(q)-tx(c.capital),ty(q)-ty(c.capital))<Math.hypot(tx(b)-tx(c.capital),ty(b)-ty(c.capital))?q:b,pts[0]);return{tile,meetAt:Date.now()+travelTime(c.capital,tile,units)}}if(a.status!=="marching")return null;const now=Date.now(),f0=clamp((now-a.launch)/(a.arrive-a.launch),0,1);
-  for(let f=f0+.02;f<=.95;f+=.02){const q=along(pathOf(a),f),tile=idx(clamp(Math.floor(q.x/TS),0,W-1),clamp(Math.floor(q.y/TS),0,H-1));if(TER[tile]===WATER)continue;
-    const tE=a.launch+f*(a.arrive-a.launch);if(tE<now+5000)continue;if(now+travelTime(c.capital,tile,units)<=tE)return{tile,meetAt:tE}}
+  const fleet=isFleet(units);if(hasFleet(units)&&!fleet)return null;const start=fleet?nearestPort(c,c.capital):c.capital;if(start==null)return null;
+  for(let f=f0+.02;f<=.95;f+=.02){const q=along(pathOf(a),f),tile=idx(clamp(Math.floor(q.x/TS),0,W-1),clamp(Math.floor(q.y/TS),0,H-1));if((TER[tile]===WATER)!==fleet)continue;
+    const tE=a.launch+f*(a.arrive-a.launch);if(tE<now+5000)continue;if(now+travelTime(start,tile,units)<=tE)return{tile,meetAt:tE,start}}
   return null}
 function openIntercept(aid){
   const a=attacks[aid],c=live(ME);if(!a||!c)return;
@@ -1383,7 +1429,7 @@ function openIntercept(aid){
   const pick=()=>{const u={};ov.querySelectorAll("[data-u]").forEach(inp=>{const n=clamp(Math.floor(+inp.value||0),0,c.army[inp.dataset.u]);if(n)u[inp.dataset.u]=n});return u};
   const pw=u=>UK.reduce((t,k)=>t+(u[k]||0)*(UNITS[k].atk+UNITS[k].def)/2,0);
   const info=()=>{const el=ov.querySelector("#icInfo");if(!el)return;const u=pick();if(!unitSum(u)){el.textContent="აირჩიე ჯარი";return}const pl=interceptPlan(a,u);
-    el.innerHTML=pl?`<span style="color:var(--ok)">შეხვედრა <b>${mmss(pl.meetAt-Date.now())}</b>-ში</span> · შენი ძალა ${Math.round(pw(u))}, მტრის ~${Math.round(pw(a.units))}`:`<span style="color:var(--danger)">ვერ მიუსწრებ. აირჩიე სწრაფი ჯარი (ცხენოსნები, გრიფონი)</span>`};
+    el.innerHTML=pl?`<span style="color:var(--ok)">შეხვედრა <b>${mmss(pl.meetAt-Date.now())}</b>-ში</span> · შენი ძალა ${Math.round(pw(u))}, მტრის ~${Math.round(pw(a.units))}`:`<span style="color:var(--danger)">${hasFleet(u)&&!isFleet(u)?"საბრძოლო გემები ცალკე გაგზავნე":isFleet(u)?"ფლოტი ზღვაზე ვერ მიუსწრებს":"ვერ მიუსწრებ. აირჩიე სწრაფი ჯარი (ცხენოსნები, გრიფონი)"}</span>`};
   info();ov.addEventListener("input",info);
   ov.querySelector("#icCancel").onclick=()=>ov.remove();
   const go=ov.querySelector("#icGo");if(go)go.onclick=()=>{const u=pick();ov.remove();act(()=>launchIntercept(aid,u),"ჯარი გაემართა დასახვედრად")};
@@ -1394,11 +1440,11 @@ async function launchIntercept(aid,units){
   const pl=interceptPlan(a,units);if(!pl)throw new Error("ვერ მიუსწრებ");
   const ref=db.collection("attacks").doc();let doc;
   await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];
-    doc={id:ref.id,kind:"intercept",from:ME,to:a.from,targetAttack:aid,units,target:pl.tile,fromTile:c.capital,launch:Date.now(),arrive:pl.meetAt,status:"marching"};pushLog(c,"დახვედრა: "+countries[a.from]?.name)});
+    doc={id:ref.id,kind:"intercept",from:ME,to:a.from,targetAttack:aid,units,target:pl.tile,fromTile:pl.start??c.capital,launch:Date.now(),arrive:pl.meetAt,status:"marching"};pushLog(c,"დახვედრა: "+countries[a.from]?.name)});
   await ref.set(doc);postChat(`დახვედრა: ${countries[ME].name} → ${countries[a.from]?.name}`,true);
 }
 function fieldBattle(ic,tg){
-  const rnd=k=>.9+hash(strHash(ic.id),k,SEED)*.2,pw=u=>UK.reduce((t,k)=>t+(u[k]||0)*(UNITS[k].atk+UNITS[k].def)/2,0);
+  const atSea=TER[ic.target]===WATER,rnd=k=>.9+hash(strHash(ic.id),k,SEED)*.2,pw=u=>UK.reduce((t,k)=>t+(u[k]||0)*(UNITS[k].atk+UNITS[k].def)/2*(UNITS[k].naval?(atSea?1:0):(atSea?.15:1)),0);
   const own=!!countries[ic.from]&&(ic.target in (countries[ic.from].tiles||{})),terr={[HILL]:.2,[MOUNTAIN]:.3,[FOREST]:.15}[TER[ic.target]]||0;
   const P1=pw(ic.units)*(1+terr+(own?.15:0))*rnd(1),P2=pw(tg.units)*rnd(2)*(tg.status==="camped"?1.2:1),win=P1>P2,hi=Math.max(P1,P2,1),lo=Math.max(Math.min(P1,P2),1);
   const wl=clamp(.5*Math.pow(lo/hi,1.3),.03,.9),ll=clamp(.6+.3*(hi/lo-1),.6,1),lossMe=win?wl:ll,lossThem=win?ll:wl;
@@ -1444,6 +1490,7 @@ function showReport(a){
     <p class="muted" style="margin:0 0 14px">${ic?"ველზე ბრძოლა":"შეტევა"} · ${TNAME[TER[a.target]]}${!ic&&D&&a.target===D.capital?" · დედაქალაქი":""}</p>
     <div style="height:10px;border-radius:5px;overflow:hidden;display:flex;margin-bottom:14px"><i style="flex:${pA||1};background:${A?.color}"></i><i style="flex:${pD||1};background:${D?.color}"></i></div>
     <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">${side(A,pA,lostA,ic?"დამხვედრი":"თავდამსხმელი")}${side(D,pD,lostD,ic?"ლაშქარი":"დამცველი")}</div>
+    ${r.sea&&r.win?`<p style="margin:12px 0 0">ჩაიძირა ${r.shipsSunk||0} სატრანსპორტო გემი${r.ravaged?.length?`, დაინგრა ${r.ravaged.length} სანაპირო შენობა`:""}.</p>`:""}
     ${!ic?`<p class="muted" style="margin:12px 0 0;font-size:12px">${MODES[r.mode||"direct"].n}${a.naval?" · ზღვით":""}${r.wallsDestroyed?.length?` · დაინგრა ${r.wallsDestroyed.length} გალავანი`:""}${r.starving?" · დამცველები შიმშილობდნენ":""}</p>`:""}
     ${!ic&&r.win&&r.blocked?`<p style="margin:10px 0 0;color:var(--brass2)">ბრძოლა მოიგო, მაგრამ გალავანმა გაუძლო და ქალაქში ვერ შევიდა. საჭიროა კატაპულტები ან დრაკონი.</p>`:""}
     ${ic?`<p style="margin:14px 0 0">${r.win?"მტრის ჯარი უკუიქცა და სახლში ბრუნდება.":"მტრის ჯარმა გაარღვია და გზას აგრძელებს."}</p>`:
@@ -1488,6 +1535,7 @@ async function applyDefender(a){
     for(const k of UK)c.army[k]=Math.floor((c.army[k]||0)*(1-r.defLoss));
     for(const i of r.wallsDestroyed||[])if(c.tiles[i]==="wall")c.tiles[i]="";
     for(const i of r.ravaged||[])if(c.tiles[i]&&c.tiles[i]!=="capital")c.tiles[i]="";
+    if(r.shipsSunk)c.ships=Math.max(0,(c.ships||0)-r.shipsSunk);
     if(c.siege&&c.siege.id===a.id)c.siege=null;
     if(r.win){for(const i in r.tiles)delete c.tiles[i];for(const k of RK)c.res[k]=Math.max(0,c.res[k]-(r.loot[k]||0));
       if(r.capital||!(c.capital in c.tiles)){const keys=Object.keys(c.tiles).map(Number);
