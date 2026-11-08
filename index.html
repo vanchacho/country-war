@@ -156,7 +156,7 @@ canvas.icn.s{width:18px;height:18px}
   <div id="place" class="plate" hidden></div>
   <div id="toasts"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 "use strict";
 /* ================= utils ================= */
@@ -397,7 +397,6 @@ let selected=-1,placing=null,tab="land",lastChatSeen=0;
 const NET={role:null,wid:null,status:"",peers:0};
 
 /* ================= shared storage: host browser keeps the world, friends connect peer-to-peer ================= */
-const PEER_PREFIX="countrywar-ka-";
 function makeStore(wid){
   const KEY="cw_world_"+wid;let data={};try{data=JSON.parse(localStorage.getItem(KEY)||"{}")}catch{}
   const leases={},listeners=new Set();let saveT=null;
@@ -421,55 +420,55 @@ function netDB(getData,listeners,call){
       onSnapshot:n=>{const f=()=>{const d=list();n({docs:d,size:d.length,empty:!d.length,docChanges:()=>[],metadata:{}})};listeners.add(f);setTimeout(f,0);return()=>listeners.delete(f)}}};
   return{doc:docRef,collection:colRef};
 }
+/* relay through a public MQTT broker over secure websockets: works across any Wi-Fi or mobile network */
+const BROKER="wss://broker.emqx.io:8084/mqtt";
+const topic=(wid,s)=>"countrywar-ka/v1/"+wid+"/"+s;
+function mqttConnect(prefix){return mqtt.connect(BROKER,{clientId:prefix+rid(10),clean:true,keepalive:30,reconnectPeriod:3000,connectTimeout:10000})}
 function startHost(wid){
   const store=makeStore(wid);
   db=netDB(()=>store.data,store.listeners,async(op,...a)=>store.ops[op](...a));
-  const conns=new Set();
-  const bcast=()=>{const msg={t:"store",d:store.data,n:conns.size+1};for(const c of conns)if(c.open)try{c.send(msg)}catch{}};
-  let bt=null;store.listeners.add(()=>{clearTimeout(bt);bt=setTimeout(bcast,60)});
-  const upd=()=>{NET.peers=conns.size+1;renderNet();bcast()};
-  let tries=0;
-  const go=()=>{
-    const peer=new Peer(PEER_PREFIX+wid,{debug:0});
-    peer.on("open",()=>{NET.status="online";renderNet()});
-    peer.on("connection",c=>{
-      c.on("open",()=>{conns.add(c);try{c.send({t:"store",d:store.data,n:conns.size+1})}catch{}upd()});
-      c.on("data",m=>{if(!m||m.t!=="rpc")return;let res=null,err=null;try{res=store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}try{c.send({t:"res",id:m.id,res,err})}catch{}});
-      c.on("close",()=>{conns.delete(c);upd()});c.on("error",()=>{conns.delete(c);upd()});
-    });
-    peer.on("disconnected",()=>{NET.status="offline";renderNet();setTimeout(()=>{try{peer.reconnect()}catch{}},2000)});
-    peer.on("error",e=>{
-      if(e.type==="unavailable-id"){peer.destroy();if(tries++<12){NET.status="wait";renderNet();setTimeout(go,3000)}else{NET.status="dup";renderNet()}}
-      else if(["network","server-error","socket-error","socket-closed"].includes(e.type)){NET.status="offline";renderNet()}
-    });
-  };
-  go();
+  const seen=new Map();
+  const online=()=>{const now=Date.now();let n=1;for(const [k,t] of seen){if(now-t<30000)n++;else seen.delete(k)}return n};
+  const cl=mqttConnect("cwh_");
+  const pubState=()=>{if(cl.connected)cl.publish(topic(wid,"state"),JSON.stringify({d:store.data,n:online(),ts:Date.now()}),{retain:true,qos:1})};
+  let bt=null;store.listeners.add(()=>{clearTimeout(bt);bt=setTimeout(pubState,80)});
+  cl.on("connect",()=>{cl.subscribe([topic(wid,"req"),topic(wid,"hello")],{qos:1});NET.status="online";renderNet();pubState()});
+  cl.on("reconnect",()=>{NET.status="wait";renderNet()});
+  cl.on("offline",()=>{NET.status="offline";renderNet()});
+  cl.on("error",()=>{NET.status="offline";renderNet()});
+  cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}
+    if(!m||!m.c)return;
+    const isNew=!seen.has(m.c);seen.set(m.c,Date.now());
+    if(tp.endsWith("/hello")){if(isNew){NET.peers=online();renderNet()}pubState();return}
+    let res=null,err=null;try{res=store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}
+    cl.publish(topic(wid,"res/"+m.c),JSON.stringify({id:m.id,res,err}),{qos:1});
+  });
+  setInterval(()=>{if(cl.connected){NET.peers=online();renderNet();cl.publish(topic(wid,"hb"),JSON.stringify({n:NET.peers,ts:Date.now()}))}},5000);
 }
 function startClient(wid,onFirst){
-  let mirror={},conn=null,seq=0,retry=null,first=true;const listeners=new Set(),pending=new Map();
-  const call=(op,...a)=>new Promise((res,rej)=>{if(!conn||!conn.open)return rej(new Error("მასპინძელთან კავშირი არ არის"));const id=++seq;pending.set(id,{res,rej});
-    try{conn.send({t:"rpc",id,op,a})}catch(e){pending.delete(id);return rej(e)}
-    setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error("მასპინძელი არ პასუხობს"))}},10000)});
+  let mirror={},seq=0,first=true,lastHb=0;const listeners=new Set(),pending=new Map(),me_c="c"+rid(10);
+  const cl=mqttConnect("cwc_");
+  const hostUp=()=>Date.now()-lastHb<14000;
+  const call=(op,...a)=>new Promise((res,rej)=>{
+    if(!cl.connected)return rej(new Error("ინტერნეტთან კავშირი არ არის"));
+    if(!hostUp())return rej(new Error("მასპინძელი არ არის ონლაინ"));
+    const id=++seq;pending.set(id,{res,rej});cl.publish(topic(wid,"req"),JSON.stringify({c:me_c,id,op,a}),{qos:1});
+    setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error("მასპინძელი არ პასუხობს"))}},12000)});
   db=netDB(()=>mirror,listeners,call);
-  const peer=new Peer(undefined,{debug:0});
-  const again=ms=>{if(retry)return;retry=setTimeout(()=>{retry=null;connect()},ms)};
-  const connect=()=>{
-    if(peer.disconnected){try{peer.reconnect()}catch{}}
-    conn=peer.connect(PEER_PREFIX+wid,{reliable:true});
-    conn.on("open",()=>{NET.status="online";renderNet()});
-    conn.on("data",m=>{if(!m)return;
-      if(m.t==="store"){mirror=m.d||{};NET.peers=m.n||NET.peers;renderNet();for(const f of listeners)f();if(first){first=false;onFirst()}}
-      else if(m.t==="res"){const p=pending.get(m.id);if(p){pending.delete(m.id);m.err?p.rej(new Error(m.err)):p.res(m.res)}}});
-    conn.on("close",()=>{NET.status="hostoff";renderNet();again(4000)});
-    conn.on("error",()=>again(4000));
-  };
-  peer.on("open",connect);
-  peer.on("error",e=>{if(e.type==="peer-unavailable"){NET.status="hostoff";renderNet();if(first)setWait("hostoff");again(5000)}else if(["network","server-error","socket-error"].includes(e.type)){NET.status="offline";renderNet();again(5000)}});
+  const hello=()=>{if(cl.connected)cl.publish(topic(wid,"hello"),JSON.stringify({c:me_c}))};
+  cl.on("connect",()=>{cl.subscribe([topic(wid,"state"),topic(wid,"hb"),topic(wid,"res/"+me_c)],{qos:1},()=>hello())});
+  cl.on("offline",()=>{NET.status="offline";renderNet()});
+  cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}
+    if(tp.endsWith("/state")){mirror=m.d||{};if(m.n)NET.peers=m.n;for(const f of listeners)f();if(first){first=false;onFirst()}}
+    else if(tp.endsWith("/hb")){const was=hostUp();lastHb=Date.now();NET.peers=m.n||NET.peers;NET.status="online";renderNet();if(!was)hello()}
+    else{const p=pending.get(m.id);if(p){pending.delete(m.id);m.err?p.rej(new Error(m.err)):p.res(m.res)}}});
+  setInterval(()=>{hello();if(!hostUp()&&cl.connected){NET.status="hostoff";renderNet()}},10000);
+  setTimeout(()=>{if(first)setWait("hostoff")},12000);
 }
 function inviteLink(){return location.origin+location.pathname+"#w-"+NET.wid}
 function renderNet(){
   const el=$("#net");if(!NET.role){el.hidden=true;return}el.hidden=!me();
-  const st={online:["on","ონლაინ"],offline:["off","კავშირი არ არის"],hostoff:["off","მასპინძელი არ არის ონლაინ"],wait:["","უკავშირდება…"],dup:["off","სამყარო სხვა ფანჯარაშია ღია"]}[NET.status]||["","უკავშირდება…"];
+  const st={online:["on","ონლაინ"],offline:["off","კავშირი არ არის"],hostoff:["off","მასპინძელი არ არის ონლაინ"],wait:["","უკავშირდება…"],dup:["off",""]}[NET.status]||["","უკავშირდება…"];
   el.innerHTML=`<span class="dot ${st[0]}"></span><span>${st[1]}${NET.status==="online"?` · ${NET.peers}`:""}</span><button class="btn sm" id="invBtn">მოწვევა</button>`;
 }
 $("#net").addEventListener("click",e=>{if(e.target.id==="invBtn")showInvite()});
@@ -1030,7 +1029,7 @@ async function boot(){
     ME=await user.id();isOwnerViewer=await user.isOwner();
     if(!ME){banner(`<p>შენი ანგარიში ვერ ამოვიცანი.</p>`);return}
   }else{
-    if(typeof Peer==="undefined"){banner(`<h2>ქსელი ვერ ჩაიტვირთა</h2><p class="muted">განაახლე გვერდი.</p>`);return}
+    if(typeof mqtt==="undefined"){banner(`<h2>ქსელი ვერ ჩაიტვირთა</h2><p class="muted">განაახლე გვერდი.</p>`);return}
     ME=playerId();
     const m=location.hash.match(/^#w-([a-z0-9]+)$/);let hostId=null;try{hostId=localStorage.getItem("cw_host")}catch{}
     if(m&&m[1]!==hostId){
