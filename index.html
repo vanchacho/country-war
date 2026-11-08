@@ -653,13 +653,13 @@ function frame(){
     ctx.fillStyle="#2a241b";ctx.fillRect(x+14,y-14,1.5,16);drawFlag(ctx,c.flag,x+15.5,y-14,16,10.5);
     if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+18,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+23.5)}}
   // villagers: little people walking between buildings and nearby land
-  if(z>.9){let cnt=0;const tt=now/1000;
+  if(z>.7){let cnt=0;const tt=now/1000;
     for(const c of ORDER){for(const key in c.tiles){const b=c.tiles[key];if(!b||b==="wall")continue;const i=+key;if(!vis(i))continue;
       const many=b==="capital"?4:b.startsWith("village")?3:1;
       for(let m=0;m<many&&cnt<260;m++){const sd=hash(i,m,77),nb=N4(i).filter(n=>n in c.tiles);const j=nb.length?nb[Math.floor(sd*nb.length)]:i;
         const ph=tt*(.25+sd*.25)+sd*20,f=(Math.sin(ph)+1)/2,ox=(hash(i,m,5)-.5)*8,oy=(hash(i,m,6)-.5)*6;
         const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy;
-        drawPerson(ctx,x,y+3,8.5,CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
+        drawPerson(ctx,x,y+3,clamp(15/z,8.5,13),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
   // armies: banner with flag, main unit, head-count; dashed route and pulsing target
   const k=clamp(1.5/z,.8,3),pulse=(now%1200)/1200;
   for(const a of Object.values(attacks)){
