@@ -346,12 +346,32 @@ const UPG={village:"village2",village2:"village3"};
 function prodHTML(b){const d=B[b];const parts=[];if(d.prod)for(const r in d.prod)parts.push(`<span>${icn(r,1)}+${+(d.prod[r]*ECO_SPEED).toFixed(1)}/წთ</span>`);
   if(d.pop)parts.push(`<span>${icn("pop",1)}+${d.pop}</span>`);return parts.length?`<div class="cost" style="color:var(--ok)">${parts.join("")}</div>`:""}
 const SKIN=["#e8c39e","#d9a77c","#c68b5f","#f0d2b0"],CLOTH=["#6b4f8a","#7a5a3a","#4f6b3a","#3a5a7a","#8a3a3a","#8a7a4a"];
-function drawPerson(g,x,y,s,body,skin,ph,weapon){
-  const sw=Math.sin(ph)*s*.32;g.lineCap="round";
-  g.strokeStyle="#1b1712";g.lineWidth=s*.22;g.beginPath();g.moveTo(x,y+s*.15);g.lineTo(x-sw,y+s*.75);g.moveTo(x,y+s*.15);g.lineTo(x+sw,y+s*.75);g.stroke();
-  g.fillStyle=body;g.fillRect(x-s*.2,y-s*.45,s*.4,s*.65);
-  g.fillStyle=skin;g.beginPath();g.arc(x,y-s*.62,s*.2,0,7);g.fill();
-  if(weapon){g.strokeStyle="#cfd5db";g.lineWidth=s*.12;g.beginPath();g.moveTo(x+s*.25,y-s*.2);g.lineTo(x+s*.25,y-s*1.05);g.stroke()}
+const HAIR=["#2b1d14","#5a3a1e","#8a5a2b","#c9a050","#1b1712"];
+// a little figure: x,y = feet; s = height. soldier=true draws helmet, spear and shield
+function drawPerson(g,x,y,s,body,skin,ph,soldier,hair,shield){
+  const u=s/10,sw=Math.sin(ph),O="#1b1712";g.save();g.lineCap="round";g.lineJoin="round";
+  g.fillStyle="rgba(0,0,0,.25)";g.beginPath();g.ellipse(x,y,u*2.6,u*.9,0,0,7);g.fill();
+  // legs
+  g.strokeStyle=O;g.lineWidth=u*1.9;g.beginPath();g.moveTo(x-u*.6,y-u*3.6);g.lineTo(x-u*.6+sw*u*1.6,y-u*.3);g.moveTo(x+u*.6,y-u*3.6);g.lineTo(x+u*.6-sw*u*1.6,y-u*.3);g.stroke();
+  g.strokeStyle="#4a3a2a";g.lineWidth=u*1.1;g.stroke();
+  // back arm
+  g.strokeStyle=O;g.lineWidth=u*1.5;g.beginPath();g.moveTo(x-u*1.4,y-u*6.6);g.lineTo(x-u*1.6-sw*u*1.4,y-u*4.2);g.stroke();g.strokeStyle=skin;g.lineWidth=u*.8;g.stroke();
+  // tunic
+  g.fillStyle=O;g.beginPath();g.moveTo(x-u*1.9,y-u*7.4);g.lineTo(x+u*1.9,y-u*7.4);g.lineTo(x+u*2.4,y-u*3.2);g.lineTo(x-u*2.4,y-u*3.2);g.closePath();g.fill();
+  g.fillStyle=body;g.beginPath();g.moveTo(x-u*1.4,y-u*6.9);g.lineTo(x+u*1.4,y-u*6.9);g.lineTo(x+u*1.9,y-u*3.7);g.lineTo(x-u*1.9,y-u*3.7);g.closePath();g.fill();
+  g.fillStyle="rgba(0,0,0,.25)";g.fillRect(x-u*1.9,y-u*4.6,u*3.8,u*.6);
+  // head
+  g.fillStyle=O;g.beginPath();g.arc(x,y-u*8.7,u*1.75,0,7);g.fill();g.fillStyle=skin;g.beginPath();g.arc(x,y-u*8.7,u*1.25,0,7);g.fill();
+  if(soldier){g.fillStyle="#9aa3ad";g.beginPath();g.arc(x,y-u*9,u*1.45,Math.PI,0);g.fill();g.fillRect(x-u*1.6,y-u*9.1,u*3.2,u*.5)}
+  else{g.fillStyle=hair||HAIR[0];g.beginPath();g.arc(x,y-u*9,u*1.3,Math.PI*1.05,Math.PI*1.95);g.fill()}
+  // front arm (+ weapon)
+  const hx=x+u*1.7+sw*u*1.4,hy=y-u*4.3;
+  if(soldier){g.strokeStyle="#7a5a3a";g.lineWidth=u*.8;g.beginPath();g.moveTo(hx,hy+u*2.5);g.lineTo(hx,hy-u*8);g.stroke();
+    g.fillStyle="#dfe3e8";g.beginPath();g.moveTo(hx,hy-u*9.8);g.lineTo(hx-u*.8,hy-u*7.8);g.lineTo(hx+u*.8,hy-u*7.8);g.closePath();g.fill()}
+  g.strokeStyle=O;g.lineWidth=u*1.5;g.beginPath();g.moveTo(x+u*1.4,y-u*6.6);g.lineTo(hx,hy);g.stroke();g.strokeStyle=skin;g.lineWidth=u*.8;g.stroke();
+  if(soldier&&shield){g.fillStyle=O;g.beginPath();g.ellipse(x-u*1.9,y-u*5.2,u*1.9,u*2.4,0,0,7);g.fill();g.fillStyle=shield;g.beginPath();g.ellipse(x-u*1.9,y-u*5.2,u*1.4,u*1.9,0,0,7);g.fill();
+    g.fillStyle="#f2c771";g.beginPath();g.arc(x-u*1.9,y-u*5.2,u*.5,0,7);g.fill()}
+  g.restore();
 }
 const INCOME_HINT={gold:"სოფელი, ბაზარი, მოსახლეობის გადასახადი (სახლი). ჯარი ხარჯავს",food:"ფერმა (მდინარესთან მეტი), სოფელი. მოსახლეობა და ჯარი ჭამს",wood:"სახერხი ტყეში",stone:"ქვის სამტეხლო ბორცვზე ან მთაზე",iron:"რკინის მაღარო მთაზე ან ბორცვზე",mana:"ჯადოქრის კოშკი და ჯადოქრები"};
 const BUILD_ORDER=["village","house","farm","lumber","quarry","mine","market","barracks","range","stable","workshop","magetower","tower","wall"];
@@ -633,13 +653,13 @@ function frame(){
     ctx.fillStyle="#2a241b";ctx.fillRect(x+14,y-14,1.5,16);drawFlag(ctx,c.flag,x+15.5,y-14,16,10.5);
     if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+18,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+23.5)}}
   // villagers: little people walking between buildings and nearby land
-  if(z>.75){let cnt=0;const tt=now/1000;
+  if(z>.9){let cnt=0;const tt=now/1000;
     for(const c of ORDER){for(const key in c.tiles){const b=c.tiles[key];if(!b||b==="wall")continue;const i=+key;if(!vis(i))continue;
       const many=b==="capital"?4:b.startsWith("village")?3:1;
       for(let m=0;m<many&&cnt<260;m++){const sd=hash(i,m,77),nb=N4(i).filter(n=>n in c.tiles);const j=nb.length?nb[Math.floor(sd*nb.length)]:i;
         const ph=tt*(.25+sd*.25)+sd*20,f=(Math.sin(ph)+1)/2,ox=(hash(i,m,5)-.5)*8,oy=(hash(i,m,6)-.5)*6;
         const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy;
-        drawPerson(ctx,x,y,3.4,CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false);cnt++}}}}
+        drawPerson(ctx,x,y+3,8.5,CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
   // armies: banner with flag, main unit, head-count; dashed route and pulsing target
   const k=clamp(1.5/z,.8,3),pulse=(now%1200)/1200;
   for(const a of Object.values(attacks)){
@@ -653,8 +673,8 @@ function frame(){
     const main=UK.filter(u=>units[u]).sort((p,q)=>units[q]*UNITS[q].atk-units[p]*UNITS[p].atk)[0];
     ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.ellipse(P.x,P.y+8*k,9*k,3*k,0,0,7);ctx.fill();
     {const dir=Math.atan2(P.ey-P.y,P.ex-P.x),bx=-Math.cos(dir),by=-Math.sin(dir),px=-by,py=bx,nShow=Math.min(12,Math.max(3,Math.ceil(N/4)));
-      for(let m=0;m<nShow;m++){const row=Math.floor(m/3)+1,colI=m%3-1,sx=P.x+bx*row*7*k+px*colI*6*k,sy=P.y+by*row*7*k+py*colI*6*k;
-        drawPerson(ctx,sx,sy,5*k,col,SKIN[m%SKIN.length],now/90+m*1.7,true)}}
+      for(let m=0;m<nShow;m++){const row=Math.floor(m/3)+1,colI=m%3-1,sx=P.x+bx*row*8*k+px*colI*7*k,sy=P.y+by*row*8*k+py*colI*7*k;
+        drawPerson(ctx,sx,sy+4*k,10*k,col,SKIN[m%SKIN.length],now/90+m*1.7,true,null,col)}}
     ctx.fillStyle="#2a241b";ctx.fillRect(P.x+6*k,P.y-20*k,1.6*k,20*k);drawFlag(ctx,C?.flag,P.x+7.6*k,P.y-20*k,14*k,9*k);
     ctx.fillStyle=col;ctx.strokeStyle=ic?"#f2c771":"#fff";ctx.lineWidth=2*k;ctx.beginPath();ctx.arc(P.x,P.y,9*k,0,7);ctx.fill();ctx.stroke();
     drawIcon(ctx,main,P.x,P.y,13*k);
