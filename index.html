@@ -724,56 +724,61 @@ let vw=0,vh=0,dpr=1;const cam={x:W*TS/2,y:H*TS/2,z:1};
 const terrCv=document.createElement("canvas"),ownCv=document.createElement("canvas");
 terrCv.width=ownCv.width=W*TS;terrCv.height=ownCv.height=H*TS;
 /* terrain is painted pixel by pixel from one continuous height field: biomes blend into each other, hillshading
-   turns the highlands into connected mountain ranges with ridges and snow, forests become a canopy, deserts get dunes */
+   turns the highlands into connected mountain ranges with ridges and snow, forests become a canopy, deserts get dunes.
+   A quick half-resolution pass shows the map at once; a sharp full-resolution pass is painted in the background and swapped in. */
 const NT=256,NOISE=new Float32Array(NT*NT),NOISE2=new Float32Array(NT*NT);
 (function(){const per=(x,y,s,p)=>{const h=(a,b)=>hash(((a%p)+p)%p,((b%p)+p)%p,s);const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
     const a=h(xi,yi),b=h(xi+1,yi),c=h(xi,yi+1),d=h(xi+1,yi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v};
   for(let y=0;y<NT;y++)for(let x=0;x<NT;x++){let t=0,a=1,n=0;for(let o=0;o<5;o++){const f=1<<o;t+=per(x/32*f,y/32*f,SEED+300+o,8*f)*a;n+=a;a*=.5}NOISE[x+y*NT]=t/n;
     let r=0;a=1;n=0;for(let o=0;o<4;o++){const f=1<<o,q=1-Math.abs(per(x/24*f,y/24*f,SEED+400+o,Math.round(256/24*f)||1)*2-1);r+=q*q*a;n+=a;a*=.55}NOISE2[x+y*NT]=r/n}})();
 const nz=(x,y)=>NOISE[(x&255)+((y&255)<<8)],nz2=(x,y)=>NOISE2[(x&255)+((y&255)<<8)];
-const BIOME={[SAND]:[222,205,152],[GRASS]:[112,156,78],[FOREST]:[58,98,48],[HILL]:[136,138,92],[MOUNTAIN]:[124,114,104],[DESERT]:[218,186,116],[RIVER]:[112,156,78],[WATER]:[60,120,150]};
-const PW=W*TS,PH=H*TS,TR=8,TW=W*TR,THh=H*TR,FS=TS/TR;let HEIGHT=null;
-function drawTerrain(){
-  terrCv.width=TW;terrCv.height=THh;const g=terrCv.getContext("2d"),img=g.createImageData(TW,THh),D=img.data;HEIGHT=new Float32Array(TW*THh);
-  const mt=new Float32Array(W*H),fo=new Float32Array(W*H);for(let i=0;i<W*H;i++){mt[i]=TER[i]===MOUNTAIN?1:TER[i]===HILL?.35:0;fo[i]=TER[i]===FOREST?1:0}
-  const samp=(arr,fx,fy)=>{const x=clamp(fx,0,W-1.001),y=clamp(fy,0,H-1.001),xi=x|0,yi=y|0,u=x-xi,v=y-yi,i=xi+yi*W;return arr[i]*(1-u)*(1-v)+arr[i+1]*u*(1-v)+arr[i+W]*(1-u)*v+arr[i+W+1]*u*v};
-  // 1) height field
-  const WX=new Float32Array(TW*THh),WY=new Float32Array(TW*THh);
-  for(let py=0;py<THh;py++)for(let px=0;px<TW;px++){const X=px*FS,Y=py*FS,o=px+py*TW;
-    const fx=(px+.5)/TR-.5+(nz(X*.5+11,Y*.5+7)-.5)*1.4,fy=(py+.5)/TR-.5+(nz(X*.5+91,Y*.5+53)-.5)*1.4;WX[o]=fx;WY[o]=fy;
-    let h=samp(ELEV,(px+.5)/TR-.5,(py+.5)/TR-.5);const m=samp(mt,fx,fy);h+=(nz(X,Y)-.5)*.025+m*(nz2(X,Y)*.16+nz2(X*2+50,Y*2+90)*.05);HEIGHT[o]=h}
-  // 2) colour + shading
-  for(let py=0;py<THh;py++){
-    for(let px=0;px<TW;px++){const o=px+py*TW,h=HEIGHT[o],k=o*4,X=px*FS,Y=py*FS;
-      if(h<.33){ // sea: deeper is darker, a turquoise band along the shore
-        const d=clamp((.33-h)*3.2,0,1),sh=clamp((h-.30)/.03,0,1),n=nz(X*2,Y*2)*.06;
-        D[k]=(26+(70-26)*(1-d)+40*sh*sh)*(1+n);D[k+1]=(62+(142-62)*(1-d)+50*sh*sh)*(1+n);D[k+2]=(98+(172-98)*(1-d)+30*sh*sh)*(1+n);D[k+3]=255;continue}
-      const fx=WX[o],fy=WY[o],xi=clamp(Math.floor(fx),0,W-2),yi=clamp(Math.floor(fy),0,H-2),u=clamp(fx-xi,0,1),v=clamp(fy-yi,0,1),i=xi+yi*W;
-      const ws=[(1-u)*(1-v),u*(1-v),(1-u)*v,u*v],ts=[TER[i],TER[i+1],TER[i+W],TER[i+W+1]];let r=0,gg=0,b=0;
-      for(let j=0;j<4;j++){const c=BIOME[ts[j]===WATER?SAND:ts[j]];r+=c[0]*ws[j];gg+=c[1]*ws[j];b+=c[2]*ws[j]}
-      const f=samp(fo,fx,fy),m=samp(mt,fx,fy),n1=nz(X*3,Y*3);
-      // grass and soil variation
-      const vv=.93+nz(X,Y)*.14;r*=vv;gg*=vv;b*=vv;
-      if(f>.25){const cr=nz(X*1.6+17,Y*1.6+31),crown=.72+cr*.55,a=clamp((f-.25)/.5,0,1);r=r*(1-a)+r*crown*a;gg=gg*(1-a)+gg*crown*a;b=b*(1-a)+b*crown*a}
-      const des=ts.reduce((t,q,j)=>t+(q===DESERT?ws[j]:0),0);if(des>.2){const dune=.94+Math.sin(X*.22+Y*.09+nz(X,Y)*9)*.06;r*=dune;gg*=dune;b*=dune}
-      if(h<.345){const a=clamp((.345-h)/.015,0,1);r=r*(1-a)+228*a;gg=gg*(1-a)+214*a;b=b*(1-a)+162*a} // beach
-      if(m>.5){const rock=.9+n1*.25;r=r*.5+118*rock*.5;gg=gg*.5+110*rock*.5;b=b*.5+102*rock*.5}
-      const snow=m>.6?clamp((h-.965-(nz(X*2,Y*2)-.5)*.04)/.025,0,1):0;if(snow>0){r=r*(1-snow)+242*snow;gg=gg*(1-snow)+244*snow;b=b*(1-snow)+246*snow}
-      // hillshade, light from the north-west
-      const hx=HEIGHT[Math.max(0,px-1)+py*TW]-HEIGHT[Math.min(TW-1,px+1)+py*TW],hy=HEIGHT[px+Math.max(0,py-1)*TW]-HEIGHT[px+Math.min(THh-1,py+1)*TW];
-      const sh=clamp(1+(hx+hy)*(9+m*22),.6,1.4);
-      D[k]=clamp(r*sh,0,255);D[k+1]=clamp(gg*sh,0,255);D[k+2]=clamp(b*sh,0,255);D[k+3]=255}}
-  g.putImageData(img,0,0);
-  // rivers on top
-  g.save();g.scale(1/FS,1/FS);g.lineCap="round";
+const BIOME={[SAND]:[226,208,150],[GRASS]:[104,160,70],[FOREST]:[46,96,40],[HILL]:[134,140,86],[MOUNTAIN]:[122,110,98],[DESERT]:[224,188,110],[RIVER]:[104,160,70],[WATER]:[60,120,150]};
+const PW=W*TS,PH=H*TS;let TR=8,TW=W*TR,THh=H*TR,HEIGHT=null,terrainHi=false;
+const MT=new Float32Array(W*H),FO=new Float32Array(W*H);for(let i=0;i<W*H;i++){MT[i]=TER[i]===MOUNTAIN?1:TER[i]===HILL?.35:0;FO[i]=TER[i]===FOREST?1:0}
+const samp=(arr,fx,fy)=>{const x=fx<0?0:fx>W-1.001?W-1.001:fx,y=fy<0?0:fy>H-1.001?H-1.001:fy,xi=x|0,yi=y|0,u=x-xi,v=y-yi,i=xi+yi*W;return arr[i]*(1-u)*(1-v)+arr[i+1]*u*(1-v)+arr[i+W]*(1-u)*v+arr[i+W+1]*u*v};
+function terrainJob(tr,budget,done){
+  const tw=W*tr,th=H*tr,fs=TS/tr,cvs=document.createElement("canvas");cvs.width=tw;cvs.height=th;
+  const g=cvs.getContext("2d"),img=g.createImageData(tw,th),D=img.data,HT=new Float32Array(tw*th),WX=new Float32Array(tw*th),WY=new Float32Array(tw*th);
+  const heightRow=py=>{for(let px=0;px<tw;px++){const X=px*fs,Y=py*fs,o=px+py*tw;
+    const fx=(px+.5)/tr-.5+(nz(X*.5+11,Y*.5+7)-.5)*1.4,fy=(py+.5)/tr-.5+(nz(X*.5+91,Y*.5+53)-.5)*1.4;WX[o]=fx;WY[o]=fy;
+    const m=samp(MT,fx,fy);HT[o]=samp(ELEV,(px+.5)/tr-.5,(py+.5)/tr-.5)+(nz(X,Y)-.5)*.025+m*(nz2(X,Y)*.16+nz2(X*2+50,Y*2+90)*.05)}};
+  const k1=9*fs/2,k2=22*fs/2;
+  const colorRow=py=>{for(let px=0;px<tw;px++){const o=px+py*tw,h=HT[o],k=o*4,X=px*fs,Y=py*fs;let r,gg,b;
+    if(h<.33){const d=clamp((.33-h)*3.2,0,1),sh=clamp((h-.30)/.03,0,1),n=nz(X*2,Y*2)*.05;
+      r=(22+(64-22)*(1-d)+46*sh*sh)*(1+n);gg=(60+(146-60)*(1-d)+56*sh*sh)*(1+n);b=(102+(184-102)*(1-d)+34*sh*sh)*(1+n);D[k]=r;D[k+1]=gg;D[k+2]=b;D[k+3]=255;continue}
+    const fx=WX[o],fy=WY[o],xi=clamp(Math.floor(fx),0,W-2),yi=clamp(Math.floor(fy),0,H-2),u=clamp(fx-xi,0,1),v=clamp(fy-yi,0,1),i=xi+yi*W;
+    const w0=(1-u)*(1-v),w1=u*(1-v),w2=(1-u)*v,w3=u*v,t0=TER[i],t1=TER[i+1],t2=TER[i+W],t3=TER[i+W+1];
+    const c0=BIOME[t0===WATER?SAND:t0],c1=BIOME[t1===WATER?SAND:t1],c2=BIOME[t2===WATER?SAND:t2],c3=BIOME[t3===WATER?SAND:t3];
+    r=c0[0]*w0+c1[0]*w1+c2[0]*w2+c3[0]*w3;gg=c0[1]*w0+c1[1]*w1+c2[1]*w2+c3[1]*w3;b=c0[2]*w0+c1[2]*w1+c2[2]*w2+c3[2]*w3;
+    const f=samp(FO,fx,fy),m=samp(MT,fx,fy),n1=nz(X*3,Y*3),vv=.9+nz(X,Y)*.1+nz(X*4+7,Y*4+3)*.08;r*=vv;gg*=vv;b*=vv;
+    if(f>.25){const crown=.7+nz(X*1.6+17,Y*1.6+31)*.6,a=clamp((f-.25)/.5,0,1);r*=1-a+crown*a;gg*=1-a+crown*a;b*=1-a+crown*a}
+    const des=(t0===DESERT?w0:0)+(t1===DESERT?w1:0)+(t2===DESERT?w2:0)+(t3===DESERT?w3:0);if(des>.2){const dune=.93+Math.sin(X*.22+Y*.09+nz(X,Y)*9)*.07;r*=dune;gg*=dune;b*=dune}
+    if(h<.345){const a=clamp((.345-h)/.015,0,1);r=r*(1-a)+232*a;gg=gg*(1-a)+216*a;b=b*(1-a)+160*a}
+    if(m>.5){const rock=.88+n1*.28;r=r*.45+120*rock*.55;gg=gg*.45+110*rock*.55;b=b*.45+100*rock*.55}
+    const snow=m>.6?clamp((h-.965-(nz(X*2,Y*2)-.5)*.04)/.025,0,1):0;if(snow>0){r=r*(1-snow)+246*snow;gg=gg*(1-snow)+248*snow;b=b*(1-snow)+250*snow}
+    const hx=HT[(px>0?px-1:px)+py*tw]-HT[(px<tw-1?px+1:px)+py*tw],hy=HT[px+(py>0?py-1:py)*tw]-HT[px+(py<th-1?py+1:py)*tw];
+    const sh=clamp(1+(hx+hy)*(k1+m*k2),.55,1.45);
+    // a touch more contrast and saturation so the map reads crisply
+    r*=sh;gg*=sh;b*=sh;const l=(r+gg+b)/3;r=l+(r-l)*1.12;gg=l+(gg-l)*1.12;b=l+(b-l)*1.12;r=(r-128)*1.06+128;gg=(gg-128)*1.06+128;b=(b-128)*1.06+128;
+    D[k]=r;D[k+1]=gg;D[k+2]=b;D[k+3]=255}};
+  let phase=0,row=0;
+  const finish=()=>{g.putImageData(img,0,0);g.save();g.scale(1/fs,1/fs);drawRivers(g);g.restore();done(cvs,HT,tw,th)};
+  const step=()=>{const t0=performance.now();
+    while(budget===0||performance.now()-t0<budget){if(phase===0){heightRow(row++);if(row>=th){phase=1;row=0}}else{colorRow(row++);if(row>=th){finish();return}}}
+    setTimeout(step,0)};
+  step();
+}
+function drawRivers(g){
+  g.lineCap="round";g.lineJoin="round";
   const curves=RIVER_PATHS.map((path,r)=>{const pts=path.filter((_,j)=>j%2===0||j===path.length-1).map(i=>[tx(i)*TS+8,ty(i)*TS+8]);
     return pts.map((pt,j)=>{const a=pts[Math.max(0,j-1)],b=pts[Math.min(pts.length-1,j+1)],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,end=j===0||j===pts.length-1,
       off=end?0:Math.sin(j*1.1+r*2)*5+Math.sin(j*.43+r)*3;return[pt[0]-dy/L*off,pt[1]+dx/L*off]})});
   const smooth=pts=>{g.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<pts.length-1;j++){const mx=(pts[j][0]+pts[j+1][0])/2,my=(pts[j][1]+pts[j+1][1])/2;g.quadraticCurveTo(pts[j][0],pts[j][1],mx,my)}const l=pts[pts.length-1];g.lineTo(l[0],l[1])};
-  g.lineJoin="round";
-  for(const pass of [[9,"rgba(120,110,70,.28)"],[6.5,"rgb(44,98,132)"],[4.2,"rgb(72,138,176)"],[1.3,"rgba(180,222,240,.5)"]]){
-    g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();for(const c of curves)if(c.length>1)smooth(c);g.stroke()}
-  g.restore();buildWaterFX();
+  for(const pass of [[8,"rgba(110,100,60,.3)"],[6,"rgb(38,96,134)"],[3.8,"rgb(66,140,182)"],[1.2,"rgba(190,228,245,.55)"]]){
+    g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();for(const c of curves)if(c.length>1)smooth(c);g.stroke()}}
+function drawTerrain(){
+  terrainJob(8,0,(cvs,HT,tw,th)=>{terrCv.width=tw;terrCv.height=th;terrCv.getContext("2d").drawImage(cvs,0,0);HEIGHT=HT;TR=8;TW=tw;THh=th;buildWaterFX()});
+  setTimeout(()=>terrainJob(16,10,(cvs)=>{terrCv.width=cvs.width;terrCv.height=cvs.height;terrCv.getContext("2d").drawImage(cvs,0,0);terrainHi=true}),300);
 }
 /* moving water: three pre-rendered frames of wave glints and shore foam, cross-faded over time */
 const WFX=[];
@@ -781,8 +786,8 @@ function buildWaterFX(){
   const w=TW,h=THh;WFX.length=0;
   for(let f=0;f<3;f++){const c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d"),img=g.createImageData(w,h),D=img.data,ph=f/3*Math.PI*2;
     for(let y=0;y<h;y++)for(let x=0;x<w;x++){const hh=HEIGHT[x+y*TW];if(hh>=.33)continue;const k=(x+y*w)*4;
-      const n=nz(x*2,y*2),wave=Math.sin(x*.32+y*.14+n*9+ph),glint=wave>.93?(wave-.93)/.07:0,shore=clamp((hh-.315)/.015,0,1),foam=shore*(.5+.5*Math.sin(n*14+ph*1.0+x*.2));
-      const a=Math.max(glint*.28,foam*.55);if(a<.02)continue;D[k]=235;D[k+1]=245;D[k+2]=252;D[k+3]=a*255}
+      const n=nz(x*2,y*2),wave=Math.sin(x*.32+y*.14+n*9+ph),glint=wave>.94?(wave-.94)/.06:0,shore=clamp((hh-.318)/.012,0,1),foam=shore*(.5+.5*Math.sin(n*14+ph+x*.2));
+      const a=Math.max(glint*.22,foam*.45);if(a<.02)continue;D[k]=240;D[k+1]=248;D[k+2]=255;D[k+3]=a*255}
     g.putImageData(img,0,0);WFX.push(c)}}
 function drawWaterFX(now){if(WFX.length<3)return;const t=now/1400,i=Math.floor(t)%3,f=t%1;ctx.save();ctx.imageSmoothingEnabled=true;
   ctx.globalAlpha=1-f;ctx.drawImage(WFX[i],0,0,PW,PH);ctx.globalAlpha=f;ctx.drawImage(WFX[(i+1)%3],0,0,PW,PH);ctx.restore()}
