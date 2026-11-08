@@ -727,6 +727,15 @@ function frame(){
     ctx.fillStyle="rgba(20,20,20,.35)";ctx.beginPath();ctx.arc(cx,cy+1,8,0,7);ctx.fill();drawIcon(ctx,"village",cx,cy,15)}
   // buildings
   if(z>.42){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawIcon(ctx,b,tx(i)*TS+8,ty(i)*TS+8,14)}}}
+  // the fleet: built ships idle in the water next to their port, slowly circling
+  for(const c of ORDER){const n=Math.min(c.ships||0,4);if(!n)continue;
+    const ports=Object.keys(c.tiles).map(Number).filter(i=>c.tiles[i]==="port");if(!ports.length)continue;
+    for(let m=0;m<n;m++){const p=ports[m%ports.length];if(!vis(p))continue;
+      const water=[];for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const x=tx(p)+dx,y=ty(p)+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(TER[i]===WATER)water.push(i)}
+      if(!water.length)continue;water.sort((a,b)=>Math.hypot(tx(a)-tx(p),ty(a)-ty(p))-Math.hypot(tx(b)-tx(p),ty(b)-ty(p)));
+      const w=water[Math.min(water.length-1,Math.floor(m/ports.length)*3+1)],ph=now/9000*Math.PI*2+m*1.9,R=4.5;
+      const x=tx(w)*TS+8+Math.cos(ph)*R,y=ty(w)*TS+8+Math.sin(ph)*R*.6,dir=Math.atan2(Math.cos(ph)*R*.6,-Math.sin(ph)*R),ss=clamp(10/z,6,12);
+      drawWake(ctx,x,y,ss*.7,dir,now+m*400);drawShip(ctx,x,y,ss,c.color,now/500+m,dir,m===0?c.flag:undefined)}}
   // capitals with flags
   for(const c of ORDER){const i=c.capital;if(i==null||!vis(i))continue;const x=tx(i)*TS,y=ty(i)*TS;
     drawIcon(ctx,"capital",x+8,y+7,19);
