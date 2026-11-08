@@ -384,7 +384,8 @@ function materialize(c,now){
   c.queue=left;c.t=now;return c;
 }
 const buildCost=(c,b)=>{const n=(stats(c).cnt[b]||0),m=b==="wall"?1+n*.01:1+n*.15,o={};for(const k in B[b].cost)o[k]=Math.ceil(B[b].cost[k]*m);return o};
-const claimCost=(c,i)=>({gold:Math.ceil(10+Object.keys(c.tiles||{}).length*.6+(NEUTRAL.has(i)?60:0))});
+const LAND_PRICE=25;
+const claimCost=(c,i)=>({gold:LAND_PRICE+(NEUTRAL.has(i)?60:0)});
 const canPay=(c,cost)=>Object.keys(cost).every(k=>(c.res[k]||0)>=cost[k]);
 const resName=(k,c)=>k==="gold"?(c?.currency||"ოქრო"):RES[k].n;
 function pay(c,cost,mult=1){for(const k in cost){if((c.res[k]||0)<cost[k]*mult)throw new Error("არ გყოფნის: "+resName(k,c))}for(const k in cost)c.res[k]-=cost[k]*mult}
@@ -808,7 +809,7 @@ async function flushClaims(){if(claimBusy){claimT=setTimeout(flushClaims,300);re
   const list=[...claimQ];try{const n=await claimMany(list);if(n<list.length)toast(n?`შემოიერთე ${n} უჯრა, ოქრო აღარ გყოფნის`:"ოქრო არ გყოფნის","err")}catch(e){toast(e.message,"err")}
   finally{list.forEach(i=>claimQ.delete(i));claimBusy=false;renderAll()}}
 function borderRing(){const c=countries[ME];if(!c)return[];const out=new Set();for(const k in c.tiles)for(const n of N4(+k))if(freeLand(n))out.add(n);return [...out]}
-function ringCost(c,list){let n=Object.keys(c.tiles).length,g=0;for(const i of list){g+=Math.ceil(10+n*.6+(NEUTRAL.has(i)?60:0));n++}return g}
+function ringCost(c,list){let g=0;for(const i of list)g+=claimCost(c,i).gold;return g}
 async function claimMany(list){let got=0;
   await mutateMe(c=>{let left=list.filter(i=>!(i in c.tiles)&&TER[i]!==WATER&&(!ownerOf(i)||ownerOf(i).uid===ME)),progress=true,broke=false;
     while(progress&&left.length&&!broke){progress=false;const next=[];
