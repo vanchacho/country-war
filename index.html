@@ -618,7 +618,8 @@ function frame(){
     ctx.fillStyle=col;ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fill();ctx.stroke();
     drawIcon(ctx,a.status==="marching"?"sword":"knight",x,y,10);
   }
-  if(placing&&hoverTile>=0){const ok=isMine(hoverTile)&&!countries[ME].tiles[hoverTile]&&B.wall.on.includes(TER[hoverTile]);
+  for(const i of claimQ){ctx.fillStyle="rgba(242,199,113,.45)";ctx.fillRect(tx(i)*TS+1,ty(i)*TS+1,TS-2,TS-2)}
+  if(placing&&hoverTile>=0){const ok=placing==="claim"?canClaimTile(hoverTile):isMine(hoverTile)&&!countries[ME].tiles[hoverTile]&&B.wall.on.includes(TER[hoverTile]);
     ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(tx(hoverTile)*TS+1,ty(hoverTile)*TS+1,TS-2,TS-2)}
   if(selected>=0){ctx.strokeStyle="#f2c771";ctx.lineWidth=2;ctx.strokeRect(tx(selected)*TS,ty(selected)*TS,TS,TS);ctx.strokeStyle="rgba(0,0,0,.5)";ctx.lineWidth=1;ctx.strokeRect(tx(selected)*TS-1.5,ty(selected)*TS-1.5,TS+3,TS+3)}
   requestAnimationFrame(frame);
@@ -634,9 +635,9 @@ cv.addEventListener("pointermove",e=>{const r=cv.getBoundingClientRect();const [
   if(ptrs.size===2&&pinch){const [p,q]=[...ptrs.values()];cam.z=pinch.z*Math.hypot(p.x-q.x,p.y-q.y)/pinch.d;clampCam();return}
   if(dragStart){const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;if(Math.hypot(dx,dy)>6){moved=true;cv.classList.add("drag")}
     if(moved&&!placing){cam.x=dragStart.cx-dx/cam.z;cam.y=dragStart.cy-dy/cam.z;clampCam()}
-    if(placing&&moved&&ptrs.size===1)placeWallAt(hoverTile)}});
+    if(placing&&moved&&ptrs.size===1)placeAt(hoverTile)}});
 const endPtr=e=>{ptrs.delete(e.pointerId);cv.classList.remove("drag");
-  if(ptrs.size===0){if(!moved&&dragStart&&hoverTile>=0){placing?placeWallAt(hoverTile):selectTile(hoverTile)}dragStart=null;pinch=null}
+  if(ptrs.size===0){if(!moved&&dragStart&&hoverTile>=0){placing?placeAt(hoverTile):selectTile(hoverTile)}dragStart=null;pinch=null}
   else if(ptrs.size===1){const [p]=[...ptrs.values()];dragStart={x:p.x,y:p.y,cx:cam.x,cy:cam.y};pinch=null}};
 cv.addEventListener("pointerup",endPtr);cv.addEventListener("pointercancel",endPtr);
 cv.addEventListener("wheel",e=>{e.preventDefault();const r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;const [wx,wy]=s2w(sx,sy);
@@ -691,7 +692,10 @@ function renderPane(force){
       <h3>შენობები</h3><div class="list">`;
     const bs=Object.keys(B).filter(b=>b!=="wall"&&s.cnt[b]);
     h+=bs.length?bs.map(b=>`<div class="item">${icn(b)}<span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b></span></div>`).join(""):`<p class="muted">დააჭირე შენს მიწას რუკაზე და ააშენე.</p>`;
-    h+=`</div><h3>გალავანი</h3><div class="row"><button class="btn" id="wallMode">გალავნის ხატვა</button>${costHTML(buildCost(c,"wall"),c)}</div>
+    const ring=borderRing(),rc=ringCost(c,ring);
+    h+=`</div><h3>მიწა</h3><div class="list"><div class="row" style="flex-wrap:wrap"><button class="btn gold" id="claimMode">მონიშვნით შემოერთება</button>
+      <button class="btn" id="claimRing" ${ring.length?"":"disabled"}>საზღვრის გაფართოება · ${ring.length} უჯრა</button></div>${ring.length?costHTML({gold:rc},c):""}</div>
+      <h3>გალავანი</h3><div class="row"><button class="btn" id="wallMode">გალავნის ხატვა</button>${costHTML(buildCost(c,"wall"),c)}</div>
       <h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,10).map(l=>`<div>${hhmm(l.t)} · ${esc(l.m)}</div>`).join("")}</div>
       <div class="row" style="margin-top:20px;flex-wrap:wrap"><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>${isOwnerViewer?`<button class="btn sm red" id="resetWorld">სამყაროს წაშლა</button>`:""}</div>`;
   }
@@ -750,7 +754,7 @@ $("#pane").addEventListener("click",e=>{
   if(d.sell)act(()=>market(d.sell,20,true));
   if(d.buy)act(()=>market(d.buy,20,false));
   if(t.id==="gSend")act(()=>sendGift($("#gTo").value,$("#gRes").value,+$("#gAmt").value),"გაგზავნილია");
-  if(t.id==="wallMode")startPlacing();
+  if(t.id==="wallMode")startPlacing("wall");if(t.id==="claimMode")startPlacing("claim");if(t.id==="claimRing")act(async()=>{const n=await claimMany(borderRing());toast(`შემოიერთე ${n} უჯრა`,"good")});
   if(t.id==="invOpen")showInvite();
   if(t.id==="invCopyP")copyText(inviteLink(),$("#invInP"));
   if(t.id==="abandon"){if(t.dataset.sure)act(abandon);else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება"}}
@@ -772,7 +776,7 @@ function renderTile(){
       <div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`}
     else if(b!=="capital")h+=`<div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`;
   }else if(!o){
-    if(t!==WATER&&adjMine(i)){const cost=claimCost(c,i);h+=`<div class="acts"><button class="btn sm gold" data-claim="1">${neutral?"სოფლის შემოერთება":"შემოერთება"}</button>${costHTML(cost,c)}</div>`}
+    if(t!==WATER&&adjMine(i)){const cost=claimCost(c,i);h+=`<div class="acts"><button class="btn sm gold" data-claim="1">${neutral?"სოფლის შემოერთება":"შემოერთება"}</button><button class="btn sm" data-claimmode="1">ბევრის მონიშვნა</button>${costHTML(cost,c)}</div>`}
     else if(t!==WATER)h+=`<p class="muted" style="margin:8px 0 0;font-size:12px">ჯერ მიაღწიე შენი საზღვრით.</p>`;
   }else if(o.alive!==false){
     h+=`<div class="acts">${atWar(ME,o.uid)?`<button class="btn sm red" data-attack="1">შეტევა</button>`:`<button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`}</div>`;
@@ -784,12 +788,34 @@ $("#tile").addEventListener("click",e=>{const t=e.target.closest("button");if(!t
   if(d.build)act(()=>buildAt(selected,d.build),B[d.build].n+" აშენდა");
   if(d.upg)act(()=>upgradeAt(selected),"გაუმჯობესდა");
   if(d.claim)act(()=>claim(selected),"შემოიერთე");
+  if(d.claimmode){selected=-1;renderTile();startPlacing("claim")}
   if(d.demolish)act(()=>demolish(selected));
   if(d.attack)openAttack(selected);
   if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
 });
-function startPlacing(){placing="wall";$("#place").hidden=false;$("#place").innerHTML=`<span>დააჭირე შენს უჯრებს</span><button class="btn sm gold" id="stopPl">მზადაა</button>`;$("#stopPl").onclick=stopPlacing}
+function startPlacing(kind){placing=kind;$("#place").hidden=false;
+  $("#place").innerHTML=`<span>${kind==="claim"?"გადაატარე თითი ან მაუსი თავისუფალ მიწაზე":"დააჭირე შენს უჯრებს"}</span><button class="btn sm gold" id="stopPl">მზადაა</button>`;$("#stopPl").onclick=stopPlacing}
 function stopPlacing(){placing=null;$("#place").hidden=true}
+function placeAt(i){if(placing==="claim")queueClaim(i);else placeWallAt(i)}
+/* bulk land claiming: tiles are queued while painting and bought in one go */
+const claimQ=new Set();let claimT=null,claimBusy=false;
+const freeLand=i=>i>=0&&TER[i]!==WATER&&!ownerOf(i);
+const canClaimTile=i=>freeLand(i)&&!claimQ.has(i)&&N4(i).some(n=>isMine(n)||claimQ.has(n));
+function queueClaim(i){if(!canClaimTile(i))return;claimQ.add(i);clearTimeout(claimT);claimT=setTimeout(flushClaims,450)}
+async function flushClaims(){if(claimBusy){claimT=setTimeout(flushClaims,300);return}if(!claimQ.size)return;claimBusy=true;
+  const list=[...claimQ];try{const n=await claimMany(list);if(n<list.length)toast(n?`შემოიერთე ${n} უჯრა, ოქრო აღარ გყოფნის`:"ოქრო არ გყოფნის","err")}catch(e){toast(e.message,"err")}
+  finally{list.forEach(i=>claimQ.delete(i));claimBusy=false;renderAll()}}
+function borderRing(){const c=countries[ME];if(!c)return[];const out=new Set();for(const k in c.tiles)for(const n of N4(+k))if(freeLand(n))out.add(n);return [...out]}
+function ringCost(c,list){let n=Object.keys(c.tiles).length,g=0;for(const i of list){g+=Math.ceil(10+n*.6+(NEUTRAL.has(i)?60:0));n++}return g}
+async function claimMany(list){let got=0;
+  await mutateMe(c=>{let left=list.filter(i=>!(i in c.tiles)&&TER[i]!==WATER&&(!ownerOf(i)||ownerOf(i).uid===ME)),progress=true,broke=false;
+    while(progress&&left.length&&!broke){progress=false;const next=[];
+      for(const i of left){if(broke){next.push(i);continue}if(!N4(i).some(n=>n in c.tiles)){next.push(i);continue}
+        const cost=claimCost(c,i);if((c.res.gold||0)<cost.gold){broke=true;next.push(i);continue}
+        c.res.gold-=cost.gold;c.tiles[i]=NEUTRAL.has(i)?"village":"";got++;progress=true}
+      left=next}
+    if(!got)return false;pushLog(c,`შემოიერთე ${got} უჯრა`)});
+  return got}
 const wallBusy=new Set();
 function placeWallAt(i){if(i<0||!isMine(i)||countries[ME].tiles[i]||wallBusy.has(i)||!B.wall.on.includes(TER[i]))return;wallBusy.add(i);
   countries[ME].tiles[i]="wall";
