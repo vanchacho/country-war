@@ -3,8 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-</head>
-<body style="margin:0">
 <title>Country War</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,11 +11,12 @@
 /* War room: the whole screen is the map; brass-trimmed ink panels float over it */
 :root{
   --ink:#121821; --panel:#1a2230; --panel2:#222d3e; --line:#33435a; --fg:#ece6d6; --muted:#97a3b5;
-  --brass:#d4a24a; --brass2:#f2c771; --danger:#e3624f; --ok:#73c27a;
+  --brass:#d4a24a; --brass2:#f2c771; --danger:#e3624f; --ok:#73c27a; --mana:#9a7cff;
   --display:"Noto Serif Georgian",Georgia,serif; --body:"Noto Sans Georgian",system-ui,sans-serif;
   color-scheme:dark;
 }
-html,body{height:100%}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
 [hidden]{display:none!important}
 body{background:var(--ink);color:var(--fg);font-family:var(--body);overflow:hidden;font-size:14px}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -32,25 +31,32 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .btn.gold{background:var(--brass);color:#1a1408;border-color:var(--brass2)}
 .btn.gold:hover:not(:disabled){background:var(--brass2)}
 .btn.red{background:#5a2620;border-color:var(--danger)}
+.btn.magic{background:#2e2350;border-color:var(--mana)}
 .btn.sm{padding:4px 9px;font-size:12px}
 .muted{color:var(--muted)}
-.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);letter-spacing:.03em}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
 .tag.war{color:#ffb4a8;border-color:var(--danger);background:#3a1a17}
 .tag.peace{color:#bfe8c2;border-color:#3f6f45}
+canvas.icn{width:28px;height:28px;flex:none;display:block}
+canvas.icn.s{width:18px;height:18px}
 /* HUD */
 #hud{position:absolute;top:8px;left:8px;right:8px;display:flex;gap:8px;align-items:stretch;pointer-events:none;flex-wrap:wrap}
 #hud>*{pointer-events:auto}
-.plate{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(6px)}
+.plate{background:color-mix(in srgb,var(--panel) 93%,transparent);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(6px)}
 #who{display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px}
 #who canvas{border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
 #who .nm{font-family:var(--display);font-weight:800;font-size:16px;line-height:1.1}
 #who .rl{font-size:11px;color:var(--muted)}
 #res{display:flex;gap:2px;padding:4px;flex-wrap:wrap}
-.r{display:flex;flex-direction:column;padding:3px 10px;min-width:70px;border-radius:7px}
-.r b{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.r{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:7px}
+.r div{display:flex;flex-direction:column}
+.r b{font-size:14.5px;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.15}
 .r small{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .r small.neg{color:var(--danger)}
-.r .k{font-size:10px;letter-spacing:.06em;color:var(--brass);text-transform:uppercase;white-space:nowrap}
+#net{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px}
+#net .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+#net .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#net .dot.off{background:var(--danger)}
 /* side panel */
 #side{position:absolute;top:84px;right:8px;bottom:8px;width:370px;display:flex;flex-direction:column;overflow:hidden}
 #tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
@@ -58,31 +64,34 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 #tabs button.on{color:var(--brass2);border-bottom-color:var(--brass)}
 #tabs .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-left:4px;vertical-align:middle}
 #pane{flex:1;overflow-y:auto;padding:14px}
-#pane h3{font-family:var(--display);font-size:15px;margin:16px 0 8px;color:var(--brass2);text-wrap:balance}
+#pane h3{font-family:var(--display);font-size:15px;margin:18px 0 8px;color:var(--brass2)}
 #pane h3:first-child{margin-top:0}
 .row{display:flex;align-items:center;gap:8px}
 .list{display:flex;flex-direction:column;gap:6px}
 .item{display:flex;gap:10px;align-items:center;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
-.item .ic{font-size:22px;width:30px;text-align:center;flex:none}
 .item .tx{flex:1;min-width:0}
 .item .tx b{display:block;font-size:13.5px}
 .item .tx span{font-size:11.5px;color:var(--muted)}
-.cost{font-size:11.5px;font-variant-numeric:tabular-nums}
+.item .btns{display:flex;flex-direction:column;gap:4px}
+.cost{font-size:11.5px;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:2px}
+.cost span{display:inline-flex;align-items:center;gap:3px}
 .cost .no{color:var(--danger)}
 .kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px}
 .kv span:nth-child(even){font-variant-numeric:tabular-nums;text-align:right}
+.invite{display:flex;gap:6px}
+.invite input{flex:1;font-size:12px}
 #collapse{display:none}
 /* tile card */
-#tile{position:absolute;left:8px;bottom:8px;width:330px;padding:12px 14px;max-height:50%;overflow:auto}
-#tile h4{margin:0 0 2px;font-family:var(--display);font-size:15px}
+#tile{position:absolute;left:8px;bottom:8px;width:340px;padding:12px 14px;max-height:52%;overflow:auto}
+#tile h4{margin:0 26px 2px 0;font-family:var(--display);font-size:15px}
 #tile .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 #tile .x{position:absolute;top:6px;right:8px;background:none;border:0;font-size:18px;color:var(--muted)}
 #place{position:absolute;left:50%;top:92px;transform:translateX(-50%);padding:8px 14px;display:flex;gap:10px;align-items:center}
 /* overlays */
-.overlay{position:absolute;inset:0;background:rgba(8,11,16,.72);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:20}
+.overlay{position:absolute;inset:0;background:rgba(8,11,16,.74);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:20}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:min(560px,100%);box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:100%;overflow:auto}
-.card h1{font-family:var(--display);font-weight:800;font-size:34px;margin:0;letter-spacing:.01em;color:var(--brass2)}
-.card h2{font-family:var(--display);font-size:20px;margin:0 0 6px}
+.card h1{font-family:var(--display);font-weight:800;font-size:34px;margin:0;color:var(--brass2)}
+.card h2{font-family:var(--display);font-size:20px;margin:0 0 8px}
 .card .sub{margin:4px 0 18px;color:var(--muted)}
 .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
 .field input{font-size:15px}
@@ -112,9 +121,8 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .msg.sys{color:var(--brass2);font-size:12px}
 .msg time{color:var(--muted);font-size:10.5px;margin-left:4px}
 .log{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
-.bar{height:6px;background:var(--ink);border-radius:3px;overflow:hidden;margin-top:4px}
-.bar i{display:block;height:100%;background:var(--brass)}
-#banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:440px;text-align:center;padding:22px;z-index:30}
+#banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));text-align:center;padding:22px;z-index:30}
+#banner h2{font-family:var(--display);margin:0 0 8px}
 @media (max-width:760px){
   #side{top:auto;left:8px;right:8px;width:auto;height:46%}
   #side.min{height:44px}
@@ -122,7 +130,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
   #tabs{padding-right:40px}
   #tile{left:8px;right:8px;width:auto;bottom:calc(46% + 16px);max-height:34%}
   #side.min ~ #tile{bottom:60px}
-  .r{min-width:58px;padding:2px 6px}
+  .r{padding:2px 5px;gap:4px}
   .r b{font-size:13px}
   #who .nm{font-size:14px}
   .flagEd{grid-template-columns:1fr}
@@ -130,12 +138,14 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 }
 @media (prefers-reduced-motion:reduce){.toast{animation:none}}
 </style>
-
+</head>
+<body>
 <div id="app">
   <canvas id="map" aria-label="რუკა"></canvas>
   <div id="hud" hidden>
     <div id="who" class="plate"><canvas id="myFlag" width="42" height="28"></canvas><div><div class="nm" id="myName"></div><div class="rl" id="myRuler"></div></div></div>
     <div id="res" class="plate"></div>
+    <div id="net" class="plate" hidden></div>
   </div>
   <div id="side" class="plate" hidden>
     <button id="collapse" aria-label="ჩაკეცვა">▾</button>
@@ -146,10 +156,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
   <div id="place" class="plate" hidden></div>
   <div id="toasts"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 "use strict";
 /* ================= utils ================= */
@@ -157,9 +164,11 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rid=(n=12)=>{const a="abcdefghijklmnopqrstuvwxyz0123456789";let s="";for(let i=0;i<n;i++)s+=a[Math.random()*36|0];return s};
 const fmt=n=>{n=Math.floor(n||0);return Math.abs(n)>=100000?(n/1000).toFixed(0)+"k":Math.abs(n)>=10000?(n/1000).toFixed(1)+"k":String(n)};
 const fmtR=n=>(n>=0?"+":"")+(Math.abs(n)>=100?Math.round(n):n.toFixed(1));
 const mmss=ms=>{ms=Math.max(0,ms);const s=Math.ceil(ms/1000),m=Math.floor(s/60);return m+":"+String(s%60).padStart(2,"0")};
+const hhmm=t=>new Date(t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
 function hash(x,y,s){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1442695041);h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967296}
 function strHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
@@ -173,21 +182,20 @@ const TNAME=["ზღვა","სანაპირო","მინდორი","
 const TER=new Uint8Array(W*H), ELEV=new Float32Array(W*H);
 const idx=(x,y)=>y*W+x, tx=i=>i%W, ty=i=>(i/W)|0;
 const N4=i=>{const x=tx(i),y=ty(i),r=[];if(x>0)r.push(i-1);if(x<W-1)r.push(i+1);if(y>0)r.push(i-W);if(y<H-1)r.push(i+W);return r};
+const RIVER_EDGES=[];
 function genWorld(){
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const nx=x/W-.5,ny=y/H-.5,d=Math.sqrt(nx*nx+ny*ny*1.2)*2;
     ELEV[idx(x,y)]=fbm(x/24,y/24,SEED)*1.2-Math.pow(d,3)*.7+fbm(x/7,y/7,SEED+5)*.08;
   }
-  // thresholds by percentile so the land share stays stable (~58% land)
   const sorted=Float32Array.from(ELEV).sort(),q=p=>sorted[Math.floor(p*(sorted.length-1))];
   const tW=q(.42),tS=q(.46),tH=q(.84),tM=q(.93);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const i=idx(x,y),e=ELEV[i],m=fbm(x/20,y/20,SEED+99);let t;
     if(e<tW)t=WATER;else if(e<tS)t=SAND;else if(e>tM)t=MOUNTAIN;else if(e>tH)t=HILL;
     else if(m>.56)t=FOREST;else if(m<.40)t=DESERT;else t=GRASS;
-    TER[i]=t;ELEV[i]=(e-tW)/(tM-tW)*.45+.33; // normalise: sea level .33
+    TER[i]=t;ELEV[i]=(e-tW)/(tM-tW)*.45+.33;
   }
-  // rivers flow downhill from highlands to the sea
   const srcs=[];
   for(let y=4;y<H-4;y+=2)for(let x=4;x<W-4;x+=2){const i=idx(x,y);if((TER[i]===HILL||TER[i]===MOUNTAIN)&&hash(x,y,SEED+7)<.35)srcs.push(i)}
   srcs.sort((a,b)=>hash(a,0,SEED+3)-hash(b,0,SEED+3));
@@ -197,20 +205,16 @@ function genWorld(){
     let cur=s,up=0;const seen=new Set([cur]);
     for(let step=0;step<400;step++){
       if(TER[cur]===WATER)break;
-      const merge=TER[cur]===RIVER&&step>0;
-      TER[cur]=RIVER;if(merge)break;
+      const merge=TER[cur]===RIVER&&step>0;TER[cur]=RIVER;if(merge)break;
       let best=-1,be=1e9;
       for(const n of N4(cur)){if(seen.has(n))continue;const e=ELEV[n]+hash(n,step,SEED)*.004;if(e<be){be=e;best=n}}
       if(best<0)break;
-      if(be>ELEV[cur]&&++up>6){ // stuck in a basin: becomes a small lake
-        for(const n of [cur,...N4(cur)])if(TER[n]!==MOUNTAIN)TER[n]=WATER;break}
+      if(be>ELEV[cur]&&++up>6){for(const n of [cur,...N4(cur)])if(TER[n]!==MOUNTAIN)TER[n]=WATER;break}
       RIVER_EDGES.push([cur,best]);seen.add(best);cur=best;
     }
   }
 }
-const RIVER_EDGES=[];
 genWorld();
-// 5 spawn regions, as far apart as possible
 const SPAWNS=(()=>{
   const cand=[];
   for(let y=6;y<H-6;y+=2)for(let x=6;x<W-6;x+=2){const i=idx(x,y);if(TER[i]!==GRASS)continue;
@@ -222,35 +226,135 @@ const SPAWNS=(()=>{
   while(out.length<5&&cand.length){let best=cand[0],bv=-1;for(const c of cand){let m=1e9;for(const o of out)m=Math.min(m,Math.hypot(tx(c)-tx(o),ty(c)-ty(o)));if(m>bv){bv=m;best=c}}out.push(best)}
   return out;
 })();
+// neutral villages scattered across the land, free to take
+const NEUTRAL=(()=>{const out=[];
+  for(let y=3;y<H-3;y++)for(let x=3;x<W-3;x++){const i=idx(x,y),t=TER[i];if(t!==GRASS&&t!==FOREST&&t!==DESERT&&t!==SAND)continue;if(hash(x,y,SEED+31)>.06)continue;
+    if(SPAWNS.some(s=>Math.hypot(tx(s)-x,ty(s)-y)<7))continue;if(out.some(o=>Math.hypot(tx(o)-x,ty(o)-y)<9))continue;out.push(i)}
+  return new Set(out)})();
 const nearRiver=i=>N4(i).some(n=>TER[n]===RIVER);
 
+/* ================= icons (drawn, no emoji) ================= */
+const O="#1b1712";
+function drawIcon(g,k,x,y,s){
+  g.save();g.translate(x,y);g.scale(s/32,s/32);g.translate(-16,-16);g.lineJoin="round";g.lineCap="round";
+  const P=(c,f)=>{g.fillStyle=c;g.beginPath();f();g.fill()};
+  const R=(c,a,b,w,h)=>{g.fillStyle=c;g.fillRect(a,b,w,h)};
+  const S=(c,w,f)=>{g.strokeStyle=c;g.lineWidth=w;g.beginPath();f();g.stroke()};
+  const C=(c,cx,cy,r)=>P(c,()=>g.arc(cx,cy,r,0,7));
+  const tri=(a,b,c,d,e,f)=>()=>{g.moveTo(a,b);g.lineTo(c,d);g.lineTo(e,f);g.closePath()};
+  const house=(hx,hy,sc,roof,wall)=>{g.save();g.translate(hx,hy);g.scale(sc,sc);
+    P(O,tri(-1,8,8,-1,17,8));P(roof,tri(1,7.5,8,1,15,7.5));R(O,1,7,14,10);R(wall,2,8,12,8);R("#5e3b1e",6.5,11,3,5);g.restore()};
+  const star=(cx,cy,r,c)=>P(c,()=>{for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;g.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr)}g.closePath()});
+  switch(k){
+    case"capital":
+      R(O,5,10,22,19);R("#bdb5a3",6,11,20,17);R(O,2,5,9,24);R("#d6cebb",3,6,7,22);R(O,21,5,9,24);R("#d6cebb",22,6,7,22);
+      for(const cx of [3,7,22,26])R("#d6cebb",cx,2.5,3,4);
+      P(O,()=>{g.moveTo(12,29);g.lineTo(12,21);g.arc(16,21,4,Math.PI,0);g.lineTo(20,29)});
+      S(O,1.6,()=>{g.moveTo(16,12);g.lineTo(16,1.5)});P("#c8322b",tri(16,1.5,24,4.5,16,7.5));break;
+    case"house":house(4,6,1.45,"#b5432f","#dcbf8f");break;
+    case"village":house(1,12,.95,"#b5432f","#dcbf8f");house(15,13,.95,"#8a4b2a","#cfae7e");house(8,3,.95,"#a8572f","#e2c597");break;
+    case"village2":house(0,14,.85,"#b5432f","#dcbf8f");house(16,15,.85,"#8a4b2a","#cfae7e");house(2,2,.85,"#a8572f","#e2c597");house(16,2,.85,"#b5432f","#d8b888");break;
+    case"village3":R(O,12,2,9,26);R("#c9c0ad",13,3,7,24);R("#c9c0ad",12,0,2,3);R("#c9c0ad",19,0,2,3);house(0,13,.9,"#b5432f","#dcbf8f");house(18,14,.85,"#8a4b2a","#cfae7e");break;
+    case"farm":R(O,2,14,28,15);R("#d6ae46",3,15,26,13);S("#a17f26",1.4,()=>{for(let i=0;i<4;i++){g.moveTo(4,17.5+i*3);g.lineTo(28,17.5+i*3)}});
+      S("#8a7a2a",1.6,()=>{for(const sx of [8,16,24]){g.moveTo(sx,15);g.lineTo(sx,5)}});
+      for(const sx of [8,16,24]){P("#f0cf5c",()=>g.ellipse(sx,6,2.4,4,0,0,7))}break;
+    case"lumber":for(const [cx,cy] of [[10,22],[22,22],[16,12]]){C(O,cx,cy,6.8);C("#b07a42",cx,cy,5.6);S("#6e4520",1.1,()=>g.arc(cx,cy,2.6,0,7))}break;
+    case"quarry":R(O,3,15,13,14);R("#aaa69d",4,16,11,12);R(O,14,9,15,20);R("#8f8b83",15,10,13,18);R(O,8,6,9,10);R("#bdb9b0",9,7,7,8);break;
+    case"mine":P(O,()=>{g.moveTo(1,29);g.lineTo(9,8);g.lineTo(23,8);g.lineTo(31,29)});P("#857b6e",()=>{g.moveTo(3,28);g.lineTo(10,9.5);g.lineTo(22,9.5);g.lineTo(29,28)});
+      P(O,()=>{g.moveTo(11,29);g.lineTo(11,21);g.arc(16,21,5,Math.PI,0);g.lineTo(21,29)});S("#8a5a2b",2.2,()=>{g.moveTo(10,29);g.lineTo(10,19);g.lineTo(22,19);g.lineTo(22,29)});
+      C("#e08a3c",7,24,1.6);C("#e08a3c",25,22,1.6);break;
+    case"market":R(O,3,7,26,8);for(let i=0;i<5;i++)R(i%2?"#f1e6c8":"#c8322b",4+i*4.8,8,4.8,6);R("#6b4423",6,14,2.4,15);R("#6b4423",23.6,14,2.4,15);
+      R(O,4,20,24,8);R("#a8743f",5,21,22,6);C("#e0b43a",10,19,2.4);C("#73c27a",16,19,2.4);C("#d9473b",22,19,2.4);break;
+    case"barracks":P(O,tri(1,14,16,4,31,14));P("#55677a",tri(3,13.5,16,6,29,13.5));R(O,4,13,24,16);R("#a88b62",5,14,22,14);R(O,13,19,6,10);
+      S(O,1.6,()=>{g.moveTo(26,13);g.lineTo(26,1)});P("#c8322b",tri(26,1,31,3.5,26,6));break;
+    case"range":C(O,15,17,12.5);C("#f1e6c8",15,17,11.3);C("#c8322b",15,17,8.4);C("#f1e6c8",15,17,5.4);C("#c8322b",15,17,2.6);
+      S(O,1.8,()=>{g.moveTo(29,3);g.lineTo(16,16)});P(O,tri(29,3,24,4,28,8));break;
+    case"stable":P(O,tri(1,13,16,3,31,13));P("#7a3a24",tri(3,12.5,16,5,29,12.5));R(O,4,12,24,17);R("#9c5b33",5,13,22,15);
+      R(O,10,16,12,13);R("#6b3a1f",11,17,10,12);S("#d9b07a",1.4,()=>{g.moveTo(11,17);g.lineTo(21,29);g.moveTo(21,17);g.lineTo(11,29)});break;
+    case"workshop":R(O,3,10,26,19);R("#8a7d6a",4,11,24,17);
+      g.save();g.translate(16,19);for(let i=0;i<8;i++){g.rotate(Math.PI/4);R(O,-1.8,-9.5,3.6,4)}g.restore();C(O,16,19,7);C("#c9c0ad",16,19,5.8);C(O,16,19,2.2);break;
+    case"tower":R(O,9,6,14,24);R("#c9c0ad",10,7,12,22);R(O,7,2,18,6);for(const cx of [8,13.5,19])R("#c9c0ad",cx,3,4,4);R(O,15,12,2.5,5);
+      P(O,()=>{g.moveTo(13,30);g.lineTo(13,25);g.arc(16,25,3,Math.PI,0);g.lineTo(19,30)});break;
+    case"magetower":R(O,10,13,12,18);R("#6a4fa3",11,14,10,16);P(O,tri(7,14,16,0,25,14));P("#3c2a6e",tri(9,13,16,2.5,23,13));
+      C("#f2c771",16,2.2,2);R("#f2c771",14.5,18,3,4);P(O,()=>{g.moveTo(13,31);g.lineTo(13,27);g.arc(16,27,3,Math.PI,0);g.lineTo(19,31)});break;
+    case"wall":R(O,1,10,30,16);for(let r=0;r<3;r++)for(let c=0;c<4;c++)R(r%2?"#b7ae9c":"#c9c0ad",2+c*7.3+(r%2?3:0)-(r%2&&c===3?3:0),11+r*5,6.6,4.2);for(const cx of [1,9,17,25])R(O,cx,6,5,5);break;
+    // units
+    case"sword":S(O,5,()=>{g.moveTo(7,25);g.lineTo(26,6)});S("#dfe3e8",2.6,()=>{g.moveTo(9,23);g.lineTo(26,6)});S(O,5,()=>{g.moveTo(6,17);g.lineTo(15,26)});
+      S("#d4a24a",2.6,()=>{g.moveTo(6.5,17.5);g.lineTo(14.5,25.5)});S("#6b4423",3.4,()=>{g.moveTo(8,24);g.lineTo(4,28)});break;
+    case"spear":S(O,4.2,()=>{g.moveTo(5,28);g.lineTo(22,10)});S("#8a5a2b",2.4,()=>{g.moveTo(5,28);g.lineTo(22,10)});P(O,tri(29,3,19,8,24,13));P("#dfe3e8",tri(27.5,4.5,20.5,8.5,23.5,11.5));break;
+    case"archer":S(O,4.5,()=>g.arc(6,16,13,-1.05,1.05));S("#a8743f",2.6,()=>g.arc(6,16,13,-1.05,1.05));S("#efe7d2",1,()=>{g.moveTo(12.4,4.8);g.lineTo(12.4,27.2)});
+      S(O,1.8,()=>{g.moveTo(5,16);g.lineTo(27,16)});P(O,tri(30,16,24,12.5,24,19.5));break;
+    case"harcher":P(O,()=>{g.moveTo(8,30);g.lineTo(10,17);g.lineTo(5,13);g.lineTo(11,4);g.lineTo(19,6);g.lineTo(27,13);g.lineTo(23,17);g.lineTo(19,14);g.lineTo(18,21);g.lineTo(22,30)});
+      P("#8a5a2b",()=>{g.moveTo(9.5,28.5);g.lineTo(11.5,17);g.lineTo(7,13);g.lineTo(11.6,6);g.lineTo(18.4,7.6);g.lineTo(25,13);g.lineTo(23,15);g.lineTo(18,12);g.lineTo(16.6,21);g.lineTo(20,28.5)});
+      S(O,2.4,()=>{g.moveTo(12,5);g.lineTo(9,14);g.lineTo(11,22)});C(O,15,10,1.1);S("#efe7d2",1.3,()=>g.arc(27,24,6,Math.PI*.6,Math.PI*1.4));break;
+    case"knight":P(O,()=>{g.moveTo(4,4);g.lineTo(28,4);g.lineTo(28,15);g.quadraticCurveTo(28,26,16,31);g.quadraticCurveTo(4,26,4,15);g.closePath()});
+      P("#3b6fb5",()=>{g.moveTo(6,6);g.lineTo(26,6);g.lineTo(26,15);g.quadraticCurveTo(26,24.5,16,29);g.quadraticCurveTo(6,24.5,6,15);g.closePath()});R("#f2c771",14,7,4,21);R("#f2c771",7,13,18,4);break;
+    case"catapult":C(O,8,26,4.4);C("#8a5a2b",8,26,3);C(O,24,26,4.4);C("#8a5a2b",24,26,3);R(O,3,20,26,5);R("#a8743f",4,21,24,3);
+      S(O,4.4,()=>{g.moveTo(10,21);g.lineTo(24,6)});S("#8a5a2b",2.6,()=>{g.moveTo(10,21);g.lineTo(24,6)});S(O,2.2,()=>{g.moveTo(16,21);g.lineTo(16,12);g.lineTo(19,12)});C(O,25,5,4.2);C("#9d9a93",25,5,3);break;
+    case"mage":P(O,()=>g.ellipse(16,27,14,4,0,0,7));P(O,tri(6,27,17,1,26,27));P("#5b3fa0",tri(8.5,26,17,4,23.5,26));P("#3c2a6e",()=>g.ellipse(16,27,12.5,2.8,0,0,7));star(16,17,4.5,"#f2c771");break;
+    case"golem":R(O,9,2,14,11);R("#9d9a93",10,3,12,9);R("#7ef0ff",12,6,3,2.4);R("#7ef0ff",17,6,3,2.4);R(O,5,12,22,12);R("#8e8a82",6,13,20,10);
+      R(O,1,13,6,12);R("#9d9a93",2,14,4,10);R(O,25,13,6,12);R("#9d9a93",26,14,4,10);R(O,8,23,7,8);R("#8e8a82",9,24,5,6);R(O,17,23,7,8);R("#8e8a82",18,24,5,6);break;
+    case"griffin":P(O,()=>{g.moveTo(2,24);g.quadraticCurveTo(8,2,30,4);g.lineTo(23,9);g.lineTo(28,11);g.lineTo(20,15);g.lineTo(25,18);g.lineTo(15,21);g.closePath()});
+      P("#d6ae46",()=>{g.moveTo(4.5,22);g.quadraticCurveTo(10,5,26.5,5.4);g.lineTo(20.5,9.4);g.lineTo(24.5,11.2);g.lineTo(17.5,14.6);g.lineTo(21,17.4);g.lineTo(14,19.6);g.closePath()});
+      C(O,8,26,4.6);C("#f1e6c8",8,26,3.4);P(O,tri(11,25,16,27,11,29));C(O,7,25.4,.9);break;
+    case"dragon":P(O,()=>{g.moveTo(3,26);g.quadraticCurveTo(6,3,30,3);g.lineTo(24,9);g.lineTo(29,11);g.lineTo(21,15);g.lineTo(26,18);g.lineTo(15,22);g.closePath()});
+      P("#b8322b",()=>{g.moveTo(5.5,24);g.quadraticCurveTo(8.5,5.5,27,4.4);g.lineTo(21.6,9.4);g.lineTo(25.6,11.2);g.lineTo(18.6,14.6);g.lineTo(22,17.4);g.lineTo(14,20.2);g.closePath()});
+      P(O,()=>g.ellipse(9,26,6,4.5,0,0,7));P("#d9473b",()=>g.ellipse(9,26,4.8,3.3,0,0,7));C("#f2c771",7.5,25,1.1);P("#f08a2c",tri(14,26,22,23,20,29));P("#f2c771",tri(14,26,19,24.5,18,27.5));break;
+    // resources
+    case"gold":C(O,16,16,12);C("#e6b93e",16,16,10.8);C("#f6d76b",16,16,7.6);S("#b88a1e",1.6,()=>g.arc(16,16,7.6,0,7));R("#b88a1e",14.5,11,3,10);break;
+    case"food":S("#8a7a2a",2,()=>{g.moveTo(16,30);g.lineTo(16,9);g.moveTo(16,22);g.lineTo(9,13);g.moveTo(16,22);g.lineTo(23,13)});
+      for(const [cx,cy,a] of [[16,7,0],[9,11,-.7],[23,11,.7],[16,14,0]]){P(O,()=>g.ellipse(cx,cy,3.4,5.4,a,0,7));P("#f0cf5c",()=>g.ellipse(cx,cy,2.3,4.2,a,0,7))}break;
+    case"wood":R(O,2,9,24,14);R("#b07a42",3,10,22,12);C(O,26,16,7.6);C("#d39a5c",26,16,6.4);S("#8a5a2b",1.1,()=>{g.arc(26,16,3.2,0,7)});S("#7a4f26",1,()=>{g.moveTo(5,13);g.lineTo(18,13);g.moveTo(7,18);g.lineTo(21,18)});break;
+    case"stone":P(O,()=>{g.moveTo(3,26);g.lineTo(6,12);g.lineTo(15,5);g.lineTo(26,9);g.lineTo(30,22);g.lineTo(22,29);g.closePath()});
+      P("#a9a59c",()=>{g.moveTo(5,25);g.lineTo(7.6,13);g.lineTo(15.4,7);g.lineTo(25,10.4);g.lineTo(28.4,21.6);g.lineTo(21.4,27.4);g.closePath()});P("#c9c5bc",tri(8,13,15,7.4,15,15));break;
+    case"iron":P(O,()=>{g.moveTo(2,25);g.lineTo(8,11);g.lineTo(24,11);g.lineTo(30,25);g.closePath()});P("#9aa6b2",()=>{g.moveTo(4.4,23.6);g.lineTo(9,12.6);g.lineTo(23,12.6);g.lineTo(27.6,23.6);g.closePath()});
+      P("#c8d1da",()=>{g.moveTo(9,12.6);g.lineTo(23,12.6);g.lineTo(21,16);g.lineTo(11,16);g.closePath()});break;
+    case"mana":P(O,()=>{g.moveTo(16,1);g.bezierCurveTo(22,10,27,15,27,20);g.arc(16,20,11,0,Math.PI);g.bezierCurveTo(5,15,10,10,16,1)});
+      P("#8f6cff",()=>{g.moveTo(16,4);g.bezierCurveTo(21,11,25,15.5,25,20);g.arc(16,20,9,0,Math.PI);g.bezierCurveTo(7,15.5,11,11,16,4)});P("#d9ccff",()=>g.ellipse(12,20,2,3.6,-.4,0,7));break;
+    case"pop":C(O,16,9,6.5);C("#e2c597",16,9,5.2);P(O,()=>{g.moveTo(4,30);g.quadraticCurveTo(4,16,16,16);g.quadraticCurveTo(28,16,28,30);g.closePath()});
+      P("#3b6fb5",()=>{g.moveTo(6,28.6);g.quadraticCurveTo(6,18,16,18);g.quadraticCurveTo(26,18,26,28.6);g.closePath()});break;
+  }
+  g.restore();
+}
+function paintIcons(root){root.querySelectorAll("canvas.icn").forEach(cn=>{const px=cn.classList.contains("s")?36:56;cn.width=px;cn.height=px;const g=cn.getContext("2d");g.clearRect(0,0,px,px);drawIcon(g,cn.dataset.icon,px/2,px/2,px)})}
+const icn=(k,small)=>`<canvas class="icn${small?" s":""}" data-icon="${k}" aria-hidden="true"></canvas>`;
+
 /* ================= rules ================= */
-const RES={gold:{n:"ოქრო",k:"ხაზინა"},food:{n:"საკვები",k:"საკვები"},wood:{n:"ხე",k:"ხე"},stone:{n:"ქვა",k:"ქვა"},iron:{n:"რკინა",k:"რკინა"}};
-const RK=["gold","food","wood","stone","iron"];
+const RES={gold:{n:"ოქრო"},food:{n:"საკვები"},wood:{n:"ხე"},stone:{n:"ქვა"},iron:{n:"რკინა"},mana:{n:"მანა"}};
+const RK=["gold","food","wood","stone","iron","mana"];
 const LAND=[SAND,GRASS,FOREST,HILL,DESERT];
 const B={
-  capital:{n:"დედაქალაქი",i:"🏰",prod:{gold:6,food:8,wood:3,stone:2},pop:30,noBuild:true},
-  house:{n:"სახლი",i:"🏠",cost:{wood:40,gold:20},pop:15,on:LAND,d:"+15 მოსახლე: მეტი გადასახადი და ადგილი ჯარისთვის"},
-  farm:{n:"ფერმა",i:"🌾",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT],d:"+8 საკვები/წთ. მდინარესთან ×1.5, უდაბნოში ×0.5"},
-  lumber:{n:"სახერხი",i:"🪓",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"+6 ხე/წთ. შენდება მხოლოდ ტყეში"},
-  quarry:{n:"ქვის სამტეხლო",i:"⛏️",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"+4 ქვა/წთ. ბორცვზე ან მთაზე"},
-  mine:{n:"რკინის მაღარო",i:"⚒️",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:"+2.5 რკინა/წთ მთაზე, ბორცვზე ×0.6"},
-  market:{n:"ბაზარი",i:"🏪",cost:{wood:80,stone:50,gold:60},prod:{gold:10},on:LAND,d:"+10 ოქრო/წთ და ვაჭრობის უფლება"},
-  barracks:{n:"ყაზარმა",i:"⚔️",cost:{wood:90,stone:40,gold:50},on:LAND,d:"ამზადებს ხმლიან მეომრებს და შუბოსნებს"},
-  range:{n:"სასროლეთი",i:"🎯",cost:{wood:110,gold:60},on:LAND,d:"ამზადებს მშვილდოსნებს"},
-  stable:{n:"თავლა",i:"🐎",cost:{wood:120,stone:60,gold:100},on:LAND,d:"ცხენოსნები: რაინდი, შვილდოსანი მხედარი"},
-  workshop:{n:"სახელოსნო",i:"🛠️",cost:{wood:160,stone:120,iron:30,gold:120},on:LAND,d:"აგებს კატაპულტებს"},
-  tower:{n:"საგუშაგო კოშკი",i:"🗼",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"+25% დაცვა 3 უჯრის რადიუსში და ისრების ზალპი"},
-  wall:{n:"გალავანი",i:"🧱",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა 2 უჯრის რადიუსში. დახატე საზღვარზე"},
+  capital:{n:"დედაქალაქი",prod:{gold:6,food:8,wood:3,stone:2},pop:30,noBuild:true},
+  village:{n:"სოფელი",cost:{wood:60,gold:40},prod:{gold:7,food:4},pop:10,on:[GRASS,SAND,DESERT,FOREST],d:"შემოსავალი და მოსახლეობა. შეიძლება გაუმჯობესება"},
+  village2:{n:"დიდი სოფელი",cost:{wood:120,stone:60,gold:120},prod:{gold:15,food:6},pop:20,noBuild:true},
+  village3:{n:"ქალაქი",cost:{wood:150,stone:200,iron:20,gold:300},prod:{gold:28,food:8},pop:35,noBuild:true},
+  house:{n:"სახლი",cost:{wood:40,gold:20},pop:15,on:LAND,d:"+15 მოსახლე"},
+  farm:{n:"ფერმა",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT],d:"საკვები. მდინარესთან მეტი"},
+  lumber:{n:"სახერხი",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"ხე. მხოლოდ ტყეში"},
+  quarry:{n:"ქვის სამტეხლო",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"ქვა. ბორცვზე ან მთაზე"},
+  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:"რკინა. მთაზე მეტი"},
+  market:{n:"ბაზარი",cost:{wood:80,stone:50,gold:60},prod:{gold:10},on:LAND,d:"ოქრო და ვაჭრობა"},
+  barracks:{n:"ყაზარმა",cost:{wood:90,stone:40,gold:50},on:LAND,d:"ქვეითი ჯარი"},
+  range:{n:"სასროლეთი",cost:{wood:110,gold:60},on:LAND,d:"მშვილდოსნები"},
+  stable:{n:"თავლა",cost:{wood:120,stone:60,gold:100},on:LAND,d:"ცხენოსნები"},
+  workshop:{n:"სახელოსნო",cost:{wood:160,stone:120,iron:30,gold:120},on:LAND,d:"კატაპულტები"},
+  magetower:{n:"ჯადოქრის კოშკი",cost:{stone:120,iron:20,gold:150},prod:{mana:3},on:[...LAND,MOUNTAIN],d:"მანა, ჯადოქრები და მოხმობა"},
+  tower:{n:"საგუშაგო კოშკი",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"+25% დაცვა ახლოს"},
+  wall:{n:"გალავანი",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა ახლოს"},
 };
-const BUILD_ORDER=["house","farm","lumber","quarry","mine","market","barracks","range","stable","workshop","tower","wall"];
+const UPG={village:"village2",village2:"village3"};
+const BUILD_ORDER=["village","house","farm","lumber","quarry","mine","market","barracks","range","stable","workshop","magetower","tower","wall"];
 const UNITS={
-  sword:{n:"ხმლიანი მეომარი",i:"🗡️",atk:10,def:8,spd:3,pop:1,up:.15,time:8,cost:{gold:15,food:10,iron:2},req:["barracks"],d:"მყარი ქვეითი"},
-  spear:{n:"შუბოსანი",i:"🔱",atk:6,def:12,spd:3,pop:1,up:.12,time:6,cost:{gold:10,food:10,wood:6},req:["barracks"],d:"კარგი დამცველი, ძლიერია ცხენოსნებთან"},
-  archer:{n:"მშვილდოსანი",i:"🏹",atk:12,def:5,spd:3,pop:1,up:.15,time:8,cost:{gold:14,food:8,wood:12},req:["range"],d:"შორიდან მსროლელი"},
-  harcher:{n:"შვილდოსანი მხედარი",i:"🏇",atk:15,def:7,spd:1.5,pop:2,up:.35,time:14,cost:{gold:40,food:20,wood:12},req:["range","stable"],d:"ყველაზე სწრაფი"},
-  knight:{n:"რაინდი",i:"🛡️",atk:22,def:16,spd:1.8,pop:2,up:.45,time:18,cost:{gold:60,food:20,iron:10},req:["stable"],d:"მძიმე ცხენოსანი"},
-  catapult:{n:"კატაპულტი",i:"🪨",atk:28,def:2,spd:5,pop:3,up:.6,time:30,cost:{gold:80,wood:70,stone:25},req:["workshop"],d:"ანგრევს გალავნის და კოშკის დაცვას"},
+  sword:{n:"ხმლიანი მეომარი",atk:10,def:8,spd:3,pop:1,up:.15,time:8,cost:{gold:15,food:10,iron:2},req:["barracks"]},
+  spear:{n:"შუბოსანი",atk:6,def:12,spd:3,pop:1,up:.12,time:6,cost:{gold:10,food:10,wood:6},req:["barracks"]},
+  archer:{n:"მშვილდოსანი",atk:12,def:5,spd:3,pop:1,up:.15,time:8,cost:{gold:14,food:8,wood:12},req:["range"]},
+  harcher:{n:"შვილდოსანი მხედარი",atk:15,def:7,spd:1.5,pop:2,up:.35,time:14,cost:{gold:40,food:20,wood:12},req:["range","stable"]},
+  knight:{n:"რაინდი",atk:22,def:16,spd:1.8,pop:2,up:.45,time:18,cost:{gold:60,food:20,iron:10},req:["stable"]},
+  catapult:{n:"კატაპულტი",atk:28,def:2,spd:5,pop:3,up:.6,time:30,cost:{gold:80,wood:70,stone:25},req:["workshop"]},
+  mage:{n:"ჯადოქარი",atk:18,def:8,spd:3,pop:1,up:.3,time:15,cost:{gold:50,food:10,iron:5},req:["magetower"]},
+  golem:{n:"ქვის გოლემი",atk:14,def:24,spd:4,pop:2,up:.1,time:4,cost:{mana:40},req:["magetower"],summon:1,mages:1},
+  griffin:{n:"გრიფონი",atk:26,def:14,spd:1.2,pop:3,up:.2,time:6,cost:{mana:90},req:["magetower"],summon:1,mages:3},
+  dragon:{n:"დრაკონი",atk:75,def:45,spd:1.4,pop:6,up:.5,time:10,cost:{mana:220},req:["magetower"],summon:1,mages:5},
 };
 const UK=Object.keys(UNITS);
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
@@ -258,14 +362,15 @@ const PRICE={food:.5,wood:.6,stone:.9,iron:2};
 const OFFLINE_CAP=24*3600e3;
 
 function stats(c){
-  let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0},cnt={};
+  let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
   for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
     if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;for(const r in d.prod)prod[r]+=d.prod[r]*m}}
   let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
   const civ=Math.max(0,pop-army);
-  prod.gold+=civ*.35-up;prod.food-=civ*.1+army*.25;
-  return {pop,army,units,queued,civ,prod,cnt};
+  prod.gold+=civ*.35-up;prod.food-=civ*.1+army*.25;prod.mana+=(c.army?.mage||0)*.4;
+  const villages=(cnt.village||0)+(cnt.village2||0)+(cnt.village3||0);
+  return {pop,army,units,queued,civ,prod,cnt,villages};
 }
 function materialize(c,now){
   if(!c)return c;
@@ -277,57 +382,114 @@ function materialize(c,now){
   c.queue=left;c.t=now;return c;
 }
 const buildCost=(c,b)=>{const n=(stats(c).cnt[b]||0),m=b==="wall"?1+n*.01:1+n*.15,o={};for(const k in B[b].cost)o[k]=Math.ceil(B[b].cost[k]*m);return o};
-const claimCost=c=>({gold:Math.ceil(10+Object.keys(c.tiles||{}).length*.6)});
+const claimCost=(c,i)=>({gold:Math.ceil(10+Object.keys(c.tiles||{}).length*.6+(NEUTRAL.has(i)?60:0))});
 const canPay=(c,cost)=>Object.keys(cost).every(k=>(c.res[k]||0)>=cost[k]);
-function pay(c,cost,mult=1){for(const k in cost){if((c.res[k]||0)<cost[k]*mult)throw new Error("არ გყოფნის: "+resName(k,c));}for(const k in cost)c.res[k]-=cost[k]*mult}
 const resName=(k,c)=>k==="gold"?(c?.currency||"ოქრო"):RES[k].n;
-function costHTML(cost,c,mult=1){return Object.keys(cost).map(k=>`<span class="${c&&(c.res[k]||0)<cost[k]*mult?"no":""}">${fmt(cost[k]*mult)} ${esc(resName(k,c))}</span>`).join(" · ")}
+function pay(c,cost,mult=1){for(const k in cost){if((c.res[k]||0)<cost[k]*mult)throw new Error("არ გყოფნის: "+resName(k,c))}for(const k in cost)c.res[k]-=cost[k]*mult}
+function costHTML(cost,c,mult=1){return `<div class="cost">${Object.keys(cost).map(k=>`<span class="${c&&(c.res[k]||0)<cost[k]*mult?"no":""}">${icn(k,1)}${fmt(cost[k]*mult)}</span>`).join("")}</div>`}
 
 /* ================= state ================= */
-let db=null,user=null,ME=null,DEMO=false;
-const HOLDER=Math.random().toString(36).slice(2);
+let db=null,user=null,ME=null;
+const HOLDER=rid(10);
 let countries={},attacks={},chat=[];
 let OWNER=new Int16Array(W*H).fill(-1),ORDER=[];
 let selected=-1,placing=null,tab="land",lastChatSeen=0;
+const NET={role:null,wid:null,status:"",peers:0};
 
-/* ================= storage (real or local demo) ================= */
-function mockDB(){
-  const KEY="cw_demo_v1";let store={};const load=()=>{try{store=JSON.parse(localStorage.getItem(KEY)||"{}")}catch{store={}}};load();
-  const subs=new Set(),notify=()=>{for(const f of subs)f()};
-  let bc=null;try{bc=new BroadcastChannel("cw_demo");bc.onmessage=()=>{load();notify()}}catch{}
-  const changed=()=>{try{localStorage.setItem(KEY,JSON.stringify(store))}catch{};bc&&bc.postMessage(1);setTimeout(notify,0)};
-  const cp=o=>JSON.parse(JSON.stringify(o));
-  const snap=p=>({id:p.split("/").pop(),exists:!!store[p],data:()=>store[p]?cp(store[p]):undefined,metadata:{fromCache:false,hasPendingWrites:false}});
-  const docRef=p=>({id:p.split("/").pop(),path:p,get:async()=>snap(p),set:async d=>{store[p]=cp(d);changed()},update:async d=>{store[p]={...store[p],...cp(d)};changed()},
-    delete:async()=>{delete store[p];changed()},acquire:async()=>({acquired:true}),onSnapshot:n=>{const f=()=>n(snap(p));subs.add(f);setTimeout(f,0);return()=>subs.delete(f)},collection:s=>colRef(p+"/"+s)});
-  const colRef=p=>{const list=()=>Object.keys(store).filter(k=>k.startsWith(p+"/")&&k.split("/").length===p.split("/").length+1).map(snap);
-    return {path:p,doc:id=>docRef(p+"/"+(id||Math.random().toString(36).slice(2,14))),get:async()=>{const d=list();return{docs:d,size:d.length,empty:!d.length}},
-      onSnapshot:n=>{const f=()=>{const d=list();n({docs:d,size:d.length,empty:!d.length,docChanges:()=>[],metadata:{fromCache:false}})};subs.add(f);setTimeout(f,0);return()=>subs.delete(f)}}};
-  return {doc:docRef,collection:colRef};
+/* ================= shared storage: host browser keeps the world, friends connect peer-to-peer ================= */
+const PEER_PREFIX="countrywar-ka-";
+function makeStore(wid){
+  const KEY="cw_world_"+wid;let data={};try{data=JSON.parse(localStorage.getItem(KEY)||"{}")}catch{}
+  const leases={},listeners=new Set();let saveT=null;
+  const changed=()=>{clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch{}},250);for(const f of listeners)f()};
+  const ops={
+    get:p=>data[p]??null,
+    set:(p,d)=>{data[p]=d;changed();return true},
+    update:(p,d)=>{if(!data[p])throw new Error("missing");data[p]={...data[p],...d};changed();return true},
+    delete:p=>{delete data[p];changed();return true},
+    acquire:(p,h,ttl)=>{const now=Date.now(),l=leases[p];if(l&&l.exp>now&&l.h!==h)return{acquired:false};leases[p]={h,exp:now+clamp(ttl||1500,500,10000)};return{acquired:true}},
+  };
+  return {ops,get data(){return data},listeners};
 }
-/* Firebase backend for the public web version: paste the project's config here */
-const FIREBASE_CONFIG=null;
-async function fireDB(){
-  firebase.initializeApp(FIREBASE_CONFIG);
-  const fs=firebase.firestore();try{fs.settings({ignoreUndefinedProperties:true})}catch{}
-  const cred=await firebase.auth().signInAnonymously();
-  const wrap=s=>({id:s.id,exists:s.exists,data:()=>s.data(),metadata:s.metadata});
-  const docRef=p=>{const r=fs.doc(p);return{id:r.id,path:p,_r:r,get:async()=>wrap(await r.get()),set:d=>r.set(d),update:d=>r.update(d),delete:()=>r.delete(),
-    onSnapshot:(n,e)=>r.onSnapshot(s=>n(wrap(s)),e),collection:s=>colRef(p+"/"+s)}};
-  const colRef=p=>{const c=fs.collection(p);return{path:p,doc:id=>docRef(id?p+"/"+id:c.doc().path),
-    get:async()=>{const q=await c.get();return{docs:q.docs.map(wrap),size:q.size,empty:q.empty}},
-    onSnapshot:(n,e)=>c.onSnapshot(q=>n({docs:q.docs.map(wrap),size:q.size,empty:q.empty,docChanges:()=>[],metadata:q.metadata}),e)}};
-  return {db:{doc:docRef,collection:colRef,tx:fn=>fs.runTransaction(fn)},uid:cred.user.uid};
+function netDB(getData,listeners,call){
+  const cp=o=>o==null?o:JSON.parse(JSON.stringify(o));
+  const snap=(p,v)=>({id:p.split("/").pop(),exists:v!=null,data:()=>v==null?undefined:cp(v),metadata:{fromCache:false,hasPendingWrites:false}});
+  const docRef=p=>({id:p.split("/").pop(),path:p,get:async()=>snap(p,await call("get",p)),set:d=>call("set",p,cp(d)),update:d=>call("update",p,cp(d)),delete:()=>call("delete",p),
+    acquire:o=>call("acquire",p,o.holder,o.ttlMs),onSnapshot:n=>{const f=()=>n(snap(p,getData()[p]));listeners.add(f);setTimeout(f,0);return()=>listeners.delete(f)}});
+  const colRef=p=>{const depth=p.split("/").length+1;const list=()=>{const d=getData();return Object.keys(d).filter(k=>k.startsWith(p+"/")&&k.split("/").length===depth).map(k=>snap(k,d[k]))};
+    return{path:p,doc:id=>docRef(p+"/"+(id||rid(14))),get:async()=>{const d=list();return{docs:d,size:d.length,empty:!d.length}},
+      onSnapshot:n=>{const f=()=>{const d=list();n({docs:d,size:d.length,empty:!d.length,docChanges:()=>[],metadata:{}})};listeners.add(f);setTimeout(f,0);return()=>listeners.delete(f)}}};
+  return{doc:docRef,collection:colRef};
+}
+function startHost(wid){
+  const store=makeStore(wid);
+  db=netDB(()=>store.data,store.listeners,async(op,...a)=>store.ops[op](...a));
+  const conns=new Set();
+  const bcast=()=>{const msg={t:"store",d:store.data,n:conns.size+1};for(const c of conns)if(c.open)try{c.send(msg)}catch{}};
+  let bt=null;store.listeners.add(()=>{clearTimeout(bt);bt=setTimeout(bcast,60)});
+  const upd=()=>{NET.peers=conns.size+1;renderNet();bcast()};
+  let tries=0;
+  const go=()=>{
+    const peer=new Peer(PEER_PREFIX+wid,{debug:0});
+    peer.on("open",()=>{NET.status="online";renderNet()});
+    peer.on("connection",c=>{
+      c.on("open",()=>{conns.add(c);try{c.send({t:"store",d:store.data,n:conns.size+1})}catch{}upd()});
+      c.on("data",m=>{if(!m||m.t!=="rpc")return;let res=null,err=null;try{res=store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}try{c.send({t:"res",id:m.id,res,err})}catch{}});
+      c.on("close",()=>{conns.delete(c);upd()});c.on("error",()=>{conns.delete(c);upd()});
+    });
+    peer.on("disconnected",()=>{NET.status="offline";renderNet();setTimeout(()=>{try{peer.reconnect()}catch{}},2000)});
+    peer.on("error",e=>{
+      if(e.type==="unavailable-id"){peer.destroy();if(tries++<12){NET.status="wait";renderNet();setTimeout(go,3000)}else{NET.status="dup";renderNet()}}
+      else if(["network","server-error","socket-error","socket-closed"].includes(e.type)){NET.status="offline";renderNet()}
+    });
+  };
+  go();
+}
+function startClient(wid,onFirst){
+  let mirror={},conn=null,seq=0,retry=null,first=true;const listeners=new Set(),pending=new Map();
+  const call=(op,...a)=>new Promise((res,rej)=>{if(!conn||!conn.open)return rej(new Error("მასპინძელთან კავშირი არ არის"));const id=++seq;pending.set(id,{res,rej});
+    try{conn.send({t:"rpc",id,op,a})}catch(e){pending.delete(id);return rej(e)}
+    setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error("მასპინძელი არ პასუხობს"))}},10000)});
+  db=netDB(()=>mirror,listeners,call);
+  const peer=new Peer(undefined,{debug:0});
+  const again=ms=>{if(retry)return;retry=setTimeout(()=>{retry=null;connect()},ms)};
+  const connect=()=>{
+    if(peer.disconnected){try{peer.reconnect()}catch{}}
+    conn=peer.connect(PEER_PREFIX+wid,{reliable:true});
+    conn.on("open",()=>{NET.status="online";renderNet()});
+    conn.on("data",m=>{if(!m)return;
+      if(m.t==="store"){mirror=m.d||{};NET.peers=m.n||NET.peers;renderNet();for(const f of listeners)f();if(first){first=false;onFirst()}}
+      else if(m.t==="res"){const p=pending.get(m.id);if(p){pending.delete(m.id);m.err?p.rej(new Error(m.err)):p.res(m.res)}}});
+    conn.on("close",()=>{NET.status="hostoff";renderNet();again(4000)});
+    conn.on("error",()=>again(4000));
+  };
+  peer.on("open",connect);
+  peer.on("error",e=>{if(e.type==="peer-unavailable"){NET.status="hostoff";renderNet();if(first)setWait("hostoff");again(5000)}else if(["network","server-error","socket-error"].includes(e.type)){NET.status="offline";renderNet();again(5000)}});
+}
+function inviteLink(){return location.origin+location.pathname+"#w-"+NET.wid}
+function renderNet(){
+  const el=$("#net");if(!NET.role){el.hidden=true;return}el.hidden=!me();
+  const st={online:["on","ონლაინ"],offline:["off","კავშირი არ არის"],hostoff:["off","მასპინძელი არ არის ონლაინ"],wait:["","უკავშირდება…"],dup:["off","სამყარო სხვა ფანჯარაშია ღია"]}[NET.status]||["","უკავშირდება…"];
+  el.innerHTML=`<span class="dot ${st[0]}"></span><span>${st[1]}${NET.status==="online"?` · ${NET.peers}`:""}</span><button class="btn sm" id="invBtn">მოწვევა</button>`;
+}
+$("#net").addEventListener("click",e=>{if(e.target.id==="invBtn")showInvite()});
+function copyText(t,inp){(navigator.clipboard?.writeText(t)||Promise.reject()).then(()=>toast("ლინკი დაკოპირდა","good")).catch(()=>{if(inp){inp.select();toast("მონიშნულია, დააკოპირე")}})}
+function showInvite(){
+  const ov=document.createElement("div");ov.className="overlay";
+  ov.innerHTML=`<div class="card"><h2>მოიწვიე მეგობრები</h2><p class="muted" style="margin-top:0">გაუგზავნე ეს ლინკი. ვინც გახსნის, შენს სამყაროში შემოვა.${NET.role==="host"?" სამყარო შენს ბრაუზერშია, ამიტომ მეგობრები მაშინ თამაშობენ, როცა შენთან თამაში გახსნილია.":""}</p>
+    <div class="invite"><input id="invIn" readonly value="${esc(inviteLink())}"><button class="btn gold" id="invCopy">კოპირება</button></div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="invClose">დახურვა</button></div></div>`;
+  $("#app").appendChild(ov);
+  ov.querySelector("#invCopy").onclick=()=>copyText(inviteLink(),ov.querySelector("#invIn"));
+  ov.querySelector("#invClose").onclick=()=>ov.remove();
 }
 async function mutate(path,fn){
-  if(db.tx)return db.tx(async t=>{const r=db.doc(path)._r,s=await t.get(r);const cur=s.exists?JSON.parse(JSON.stringify(s.data())):null;
-    const next=await fn(cur);if(next===undefined||next===null)return null;t.set(r,next);return next});
   const ref=db.doc(path);
   for(let i=0;;i++){
-    let r;try{r=await ref.acquire({holder:HOLDER,ttlMs:1500})}catch(e){r={acquired:true}}
-    if(r.acquired)break;
+    const r=await ref.acquire({holder:HOLDER,ttlMs:1500});
+    if(r&&r.acquired)break;
     if(i>14)throw new Error("სერვერი დაკავებულია, სცადე ხელახლა");
-    await sleep(180+Math.random()*220);
+    await sleep(150+Math.random()*200);
   }
   const s=await ref.get();
   const cur=s.exists?JSON.parse(JSON.stringify(s.data())):null;
@@ -357,7 +519,7 @@ const adjMine=i=>N4(i).some(isMine);
 
 /* ================= flags ================= */
 const PATS=["solid","h3","v3","h2","cross","nordic","diag","quarter","saltire","border"];
-const EMBLEMS=["","★","✦","☀","✚","♛","⚜","☾","⚔","♞","✠","❖"];
+const EMBLEMS=["","★","✦","☀","✚","♛","⚜","☾","✠","❖","◆","●"];
 function drawFlag(ctx,f,x,y,w,h){
   f=f||{p:"solid",c:["#888","#ccc","#444"],e:"",ec:"#fff"};const [a,b,c]=f.c;
   ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
@@ -399,14 +561,12 @@ function drawTerrain(){
     if(t===HILL){g.strokeStyle="rgba(80,74,48,.6)";g.lineWidth=1.3;g.beginPath();g.arc(X+8,Y+12,5,Math.PI*1.1,Math.PI*1.9);g.stroke()}
     if(t===DESERT&&hash(x,y,5)<.25){g.fillStyle="rgba(150,110,50,.35)";g.fillRect(X+3,Y+10,8,1)}
   }
-  // rivers drawn as connected water ribbons
   g.lineCap="round";
   for(const pass of [[7,"rgb(40,96,132)"],[4.5,"rgb(70,138,178)"]]){
     g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();
     for(const [a,b] of RIVER_EDGES){g.moveTo(tx(a)*TS+8,ty(a)*TS+8);g.lineTo(tx(b)*TS+8,ty(b)*TS+8)}
     g.stroke();
   }
-  // coast
   g.fillStyle="rgba(240,230,190,.35)";
   for(let i=0;i<W*H;i++){if(TER[i]===WATER||TER[i]===RIVER)continue;for(const n of N4(i)){if(TER[n]!==WATER)continue;const x=tx(i)*TS,y=ty(i)*TS;
     if(n===i-1)g.fillRect(x,y,1.5,TS);if(n===i+1)g.fillRect(x+TS-1.5,y,1.5,TS);if(n===i-W)g.fillRect(x,y,TS,1.5);if(n===i+W)g.fillRect(x,y+TS-1.5,TS,1.5)}}
@@ -417,9 +577,7 @@ function drawTerritory(){
     g.globalAlpha=.3;g.fillStyle=col;g.fillRect(x,y,TS,TS);g.globalAlpha=1;
     for(const n of N4(i)){if(OWNER[n]===o)continue;g.fillStyle=col;
       if(n===i-1)g.fillRect(x,y,2.5,TS);if(n===i+1)g.fillRect(x+TS-2.5,y,2.5,TS);if(n===i-W)g.fillRect(x,y,TS,2.5);if(n===i+W)g.fillRect(x,y+TS-2.5,TS,2.5)}
-    const X=tx(i),Y=ty(i);if(X===0)g.fillRect(x,y,2.5,TS);if(Y===0)g.fillRect(x,y,TS,2.5);
   }
-  g.globalAlpha=1;
 }
 function resize(){dpr=Math.min(2,window.devicePixelRatio||1);vw=cv.clientWidth;vh=cv.clientHeight;cv.width=vw*dpr|0;cv.height=vh*dpr|0}
 const s2w=(sx,sy)=>[(sx-vw/2)/cam.z+cam.x,(sy-vh/2)/cam.z+cam.y];
@@ -431,6 +589,7 @@ function frame(){
   const z=cam.z;ctx.setTransform(dpr*z,0,0,dpr*z,dpr*(vw/2-cam.x*z),dpr*(vh/2-cam.y*z));
   ctx.imageSmoothingEnabled=z<1;
   ctx.drawImage(terrCv,0,0);ctx.drawImage(ownCv,0,0);
+  ctx.imageSmoothingEnabled=true;
   const [ax,ay]=s2w(0,0),[bx,by]=s2w(vw,vh);
   const x0=clamp(Math.floor(ax/TS)-1,0,W-1),x1=clamp(Math.ceil(bx/TS)+1,0,W-1),y0=clamp(Math.floor(ay/TS)-1,0,H-1),y1=clamp(Math.ceil(by/TS)+1,0,H-1);
   const vis=i=>{const x=tx(i),y=ty(i);return x>=x0&&x<=x1&&y>=y0&&y<=y1};
@@ -439,24 +598,26 @@ function frame(){
   for(const c of ORDER){for(const k in c.tiles){if(c.tiles[k]!=="wall")continue;const i=+k;if(!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8;
     for(const n of [i+1,i+W]){if(c.tiles[n]==="wall"&&(n!==i+1||tx(i)<W-1)){ctx.strokeStyle="#4b4740";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx(n)*TS+8,ty(n)*TS+8);ctx.stroke();ctx.strokeStyle="#b7ae9c";ctx.lineWidth=3.5;ctx.stroke()}}
     ctx.fillStyle="#4b4740";ctx.fillRect(cx-4.5,cy-4.5,9,9);ctx.fillStyle="#c9c0ad";ctx.fillRect(cx-3,cy-3,6,6)}}
+  // neutral villages
+  for(const i of NEUTRAL){if(OWNER[i]>=0||!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8;
+    ctx.fillStyle="rgba(20,20,20,.35)";ctx.beginPath();ctx.arc(cx,cy+1,8,0,7);ctx.fill();drawIcon(ctx,"village",cx,cy,15)}
   // buildings
-  if(z>.45){ctx.textAlign="center";ctx.textBaseline="middle";ctx.font="11px serif";
-    for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;ctx.fillText(B[b]?.i||"",tx(i)*TS+8,ty(i)*TS+9)}}}
+  if(z>.42){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawIcon(ctx,b,tx(i)*TS+8,ty(i)*TS+8,14)}}}
   // capitals with flags
   for(const c of ORDER){const i=c.capital;if(i==null||!vis(i))continue;const x=tx(i)*TS,y=ty(i)*TS;
-    ctx.font="15px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("🏰",x+8,y+9);
-    ctx.fillStyle="#2a241b";ctx.fillRect(x+13,y-14,1.5,18);drawFlag(ctx,c.flag,x+14.5,y-14,16,10.5);
-    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.8)";ctx.fillRect(x+8-w/2,y+17,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+22.5)}}
+    drawIcon(ctx,"capital",x+8,y+7,19);
+    ctx.fillStyle="#2a241b";ctx.fillRect(x+14,y-14,1.5,16);drawFlag(ctx,c.flag,x+15.5,y-14,16,10.5);
+    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+18,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+23.5)}}
   // armies
   for(const a of Object.values(attacks)){
-    let p,from=a.fromTile,to=a.target;
+    let p;const from=a.fromTile,to=a.target;
     if(a.status==="marching")p=clamp((now-a.launch)/(a.arrive-a.launch),0,1);
-    else if(a.status==="returning"&&a.result?.survivorsN>0){p=1-clamp((now-a.arrive)/(a.returnAt-a.arrive),0,1)}else continue;
+    else if(a.status==="returning"&&a.result?.survivorsN>0)p=1-clamp((now-a.arrive)/(a.returnAt-a.arrive),0,1);else continue;
     const fx=tx(from)*TS+8,fy=ty(from)*TS+8,txx=tx(to)*TS+8,tyy=ty(to)*TS+8,x=fx+(txx-fx)*p,y=fy+(tyy-fy)*p;
     const col=countries[a.from]?.color||"#fff";
     if(a.status==="marching"){ctx.setLineDash([3,3]);ctx.strokeStyle=col;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(txx,tyy);ctx.stroke();ctx.setLineDash([])}
-    ctx.fillStyle=col;ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,6.5,0,7);ctx.fill();ctx.stroke();
-    ctx.fillStyle="#fff";ctx.font="8px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(a.status==="marching"?"⚔":"↩",x,y+.5);
+    ctx.fillStyle=col;ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fill();ctx.stroke();
+    drawIcon(ctx,a.status==="marching"?"sword":"knight",x,y,10);
   }
   if(placing&&hoverTile>=0){const ok=isMine(hoverTile)&&!countries[ME].tiles[hoverTile]&&B.wall.on.includes(TER[hoverTile]);
     ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(tx(hoverTile)*TS+1,ty(hoverTile)*TS+1,TS-2,TS-2)}
@@ -491,12 +652,16 @@ function renderHUD(){
   const c0=me();if(!c0){$("#hud").hidden=true;return}$("#hud").hidden=false;
   const c=live(ME),s=stats(c);
   const mf=$("#myFlag").getContext("2d");mf.clearRect(0,0,42,28);drawFlag(mf,c.flag,0,0,42,28);
-  $("#myName").textContent=c.name;$("#myRuler").textContent="მმართველი "+c.ruler;
-  const cell=(k,label,val,rate)=>`<div class="r" title="${esc(label)}"><span class="k">${esc(label)}</span><b>${val}</b>${rate!=null?`<small class="${rate<0?"neg":""}">${fmtR(rate)}/წთ</small>`:""}</div>`;
-  $("#res").innerHTML=cell("gold",c.currency,fmt(c.res.gold),s.prod.gold)+cell("food","საკვები",fmt(c.res.food),s.prod.food)+cell("wood","ხე",fmt(c.res.wood),s.prod.wood)+
-    cell("stone","ქვა",fmt(c.res.stone),s.prod.stone)+cell("iron","რკინა",fmt(c.res.iron),s.prod.iron)+
-    `<div class="r"><span class="k">მოსახლე</span><b>${s.pop}</b><small>ჯარი ${s.army+s.queued}/${s.pop}</small></div>`;
+  $("#myName").textContent=c.name;$("#myRuler").textContent=c.ruler;
+  const keys=RK.filter(k=>k!=="mana"||s.cnt.magetower||c.res.mana>=1);
+  const sig=keys.join()+"|"+c.currency;const res=$("#res");
+  if(res.dataset.sig!==sig){res.dataset.sig=sig;
+    res.innerHTML=keys.map(k=>`<div class="r" title="${esc(resName(k,c))}">${icn(k)}<div><b data-v="${k}"></b><small data-p="${k}"></small></div></div>`).join("")+`<div class="r" title="მოსახლეობა / ჯარი">${icn("pop")}<div><b data-v="pop"></b><small data-p="pop"></small></div></div>`;
+    paintIcons(res)}
+  for(const k of keys){res.querySelector(`[data-v="${k}"]`).textContent=fmt(c.res[k]);const p=res.querySelector(`[data-p="${k}"]`);p.textContent=fmtR(s.prod[k])+"/წთ";p.className=s.prod[k]<0?"neg":""}
+  res.querySelector('[data-v="pop"]').textContent=s.pop;res.querySelector('[data-p="pop"]').textContent=`ჯარი ${s.army+s.queued}/${s.pop}`;
   document.querySelectorAll("[data-until]").forEach(el=>{el.textContent=mmss(+el.dataset.until-Date.now())});
+  renderNet();
 }
 const TABS=[["land","ქვეყანა"],["army","ჯარი"],["war","ომი"],["trade","ვაჭრობა"],["chat","ჩატი"]];
 function renderTabs(){
@@ -505,88 +670,92 @@ function renderTabs(){
 }
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;tab=b.dataset.tab;$("#side").classList.remove("min");renderAll(true)});
 $("#collapse").addEventListener("click",()=>{$("#side").classList.toggle("min");$("#collapse").textContent=$("#side").classList.contains("min")?"▴":"▾"});
+function unitRow(c,s,u){
+  const d=UNITS[u],n=c.army[u]||0,hasReq=d.req.every(r=>s.cnt[r]),mOk=!d.summon||(c.army.mage||0)>=d.mages;
+  const need=!hasReq?"საჭიროა: "+d.req.map(r=>B[r].n).join(", "):!mOk?`საჭიროა ${d.mages} ჯადოქარი`:"";
+  return `<div class="item">${icn(u)}<span class="tx"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b><span>შეტევა ${d.atk} · დაცვა ${d.def}</span>
+    ${need?`<div class="cost"><span class="no">${need}</span></div>`:costHTML(d.cost,c)}</span>
+    <span class="btns">${d.summon?`<button class="btn sm magic" data-train="${u}" data-n="1" ${need?"disabled":""}>მოხმობა</button>`:
+      `<button class="btn sm" data-train="${u}" data-n="1" ${need?"disabled":""}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${need?"disabled":""}>+5</button>`}</span></div>`;
+}
 function renderPane(force){
   const pane=$("#pane");
   if(!force&&pane.contains(document.activeElement)&&document.activeElement.matches("input,select"))return;
   const c=live(ME);if(!c){pane.innerHTML="";return}
   const s=stats(c);let h="";
   if(tab==="land"){
+    if(NET.role)h+=`<h3>მოწვევა</h3><div class="invite"><input id="invInP" readonly value="${esc(inviteLink())}"><button class="btn gold sm" id="invCopyP">კოპირება</button></div>`;
     h+=`<h3>${esc(c.name)}</h3><div class="kv">
-      <span>მმართველი</span><span>${esc(c.ruler)}</span><span>ვალუტა</span><span>${esc(c.currency)}</span>
-      <span>ტერიტორია</span><span>${Object.keys(c.tiles).length} უჯრა</span><span>მოსახლეობა</span><span>${s.pop} (მშვიდობიანი ${s.civ})</span>
+      <span>ვალუტა</span><span>${esc(c.currency)}</span><span>ტერიტორია</span><span>${Object.keys(c.tiles).length}</span>
+      <span>სოფლები</span><span>${s.villages}</span><span>მოსახლეობა</span><span>${s.pop}</span>
       <span>ჯარისკაცები</span><span>${s.units}</span><span>გადასახადი</span><span>+${(s.civ*.35).toFixed(1)}/წთ</span></div>
-      <p class="muted" style="font-size:12px">დააჭირე რუკაზე უჯრას: საკუთარზე ააშენე, მეზობელი თავისუფალი უჯრა შემოიერთე, მტრისას შეუტიე.</p>
       <h3>შენობები</h3><div class="list">`;
-    const bs=BUILD_ORDER.filter(b=>s.cnt[b]);
-    h+=bs.length?bs.map(b=>`<div class="item"><span class="ic">${B[b].i}</span><span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b><span>${esc(B[b].d)}</span></span></div>`).join(""):`<p class="muted">ჯერ არაფერი აგიშენებია. დაიწყე ფერმით და სახლით.</p>`;
-    h+=`</div><h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,12).map(l=>`<div>${new Date(l.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} · ${esc(l.m)}</div>`).join("")||"<div>ცარიელია</div>"}</div>
-      <h3>გალავანი</h3><button class="btn" id="wallMode">🧱 გალავნის ხატვა</button> <span class="muted" style="font-size:12px">${costHTML(buildCost(c,"wall"),c)} თითო</span>`;
-    h+=`<h3>სხვა</h3><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>`;
-    if(isOwnerViewer)h+=` <button class="btn sm red" id="resetWorld">მთელი სამყაროს წაშლა</button>`;
+    const bs=Object.keys(B).filter(b=>b!=="wall"&&s.cnt[b]);
+    h+=bs.length?bs.map(b=>`<div class="item">${icn(b)}<span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b></span></div>`).join(""):`<p class="muted">დააჭირე შენს მიწას რუკაზე და ააშენე.</p>`;
+    h+=`</div><h3>გალავანი</h3><div class="row"><button class="btn" id="wallMode">გალავნის ხატვა</button>${costHTML(buildCost(c,"wall"),c)}</div>
+      <h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,10).map(l=>`<div>${hhmm(l.t)} · ${esc(l.m)}</div>`).join("")}</div>
+      <div class="row" style="margin-top:20px;flex-wrap:wrap"><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>${isOwnerViewer?`<button class="btn sm red" id="resetWorld">სამყაროს წაშლა</button>`:""}</div>`;
   }
   if(tab==="army"){
-    h+=`<h3>ჯარი</h3><p class="muted" style="font-size:12px;margin-top:0">ადგილი: ${s.army+s.queued} / ${s.pop}. მეტი ადგილისთვის ააშენე სახლები. ჯარი შენახვაზე ჭამს საკვებს და ოქროს.</p><div class="list">`;
-    for(const u of UK){const d=UNITS[u],ok=d.req.every(r=>s.cnt[r]),n=c.army[u]||0;
-      h+=`<div class="item"><span class="ic">${d.i}</span><span class="tx"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b>
-        <span>⚔${d.atk} 🛡${d.def} · ${d.d}</span><div class="cost">${ok?costHTML(d.cost,c):`<span class="no">საჭიროა: ${d.req.map(r=>B[r].n).join(", ")}</span>`}</div></span>
-        <span class="row" style="flex-direction:column;gap:4px"><button class="btn sm" data-train="${u}" data-n="1" ${ok?"":"disabled"}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${ok?"":"disabled"}>+5</button></span></div>`}
-    h+=`</div>`;
-    if(c.queue.length){h+=`<h3>წვრთნა</h3><div class="list">`+c.queue.map(q=>`<div class="item"><span class="ic">${UNITS[q.u].i}</span><span class="tx"><b>${UNITS[q.u].n} × ${q.n}</b><span>მზად იქნება <span data-until="${q.done}">${mmss(q.done-Date.now())}</span></span></span></div>`).join("")+`</div>`}
+    h+=`<h3>ჯარი <span class="muted" style="font-size:12px;font-family:var(--body)">${s.army+s.queued}/${s.pop}</span></h3><div class="list">`+UK.filter(u=>!UNITS[u].summon).map(u=>unitRow(c,s,u)).join("")+`</div>
+      <h3>მოხმობა <span class="muted" style="font-size:12px;font-family:var(--body)">მანა ${fmt(c.res.mana)}</span></h3><div class="list">`+UK.filter(u=>UNITS[u].summon).map(u=>unitRow(c,s,u)).join("")+`</div>`;
+    if(c.queue.length)h+=`<h3>რიგში</h3><div class="list">`+c.queue.map(q=>`<div class="item">${icn(q.u)}<span class="tx"><b>${UNITS[q.u].n} × ${q.n}</b><span data-until="${q.done}">${mmss(q.done-Date.now())}</span></span></div>`).join("")+`</div>`;
   }
   if(tab==="war"){
     const others=Object.values(countries).filter(o=>o.uid!==ME);
-    h+=`<h3>ქვეყნები (${alive().length}/5)</h3><div class="list">`;
-    if(!others.length)h+=`<p class="muted">ჯერ მარტო ხარ. გაუგზავნე ლინკი მეგობრებს.</p>`;
+    h+=`<h3>ქვეყნები ${alive().length}/5</h3><div class="list">`;
+    if(!others.length)h+=`<p class="muted">ჯერ მარტო ხარ.</p><button class="btn gold" id="invOpen">მეგობრების მოწვევა</button>`;
     for(const o of others){const dead=o.alive===false,w=atWar(ME,o.uid),theyOffer=(o.peace||[]).includes(ME),iOffer=(c.peace||[]).includes(o.uid),os=stats(o);
       h+=`<div class="item"><canvas width="36" height="24" data-flag="${esc(o.uid)}" style="flex:none;border-radius:2px"></canvas><span class="tx"><b style="color:${o.color}">${esc(o.name)}</b>
         <span>${esc(o.ruler)} · ${Object.keys(o.tiles||{}).length} უჯრა · ~${os.units} ჯარისკაცი</span></span>
-        <span class="row" style="flex-direction:column;align-items:flex-end;gap:4px">${dead?'<span class="tag">დამარცხდა</span>':w?'<span class="tag war">ომი</span>':'<span class="tag peace">მშვიდობა</span>'}
-        ${dead?"":w?(theyOffer?`<button class="btn sm gold" data-accept="${esc(o.uid)}">მშვიდობის მიღება</button>`:iOffer?'<span class="muted" style="font-size:11px">ზავი შეთავაზებულია</span>':`<button class="btn sm" data-peace="${esc(o.uid)}">ზავის შეთავაზება</button>`)
-          :`<button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`}</span></div>`}
-    h+=`</div><h3>ლაშქრობები</h3><div class="list">`;
-    const mine=Object.values(attacks).filter(a=>a.from===ME||a.to===ME).sort((a,b)=>b.launch-a.launch).slice(0,15);
-    if(!mine.length)h+=`<p class="muted">ჯერ არ ყოფილა ბრძოლა. მტრის უჯრაზე დააჭირე და აირჩიე "შეტევა".</p>`;
-    for(const a of mine){const out=a.from===ME,o=countries[out?a.to:a.from],r=a.result;let st="";
-      if(a.status==="marching")st=`${out?"შენი ჯარი მიდის":"მტერი მოდის!"} <span data-until="${a.arrive}">${mmss(a.arrive-Date.now())}</span>`;
-      else if(r){const won=out?r.win:!r.win;st=`${won?"გამარჯვება":"დამარცხება"} · დანაკარგი: ${out?r.atkLostN:r.defLostN}${r.win&&r.tilesN?` · ${r.tilesN} უჯრა ${out?"დაიპყრე":"დაკარგე"}`:""}${r.capital?" · დედაქალაქი დაეცა!":""}`;
-        if(a.status==="returning"&&out)st+=` · ბრუნდება <span data-until="${a.returnAt}">${mmss(a.returnAt-Date.now())}</span>`}
-      h+=`<div class="item"><span class="ic">${out?"⚔️":"🛡️"}</span><span class="tx"><b>${out?"შეტევა: ":"თავდასხმა: "}${esc(o?.name||"?")}</b><span>${st}</span></span></div>`}
+        <span class="btns" style="align-items:flex-end">${dead?'<span class="tag">დამარცხდა</span>':w?'<span class="tag war">ომი</span>':'<span class="tag peace">მშვიდობა</span>'}
+        ${dead?"":w?(theyOffer?`<button class="btn sm gold" data-accept="${esc(o.uid)}">ზავის მიღება</button>`:iOffer?'<span class="muted" style="font-size:11px">ზავი გაგზავნილია</span>':`<button class="btn sm" data-peace="${esc(o.uid)}">ზავი</button>`)
+          :`<button class="btn sm red" data-war="${esc(o.uid)}">ომი</button>`}</span></div>`}
     h+=`</div>`;
+    const mine=Object.values(attacks).filter(a=>a.from===ME||a.to===ME).sort((a,b)=>b.launch-a.launch).slice(0,15);
+    if(mine.length){h+=`<h3>ლაშქრობები</h3><div class="list">`;
+      for(const a of mine){const out=a.from===ME,o=countries[out?a.to:a.from],r=a.result;let st="";
+        if(a.status==="marching")st=`${out?"გზაშია":"მტერი მოდის"} <span data-until="${a.arrive}">${mmss(a.arrive-Date.now())}</span>`;
+        else if(r){const won=out?r.win:!r.win;st=`${won?"გამარჯვება":"დამარცხება"} · დანაკარგი ${out?r.atkLostN:r.defLostN}${r.win&&r.tilesN?` · ${r.tilesN} უჯრა`:""}${r.capital?" · დედაქალაქი დაეცა":""}`;
+          if(a.status==="returning"&&out)st+=` · ბრუნდება <span data-until="${a.returnAt}">${mmss(a.returnAt-Date.now())}</span>`}
+        h+=`<div class="item">${icn(out?"sword":"knight")}<span class="tx"><b>${out?"შეტევა":"თავდაცვა"}: ${esc(o?.name||"?")}</b><span>${st}</span></span></div>`}
+      h+=`</div>`}
   }
   if(tab==="trade"){
-    const hasM=s.cnt.market>0;
     h+=`<h3>ბაზარი</h3>`;
-    if(!hasM)h+=`<p class="muted">ვაჭრობისთვის ააშენე ბაზარი 🏪.</p>`;
-    else{h+=`<div class="list">`+["food","wood","stone","iron"].map(k=>`<div class="item"><span class="tx"><b>${RES[k].n}</b><span>გაყიდვა ${PRICE[k]} · ყიდვა ${(PRICE[k]*1.6).toFixed(2)} ${esc(c.currency)}</span></span>
-      <button class="btn sm" data-sell="${k}">გაყიდე 20</button><button class="btn sm" data-buy="${k}">იყიდე 20</button></div>`).join("")+`</div>`}
+    if(!s.cnt.market)h+=`<p class="muted">ააშენე ბაზარი.</p>`;
+    else h+=`<div class="list">`+["food","wood","stone","iron"].map(k=>`<div class="item">${icn(k)}<span class="tx"><b>${RES[k].n}</b><span>გაყიდვა ${PRICE[k]} · ყიდვა ${(PRICE[k]*1.6).toFixed(2)}</span></span>
+      <span class="btns"><button class="btn sm" data-sell="${k}">გაყიდე 20</button><button class="btn sm" data-buy="${k}">იყიდე 20</button></span></div>`).join("")+`</div>`;
     const others=alive().filter(o=>o.uid!==ME);
-    h+=`<h3>საჩუქარი / ხარკი</h3>`;
-    if(!others.length)h+=`<p class="muted">სხვა ქვეყნები ჯერ არ არის.</p>`;
-    else h+=`<div class="list"><label class="field">ვის<select id="gTo">${others.map(o=>`<option value="${esc(o.uid)}">${esc(o.name)}</option>`).join("")}</select></label>
+    h+=`<h3>საჩუქარი</h3>`;
+    if(!others.length)h+=`<p class="muted">სხვა ქვეყანა ჯერ არ არის.</p>`;
+    else h+=`<div class="list"><select id="gTo">${others.map(o=>`<option value="${esc(o.uid)}">${esc(o.name)}</option>`).join("")}</select>
       <div class="row"><select id="gRes">${RK.map(k=>`<option value="${k}">${esc(resName(k,c))}</option>`).join("")}</select><input id="gAmt" type="number" min="1" value="50" style="width:90px"><button class="btn gold" id="gSend">გაგზავნა</button></div></div>`;
   }
   if(tab==="chat"){
     lastChatSeen=Date.now();
-    h+=`<div class="chat" id="chatBox">${chat.slice(-60).map(m=>m.s?`<div class="msg sys">${esc(m.x)}<time>${new Date(m.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</time></div>`:
-      `<div class="msg"><b style="color:${countries[m.u]?.color||"#ccc"}">${esc(countries[m.u]?.ruler||"?")}</b>${esc(m.x)}<time>${new Date(m.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</time></div>`).join("")||'<p class="muted">შეტყობინებები ჯერ არ არის.</p>'}</div>
-      <form id="chatForm" class="row" style="margin-top:12px"><input id="chatIn" maxlength="300" placeholder="მისწერე ყველას…" style="flex:1" autocomplete="off"><button class="btn gold">გაგზავნა</button></form>`;
+    h+=`<div class="chat">${chat.slice(-60).map(m=>m.s?`<div class="msg sys">${esc(m.x)}<time>${hhmm(m.t)}</time></div>`:
+      `<div class="msg"><b style="color:${countries[m.u]?.color||"#ccc"}">${esc(countries[m.u]?.ruler||"?")}</b>${esc(m.x)}<time>${hhmm(m.t)}</time></div>`).join("")||'<p class="muted">შეტყობინებები ჯერ არ არის.</p>'}</div>
+      <form id="chatForm" class="row" style="margin-top:12px"><input id="chatIn" maxlength="300" placeholder="მისწერე ყველას" style="flex:1" autocomplete="off"><button class="btn gold">გაგზავნა</button></form>`;
   }
-  pane.innerHTML=h;
+  pane.innerHTML=h;paintIcons(pane);
   pane.querySelectorAll("[data-flag]").forEach(cn=>drawFlag(cn.getContext("2d"),countries[cn.dataset.flag]?.flag,0,0,36,24));
-  if(tab==="chat"){pane.scrollTop=pane.scrollHeight}
+  if(tab==="chat")pane.scrollTop=pane.scrollHeight;
 }
 $("#pane").addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;const d=t.dataset;
-  if(d.train)act(()=>trainUnits(d.train,+d.n),`წვრთნა დაიწყო: ${UNITS[d.train].n} × ${d.n}`);
+  if(d.train)act(()=>trainUnits(d.train,+d.n),UNITS[d.train].summon?UNITS[d.train].n+" გამოჩნდება":`${UNITS[d.train].n} × ${d.n}`);
   if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
-  if(d.peace)act(()=>offerPeace(d.peace),"ზავი შეთავაზებულია");
+  if(d.peace)act(()=>offerPeace(d.peace),"ზავი გაგზავნილია");
   if(d.accept)act(()=>acceptPeace(d.accept),"მშვიდობა დამყარდა");
   if(d.sell)act(()=>market(d.sell,20,true));
   if(d.buy)act(()=>market(d.buy,20,false));
   if(t.id==="gSend")act(()=>sendGift($("#gTo").value,$("#gRes").value,+$("#gAmt").value),"გაგზავნილია");
   if(t.id==="wallMode")startPlacing();
-  if(t.id==="abandon"){if(t.dataset.sure){act(abandon)}else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება";}}
-  if(t.id==="resetWorld"){if(t.dataset.sure){act(resetWorld,"სამყარო გასუფთავდა")}else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
+  if(t.id==="invOpen")showInvite();
+  if(t.id==="invCopyP")copyText(inviteLink(),$("#invInP"));
+  if(t.id==="abandon"){if(t.dataset.sure)act(abandon);else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება"}}
+  if(t.id==="resetWorld"){if(t.dataset.sure)act(resetWorld,"სამყარო გასუფთავდა");else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
 });
 $("#pane").addEventListener("submit",e=>{if(e.target.id!=="chatForm")return;e.preventDefault();const v=$("#chatIn").value.trim();if(!v)return;$("#chatIn").value="";postChat(v)});
 
@@ -594,37 +763,37 @@ $("#pane").addEventListener("submit",e=>{if(e.target.id!=="chatForm")return;e.pr
 function selectTile(i){selected=i;renderTile()}
 function renderTile(){
   const el=$("#tile");if(selected<0||!me()){el.hidden=true;return}el.hidden=false;
-  const i=selected,o=ownerOf(i),c=live(ME),t=TER[i],b=o?o.tiles[i]:"";
-  let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${TNAME[t]}${b?" · "+B[b].n:""}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span>${o.uid===ME?" (შენი)":""}`:"თავისუფალი მიწა"} · (${tx(i)}, ${ty(i)})${t===RIVER?" · მდინარეზე აშენება არ შეიძლება":""}</div><div class="acts">`;
+  const i=selected,o=ownerOf(i),c=live(ME),t=TER[i],b=o?o.tiles[i]:"",neutral=!o&&NEUTRAL.has(i);
+  let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${b?B[b].n:neutral?"ნეიტრალური სოფელი":TNAME[t]}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span> · `:""}${TNAME[t]}</div>`;
   if(o&&o.uid===ME){
     if(!b){const opts=BUILD_ORDER.filter(k=>B[k].on.includes(t));
-      if(!opts.length)h+=`<span class="muted">აქ ვერაფერს ააშენებ.</span>`;
-      h+=`</div><div class="list" style="margin-top:8px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px"><span class="ic">${B[k].i}</span><span class="tx"><b>${B[k].n}</b><span>${esc(B[k].d)}</span><div class="cost">${costHTML(cost,c)}</div></span><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button></div>`}).join("")+`</div><div>`}
-    else if(b!=="capital")h+=`<button class="btn sm red" data-demolish="1">დანგრევა</button>`;
-    else h+=`<span class="muted">შენი დედაქალაქი. +30 მოსახლე და საწყისი შემოსავალი.</span>`;
+      h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b><span>${esc(B[k].d)}</span>${costHTML(cost,c)}</span><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button></div>`}).join("")+`</div>`
+        :`<p class="muted">აქ ვერაფერს ააშენებ.</p>`}
+    else if(UPG[b]){const nx=UPG[b];h+=`<div class="item" style="margin-top:10px">${icn(nx)}<span class="tx"><b>${B[nx].n}</b><span>+${B[nx].prod.gold} ოქრო/წთ, +${B[nx].pop} მოსახლე</span>${costHTML(B[nx].cost,c)}</span><button class="btn sm ${canPay(c,B[nx].cost)?"gold":""}" data-upg="1">გაუმჯობესება</button></div>
+      <div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`}
+    else if(b!=="capital")h+=`<div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`;
   }else if(!o){
-    if(t===WATER)h+=`<span class="muted">ზღვას ვერ დაიკავებ.</span>`;
-    else if(adjMine(i)){const cost=claimCost(c);h+=`<button class="btn sm gold" data-claim="1">მიწის შემოერთება · ${costHTML(cost,c)}</button>`}
-    else h+=`<span class="muted">შემოსაერთებლად უჯრა შენს საზღვარს უნდა ესაზღვრებოდეს.</span>`;
-  }else{
-    if(o.alive===false){}else if(atWar(ME,o.uid))h+=`<button class="btn sm red" data-attack="1">⚔ შეტევა</button>`;
-    else h+=`<span class="muted">შესატევად ჯერ ომი გამოუცხადე (ომის ჩანართი).</span> <button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`;
+    if(t!==WATER&&adjMine(i)){const cost=claimCost(c,i);h+=`<div class="acts"><button class="btn sm gold" data-claim="1">${neutral?"სოფლის შემოერთება":"შემოერთება"}</button>${costHTML(cost,c)}</div>`}
+    else if(t!==WATER)h+=`<p class="muted" style="margin:8px 0 0;font-size:12px">ჯერ მიაღწიე შენი საზღვრით.</p>`;
+  }else if(o.alive!==false){
+    h+=`<div class="acts">${atWar(ME,o.uid)?`<button class="btn sm red" data-attack="1">შეტევა</button>`:`<button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`}</div>`;
   }
-  h+=`</div>`;el.innerHTML=h;
+  el.innerHTML=h;paintIcons(el);
 }
 $("#tile").addEventListener("click",e=>{const t=e.target.closest("button");if(!t)return;const d=t.dataset;
   if(t.id==="tileX"){selected=-1;renderTile();return}
-  if(d.build){if(d.build==="wall"){act(()=>buildAt(selected,"wall"),"გალავანი აშენდა")}else act(()=>buildAt(selected,d.build),B[d.build].n+" აშენდა")}
-  if(d.claim)act(()=>claim(selected),"მიწა შემოიერთე");
-  if(d.demolish)act(()=>demolish(selected),"დაინგრა");
+  if(d.build)act(()=>buildAt(selected,d.build),B[d.build].n+" აშენდა");
+  if(d.upg)act(()=>upgradeAt(selected),"გაუმჯობესდა");
+  if(d.claim)act(()=>claim(selected),"შემოიერთე");
+  if(d.demolish)act(()=>demolish(selected));
   if(d.attack)openAttack(selected);
   if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
 });
-function startPlacing(){placing="wall";$("#place").hidden=false;$("#place").innerHTML=`<span>🧱 დააჭირე ან გადაატარე შენს უჯრებს გალავნის ასაშენებლად</span><button class="btn sm gold" id="stopPl">დასრულება</button>`;$("#stopPl").onclick=stopPlacing}
+function startPlacing(){placing="wall";$("#place").hidden=false;$("#place").innerHTML=`<span>დააჭირე შენს უჯრებს</span><button class="btn sm gold" id="stopPl">მზადაა</button>`;$("#stopPl").onclick=stopPlacing}
 function stopPlacing(){placing=null;$("#place").hidden=true}
-let wallBusy=new Set();
+const wallBusy=new Set();
 function placeWallAt(i){if(i<0||!isMine(i)||countries[ME].tiles[i]||wallBusy.has(i)||!B.wall.on.includes(TER[i]))return;wallBusy.add(i);
-  countries[ME].tiles[i]="wall";rebuildOwners();
+  countries[ME].tiles[i]="wall";
   buildAt(i,"wall").catch(e=>{delete countries[ME].tiles[i];toast(e.message,"err");stopPlacing()}).finally(()=>wallBusy.delete(i))}
 
 /* attack dialog */
@@ -633,16 +802,16 @@ function openAttack(target){
   const ov=document.createElement("div");ov.className="overlay";
   const avail=UK.filter(u=>(c.army[u]||0)>0);
   const os=stats(o);const walls=countNear(o,target,"wall",2),towers=countNear(o,target,"tower",3);
-  ov.innerHTML=`<div class="card modal"><h2>შეტევა: ${esc(o.name)}</h2><p class="muted" style="margin:0">სამიზნე: ${TNAME[TER[target]]}${o.capital===target?" · დედაქალაქი!":""} · მტრის ჯარი ~${os.units} · გალავანი ${walls} · კოშკი ${towers}</p>
-    ${avail.length?`<div class="units">${avail.map(u=>`<div class="item"><span class="ic">${UNITS[u].i}</span><span class="tx"><b>${UNITS[u].n}</b><span>გყავს ${c.army[u]}</span></span><input type="number" min="0" max="${c.army[u]}" value="${c.army[u]}" data-u="${u}"></div>`).join("")}</div>
-    <p id="atkInfo" class="muted"></p>`:`<p>ჯარი არ გყავს. ჯერ გაწვრთენი ჯარისკაცები ყაზარმაში.</p>`}
-    <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="aCancel">გაუქმება</button>${avail.length?'<button class="btn red" id="aGo">⚔ ლაშქრობა</button>':""}</div></div>`;
-  $("#app").appendChild(ov);
+  ov.innerHTML=`<div class="card modal"><h2>შეტევა: ${esc(o.name)}</h2><p class="muted" style="margin:0">${TNAME[TER[target]]}${o.capital===target?" · დედაქალაქი":""} · ჯარი ~${os.units} · გალავანი ${walls} · კოშკი ${towers}</p>
+    ${avail.length?`<div class="units">${avail.map(u=>`<div class="item">${icn(u)}<span class="tx"><b>${UNITS[u].n}</b><span>გყავს ${c.army[u]}</span></span><input type="number" min="0" max="${c.army[u]}" value="${c.army[u]}" data-u="${u}"></div>`).join("")}</div>
+    <p id="atkInfo" class="muted"></p>`:`<p>ჯარი არ გყავს.</p>`}
+    <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="aCancel">გაუქმება</button>${avail.length?'<button class="btn red" id="aGo">ლაშქრობა</button>':""}</div></div>`;
+  $("#app").appendChild(ov);paintIcons(ov);
   const pick=()=>{const u={};ov.querySelectorAll("[data-u]").forEach(inp=>{const n=clamp(Math.floor(+inp.value||0),0,c.army[inp.dataset.u]);if(n)u[inp.dataset.u]=n});return u};
-  const info=()=>{const u=pick(),el=ov.querySelector("#atkInfo");if(!el)return;const A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0);el.textContent=`შეტევის ძალა ${A} · გზაში ${mmss(travelTime(c.capital,target,u))}`};
+  const info=()=>{const u=pick(),el=ov.querySelector("#atkInfo");if(!el)return;const A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0);el.textContent=`ძალა ${A} · გზაში ${mmss(travelTime(c.capital,target,u))}`};
   info();ov.addEventListener("input",info);
   ov.querySelector("#aCancel").onclick=()=>ov.remove();
-  const go=ov.querySelector("#aGo");if(go)go.onclick=()=>{const u=pick();ov.remove();act(()=>launchAttack(target,u),"ჯარი გაემართა!")};
+  const go=ov.querySelector("#aGo");if(go)go.onclick=()=>{const u=pick();ov.remove();act(()=>launchAttack(target,u),"ჯარი გაემართა")};
 }
 
 /* ================= actions ================= */
@@ -658,50 +827,51 @@ async function buildAt(i,b){
   await mutateMe(c=>{if(!(i in c.tiles))throw new Error("ეს უჯრა შენი არ არის");if(c.tiles[i])throw new Error("აქ უკვე რაღაც დგას");
     if(!B[b].on.includes(TER[i]))throw new Error(B[b].n+" აქ ვერ აშენდება");pay(c,buildCost(c,b));c.tiles[i]=b;if(b!=="wall")pushLog(c,B[b].n+" აშენდა")});
 }
+async function upgradeAt(i){await mutateMe(c=>{const b=c.tiles[i],nx=UPG[b];if(!nx)return false;pay(c,B[nx].cost);c.tiles[i]=nx;pushLog(c,B[nx].n+" გაიზარდა")})}
 async function demolish(i){await mutateMe(c=>{if(!c.tiles[i]||c.tiles[i]==="capital")return false;c.tiles[i]=""})}
 async function claim(i){
   if(ownerOf(i))throw new Error("უჯრა უკვე დაკავებულია");if(TER[i]===WATER)throw new Error("ზღვას ვერ დაიკავებ");if(!adjMine(i))throw new Error("უჯრა შენს საზღვარს არ ესაზღვრება");
-  await mutateMe(c=>{if(i in c.tiles)return false;pay(c,claimCost(c));c.tiles[i]=""});
+  await mutateMe(c=>{if(i in c.tiles)return false;pay(c,claimCost(c,i));c.tiles[i]=NEUTRAL.has(i)?"village":"";if(NEUTRAL.has(i))pushLog(c,"სოფელი შემოუერთდა")});
 }
 async function trainUnits(u,n){
   await mutateMe(c=>{const s=stats(c),d=UNITS[u];if(!d.req.every(r=>s.cnt[r]))throw new Error("საჭიროა: "+d.req.map(r=>B[r].n).join(", "));
-    if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები");pay(c,d.cost,n);
-    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+d.time*n*1000}]});
+    if(d.summon&&(c.army.mage||0)<d.mages)throw new Error(`საჭიროა ${d.mages} ჯადოქარი`);
+    if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები ან სოფლები");pay(c,d.cost,n);
+    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+d.time*n*1000}];if(d.summon)pushLog(c,d.n+" მოიხმე")});
 }
 async function declareWar(t){
-  const o=countries[t];await mutateMe(c=>{if((c.wars||[]).includes(t))return false;c.wars=[...(c.wars||[]),t];c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"ომი გამოუცხადე: "+o.name)});
+  const o=countries[t];await mutateMe(c=>{if((c.wars||[]).includes(t))return false;c.wars=[...(c.wars||[]),t];c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"ომი: "+o.name)});
   await mutate("countries/"+t,cur=>{if(!cur)return;pushLog(cur,"ომი გამოგიცხადა: "+countries[ME].name);cur.peace=(cur.peace||[]).filter(x=>x!==ME);return cur});
-  postChat(`⚔ ომი! ${countries[ME].name} → ${o.name}`,true);
+  postChat(`ომი: ${countries[ME].name} → ${o.name}`,true);
 }
-async function offerPeace(t){await mutateMe(c=>{if((c.peace||[]).includes(t))return false;c.peace=[...(c.peace||[]),t]});postChat(`🕊 ზავის შეთავაზება: ${countries[ME].name} → ${countries[t].name}`,true)}
+async function offerPeace(t){await mutateMe(c=>{if((c.peace||[]).includes(t))return false;c.peace=[...(c.peace||[]),t]});postChat(`ზავის შეთავაზება: ${countries[ME].name} → ${countries[t].name}`,true)}
 async function acceptPeace(t){
   if(!(countries[t]?.peace||[]).includes(ME))throw new Error("ზავი არ არის შეთავაზებული");
   await mutateMe(c=>{c.wars=(c.wars||[]).filter(x=>x!==t);c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"მშვიდობა: "+countries[t].name)});
   await mutate("countries/"+t,cur=>{if(!cur)return;cur.wars=(cur.wars||[]).filter(x=>x!==ME);cur.peace=(cur.peace||[]).filter(x=>x!==ME);pushLog(cur,"მშვიდობა: "+countries[ME].name);return cur});
-  postChat(`🕊 ${countries[ME].name} და ${countries[t].name} ზავი დადეს`,true);
+  postChat(`მშვიდობა: ${countries[ME].name} და ${countries[t].name}`,true);
 }
 async function market(k,n,sell){await mutateMe(c=>{if(!stats(c).cnt.market)throw new Error("ააშენე ბაზარი");
   if(sell){pay(c,{[k]:n});c.res.gold+=n*PRICE[k]}else{pay(c,{gold:n*PRICE[k]*1.6});c.res[k]+=n}})}
 async function sendGift(t,k,n){n=Math.floor(n);if(!(n>0))throw new Error("მიუთითე რაოდენობა");const o=countries[t];if(!o)throw new Error("ქვეყანა ვერ მოიძებნა");
-  await mutateMe(c=>{pay(c,{[k]:n});pushLog(c,`გაუგზავნე ${n} ${resName(k,c)} → ${o.name}`)});
+  await mutateMe(c=>{pay(c,{[k]:n});pushLog(c,`საჩუქარი → ${o.name}: ${n} ${resName(k,c)}`)});
   await mutate("countries/"+t,cur=>{if(!cur)return;cur.res[k]=(cur.res[k]||0)+n;pushLog(cur,`საჩუქარი (${countries[ME].name}): ${n} ${k==="gold"?"ოქრო":RES[k].n}`);return cur});
-  postChat(`🎁 საჩუქარი: ${countries[ME].name} → ${o.name}`,true);
 }
 async function launchAttack(target,units){
   const o=ownerOf(target);if(!o)throw new Error("სამიზნე არ არის");if(!atWar(ME,o.uid))throw new Error("ამ ქვეყანასთან ომში არ ხარ");
   if(!Object.values(units).some(n=>n>0))throw new Error("აირჩიე ჯარისკაცები");
   const ref=db.collection("attacks").doc();let doc;
-  await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს");}for(const u in units)c.army[u]-=units[u];
-    const now=Date.now(),tt=travelTime(c.capital,target,units);doc={id:ref.id,from:ME,to:o.uid,units,target,fromTile:c.capital,launch:now,arrive:now+tt,status:"marching"};pushLog(c,"ლაშქრობა დაიწყო: "+o.name)});
+  await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];
+    const now=Date.now(),tt=travelTime(c.capital,target,units);doc={id:ref.id,from:ME,to:o.uid,units,target,fromTile:c.capital,launch:now,arrive:now+tt,status:"marching"};pushLog(c,"ლაშქრობა: "+o.name)});
   await ref.set(doc);
-  postChat(`🏹 ლაშქრობა: ${countries[ME].name} → ${o.name}`,true);
+  postChat(`ლაშქრობა: ${countries[ME].name} → ${o.name}`,true);
 }
 function battle(a,def){
   const u=a.units,rnd=k=>.9+hash(strHash(a.id),k,SEED)*.2;
-  const cav=(u.harcher||0)+(u.knight||0),tot=UK.reduce((s,k)=>s+(u[k]||0),0)||1,f=cav/tot;
-  let A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0)*rnd(1);
-  const walls=countNear(def,a.target,"wall",2),towers=countNear(def,a.target,"tower",3),cats=u.catapult||0;
-  let bonus=Math.min(1.2,walls*.12)+Math.min(.75,towers*.25)+(def.capital===a.target?.3:0);bonus*=Math.max(0,1-cats*.1);
+  const cav=(u.harcher||0)+(u.knight||0)+(u.griffin||0),tot=UK.reduce((s,k)=>s+(u[k]||0),0)||1,f=cav/tot;
+  const A=UK.reduce((s,k)=>s+(u[k]||0)*UNITS[k].atk,0)*rnd(1);
+  const walls=countNear(def,a.target,"wall",2),towers=countNear(def,a.target,"tower",3),cats=(u.catapult||0)+(u.dragon||0)*2,mages=u.mage||0;
+  let bonus=Math.min(1.2,walls*.12)+Math.min(.75,towers*.25)+(def.capital===a.target?.3:0);bonus*=Math.max(0,1-cats*.1-mages*.06);
   const terr={[HILL]:.2,[MOUNTAIN]:.4,[FOREST]:.1}[TER[a.target]]||0;
   let D=(UK.reduce((s,k)=>s+(def.army[k]||0)*UNITS[k].def*(k==="spear"?1+f:1),0)+30+(def.capital===a.target?80:0))*(1+bonus+terr)+towers*25;D*=rnd(2);
   const win=A>D;let atkLoss,defLoss;
@@ -718,11 +888,10 @@ function battle(a,def){
 }
 const busyA=new Set();
 async function resolveAttacks(){
-  if(!db||!ME)return;const now=Date.now();
+  if(!db||!ME||!booted)return;const now=Date.now();
   for(const a of Object.values(attacks)){
     if(busyA.has(a.id))continue;
     const involved=a.from===ME||a.to===ME;
-    const anyOnline=true; // any player may resolve; locks keep it consistent
     try{
       if(a.status==="marching"&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);
         let res=null;
@@ -730,10 +899,10 @@ async function resolveAttacks(){
           const def=ds.exists?materialize(JSON.parse(JSON.stringify(ds.data())),Date.now()):{tiles:{},army:{},res:{}};
           if(def.alive===false){def.tiles={};def.army={}}
           res=battle(cur,def);cur.result=res;cur.status="returning";cur.returnAt=cur.arrive+(cur.arrive-cur.launch);return cur});
-        if(res){const A=countries[a.from],Dd=countries[a.to];postChat(res.win?`🔥 გამარჯვება: ${A?.name} → ${Dd?.name}, +${res.tilesN} უჯრა${res.capital?". დედაქალაქი დაეცა!":""}`:`🛡 შეტევა მოგერიებულია: ${A?.name} → ${Dd?.name}`,true)}
+        if(res){const A=countries[a.from],Dd=countries[a.to];postChat(res.win?`გამარჯვება: ${A?.name} → ${Dd?.name}, +${res.tilesN} უჯრა${res.capital?", დედაქალაქი დაეცა":""}`:`შეტევა მოგერიებულია: ${A?.name} → ${Dd?.name}`,true)}
       }
       if(a.status==="returning"&&a.result){
-        const D=countries[a.to];if(D&&!(D.applied||[]).includes(a.id)&&(a.to===ME||a.from===ME||now-a.arrive>15000)){busyA.add(a.id);await applyDefender(a)}
+        const D=countries[a.to];if(D&&!(D.applied||[]).includes(a.id)&&(involved||now-a.arrive>15000)){busyA.add(a.id);await applyDefender(a)}
         const A=countries[a.from];if(A&&!(A.applied||[]).includes(a.id)&&(involved||now-a.arrive>15000)){busyA.add(a.id);await applyAttacker(a)}
         if(a.from===ME&&a.returnAt<=now){busyA.add(a.id);await collect(a)}
       }
@@ -747,8 +916,8 @@ async function applyDefender(a){
     for(const k of UK)c.army[k]=Math.floor((c.army[k]||0)*(1-r.defLoss));
     if(r.win){for(const i in r.tiles)delete c.tiles[i];for(const k of RK)c.res[k]=Math.max(0,c.res[k]-(r.loot[k]||0));
       if(r.capital||!(c.capital in c.tiles)){const keys=Object.keys(c.tiles).map(Number);
-        if(!keys.length){c.alive=false;pushLog(c,"შენი ქვეყანა დაეცა")}
-        else{const old=c.capital;keys.sort((p,q)=>Math.hypot(tx(p)-tx(old),ty(p)-ty(old))-Math.hypot(tx(q)-tx(old),ty(q)-ty(old)));c.capital=keys[0];c.tiles[keys[0]]="capital";pushLog(c,"დედაქალაქი გადავიდა ახალ ადგილას")}}
+        if(!keys.length){c.alive=false;pushLog(c,"ქვეყანა დაეცა")}
+        else{const old=c.capital;keys.sort((p,q)=>Math.hypot(tx(p)-tx(old),ty(p)-ty(old))-Math.hypot(tx(q)-tx(old),ty(q)-ty(old)));c.capital=keys[0];c.tiles[keys[0]]="capital";pushLog(c,"დედაქალაქი გადავიდა")}}
       pushLog(c,`დამარცხება (${countries[a.from]?.name||"მტერი"}): -${r.tilesN} უჯრა, -${r.defLostN} ჯარისკაცი`)}
     else pushLog(c,`შეტევა მოიგერიე (${countries[a.from]?.name||"მტერი"}), დანაკარგი ${r.defLostN}`);
     c.applied=[a.id,...(c.applied||[])].slice(0,60);return c});
@@ -763,12 +932,12 @@ async function applyAttacker(a){
 async function collect(a){
   const key=a.id+":c";
   await mutateMe(c=>{if((c.applied||[]).includes(key))return false;for(const k in a.result.survivors)c.army[k]=(c.army[k]||0)+a.result.survivors[k];
-    for(const k of RK)c.res[k]+=a.result.loot[k]||0;if(a.result.survivorsN)pushLog(c,`ჯარი დაბრუნდა (${a.result.survivorsN})${a.result.win?" ნადავლით":""}`);c.applied=[key,...(c.applied||[])].slice(0,60)});
+    for(const k of RK)c.res[k]+=a.result.loot[k]||0;if(a.result.survivorsN)pushLog(c,`ჯარი დაბრუნდა (${a.result.survivorsN})`);c.applied=[key,...(c.applied||[])].slice(0,60)});
   await mutate("attacks/"+a.id,cur=>{if(!cur)return;cur.status="done";return cur});
 }
 async function abandon(){
   await mutate("meta/slots",cur=>{cur=cur||{slots:{}};for(const k in cur.slots)if(cur.slots[k]===ME)delete cur.slots[k];return cur});
-  const nm=countries[ME]?.name;await db.doc("countries/"+ME).delete();delete countries[ME];postChat(`🏳 ${nm} გაქრა რუკიდან`,true);showOnboarding();
+  const nm=countries[ME]?.name;await db.doc("countries/"+ME).delete();delete countries[ME];postChat(`${nm} გაქრა რუკიდან`,true);showOnboarding();
 }
 async function resetWorld(){
   for(const id in countries)await db.doc("countries/"+id).delete();
@@ -784,24 +953,24 @@ function showOnboarding(){
   const taken=alive().map(c=>c.color),full=alive().length>=5;
   if(!draft.color||taken.includes(draft.color))draft.color=COLORS.find(c=>!taken.includes(c));
   ov.innerHTML=`<div class="card">
-    <h1>Country War</h1><p class="sub">დააარსე ქვეყანა ნულიდან, ააშენე ეკონომიკა, შეკრიბე ჯარი და დაიპყარი მეზობლები. ${alive().length}/5 ქვეყანა უკვე არსებობს.</p>
-    ${full?`<p>სამყარო სავსეა: 5 ქვეყანა უკვე არსებობს. შეგიძლია რუკას უყურო.</p><button class="btn gold" id="oWatch">რუკის ნახვა</button>`:`
-    <label class="field">შენი სახელი (მმართველი)<input id="oRuler" maxlength="20" value="${esc(draft.ruler)}" placeholder="მაგ. დავით აღმაშენებელი"></label>
+    <h1>Country War</h1><p class="sub">${alive().length}/5 ქვეყანა</p>
+    ${full?`<p>სამყარო სავსეა.</p><button class="btn gold" id="oWatch">რუკის ნახვა</button>`:`
+    <label class="field">შენი სახელი<input id="oRuler" maxlength="20" value="${esc(draft.ruler)}" placeholder="მაგ. დავით აღმაშენებელი"></label>
     <label class="field">ქვეყნის სახელი<input id="oName" maxlength="22" value="${esc(draft.name)}" placeholder="მაგ. ქართლის სამეფო"></label>
-    <label class="field">ვალუტის სახელი<input id="oCur" maxlength="14" value="${esc(draft.currency)}" placeholder="მაგ. დრამა, ლარი, ოქრო"></label>
+    <label class="field">ვალუტა<input id="oCur" maxlength="14" value="${esc(draft.currency)}" placeholder="მაგ. დრამა, ლარი"></label>
     <div class="field" style="margin-bottom:4px">დროშა</div>
     <div class="flagEd"><canvas id="oFlag" width="360" height="240"></canvas><div>
       <div class="pats">${PATS.map(p=>`<button data-pat="${p}" class="${draft.flag.p===p?"on":""}" aria-label="${p}"><canvas width="72" height="48" data-pp="${p}"></canvas></button>`).join("")}</div>
-      <div class="cols"><label>ფერი 1<input type="color" data-ci="0" value="${draft.flag.c[0]}"></label><label>ფერი 2<input type="color" data-ci="1" value="${draft.flag.c[1]}"></label>
-      <label>ფერი 3<input type="color" data-ci="2" value="${draft.flag.c[2]}"></label><label>გერბი<select id="oEm">${EMBLEMS.map(e=>`<option ${draft.flag.e===e?"selected":""} value="${e}">${e||"არა"}</option>`).join("")}</select></label>
-      <label>გერბის ფერი<input type="color" id="oEc" value="${draft.flag.ec}"></label></div></div></div>
-    <div class="field">ქვეყნის ფერი რუკაზე</div>
+      <div class="cols"><label>1<input type="color" data-ci="0" value="${draft.flag.c[0]}"></label><label>2<input type="color" data-ci="1" value="${draft.flag.c[1]}"></label>
+      <label>3<input type="color" data-ci="2" value="${draft.flag.c[2]}"></label><label>გერბი<select id="oEm">${EMBLEMS.map(e=>`<option ${draft.flag.e===e?"selected":""} value="${e}">${e||"—"}</option>`).join("")}</select></label>
+      <label>ფერი<input type="color" id="oEc" value="${draft.flag.ec}"></label></div></div></div>
+    <div class="field">ფერი რუკაზე</div>
     <div class="swatches" style="margin-bottom:18px">${COLORS.map(c=>`<button data-col="${c}" style="background:${c}" class="${draft.color===c?"on":""}" ${taken.includes(c)?"disabled":""} aria-label="ფერი"></button>`).join("")}</div>
-    <button class="btn gold" id="oGo" style="width:100%;padding:12px;font-size:16px">ქვეყნის დაარსება</button>`}
+    <button class="btn gold" id="oGo" style="width:100%;padding:12px;font-size:16px">დაარსება</button>`}
   </div>`;
   $("#app").appendChild(ov);
   const redraw=()=>{const f=ov.querySelector("#oFlag");if(!f)return;const g=f.getContext("2d");g.clearRect(0,0,360,240);drawFlag(g,draft.flag,0,0,360,240);
-    ov.querySelectorAll("[data-pp]").forEach(cn=>{const g2=cn.getContext("2d");drawFlag(g2,{...draft.flag,p:cn.dataset.pp,e:""},0,0,72,48)})};
+    ov.querySelectorAll("[data-pp]").forEach(cn=>{drawFlag(cn.getContext("2d"),{...draft.flag,p:cn.dataset.pp,e:""},0,0,72,48)})};
   redraw();
   ov.addEventListener("input",e=>{const t=e.target;if(t.id==="oRuler")draft.ruler=t.value;if(t.id==="oName")draft.name=t.value;if(t.id==="oCur")draft.currency=t.value;
     if(t.dataset.ci)draft.flag.c[+t.dataset.ci]=t.value;if(t.id==="oEm")draft.flag.e=t.value;if(t.id==="oEc")draft.flag.ec=t.value;redraw()});
@@ -809,8 +978,8 @@ function showOnboarding(){
   ov.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
     if(b.dataset.pat){draft.flag.p=b.dataset.pat;ov.querySelectorAll("[data-pat]").forEach(x=>x.classList.toggle("on",x===b));redraw()}
     if(b.dataset.col){draft.color=b.dataset.col;ov.querySelectorAll("[data-col]").forEach(x=>x.classList.toggle("on",x===b))}
-    if(b.id==="oWatch"){ov.remove()}
-    if(b.id==="oGo"){b.disabled=true;foundCountry().then(()=>{ov.remove();renderAll(true)}).catch(err=>{toast(err.message||String(err),"err");b.disabled=false})}});
+    if(b.id==="oWatch")ov.remove();
+    if(b.id==="oGo"){b.disabled=true;foundCountry().then(()=>{ov.remove();renderAll(true);if(NET.role==="host"&&alive().length<=1)showInvite()}).catch(err=>{toast(err.message||String(err),"err");b.disabled=false})}});
 }
 async function foundCountry(){
   const ruler=draft.ruler.trim(),name=draft.name.trim(),currency=draft.currency.trim()||"ოქრო";
@@ -825,10 +994,10 @@ async function foundCountry(){
   tiles[sp]="capital";
   const taken=alive().filter(c=>c.uid!==ME).map(c=>c.color);const color=taken.includes(draft.color)?COLORS.find(c=>!taken.includes(c)):draft.color;
   const doc={uid:ME,ruler,name,currency,color,flag:JSON.parse(JSON.stringify(draft.flag)),slot,capital:sp,created:Date.now(),t:Date.now(),alive:true,
-    res:{gold:150,food:100,wood:120,stone:40,iron:0},tiles,army:{},queue:[],wars:[],peace:[],applied:[],log:[{t:Date.now(),m:"ქვეყანა დაარსდა"}]};
+    res:{gold:150,food:100,wood:120,stone:40,iron:0,mana:0},tiles,army:{},queue:[],wars:[],peace:[],applied:[],log:[{t:Date.now(),m:"ქვეყანა დაარსდა"}]};
   await db.doc("countries/"+ME).set(doc);countries[ME]=doc;rebuildOwners();
   cam.x=X*TS+8;cam.y=Y*TS+8;cam.z=1.8;
-  postChat(`👑 დაარსდა ახალი ქვეყანა: ${name} (მმართველი ${ruler})`,true);
+  postChat(`ახალი ქვეყანა: ${name} (${ruler})`,true);
 }
 
 /* ================= boot ================= */
@@ -836,43 +1005,58 @@ let isOwnerViewer=false,booted=false,lastPane=0;
 function renderAll(force){
   if(!booted)return;
   const has=!!me();$("#side").hidden=!has;
-  if(has){renderTabs();renderPane(force);}
+  if(has){renderTabs();renderPane(force)}
   renderHUD();renderTile();
 }
-function banner(html){const b=document.createElement("div");b.id="banner";b.className="plate";b.innerHTML=html;$("#app").appendChild(b)}
+function banner(html){let b=$("#banner");if(!b){b=document.createElement("div");b.id="banner";b.className="plate";$("#app").appendChild(b)}b.innerHTML=html;b.hidden=false}
+function setWait(kind){banner(kind==="hostoff"?`<h2>მასპინძელი არ არის ონლაინ</h2><p class="muted">ეს სამყარო მისი შემქმნელის ბრაუზერში ინახება. როცა ის თამაშს გახსნის, აქ ავტომატურად შეხვალ.</p>`:`<h2>უკავშირდება…</h2>`)}
+function landing(){return new Promise(res=>{
+  const ov=document.createElement("div");ov.className="overlay";
+  ov.innerHTML=`<div class="card"><h1>Country War</h1><p class="sub">შექმენი სამყარო და მოიწვიე მეგობრები. სამყარო შენს ბრაუზერში შეინახება.</p>
+    <button class="btn gold" id="lNew" style="width:100%;padding:12px;font-size:16px">ახალი სამყაროს შექმნა</button>
+    <p class="muted" style="font-size:12px;margin:14px 0 0">თუ მეგობარმა ლინკი გამოგიგზავნა, გახსენი ის ლინკი.</p></div>`;
+  $("#app").appendChild(ov);ov.querySelector("#lNew").onclick=()=>{ov.remove();res()}})}
+function playerId(){
+  const q=new URLSearchParams(location.search).get("p");const key="cw_pid"+(q?"_"+q:"");
+  try{let v=localStorage.getItem(key);if(!v){v="p_"+rid(16);localStorage.setItem(key,v)}return v}catch{return "p_"+rid(16)}
+}
+addEventListener("hashchange",()=>location.reload());
 async function boot(){
   resize();drawTerrain();drawTerritory();requestAnimationFrame(frame);
   const cl=window.claude;
   if(cl&&typeof cl.use==="function"){
     const [d,u]=await Promise.all([cl.use("db"),cl.use("user")]);db=d;user=u;
-    if(!db||!user){banner(`<h2 style="font-family:var(--display);margin:0 0 8px">შესვლა საჭიროა</h2><p class="muted">სათამაშოდ შედი claude.ai-ზე იმ ანგარიშით, რომელზეც ეს თამაში გაგიზიარეს. მასპინძელმა უნდა მოგიწვიოს რედაქტორად.</p>`);return}
+    if(!db||!user){banner(`<h2>შესვლა საჭიროა</h2><p class="muted">შედი claude.ai-ზე იმ ანგარიშით, რომელზეც თამაში გაგიზიარეს.</p>`);return}
     ME=await user.id();isOwnerViewer=await user.isOwner();
-    if(!ME){banner(`<p>შენი ანგარიში ვერ ამოვიცანი. შედი claude.ai-ზე და გახსენი ლინკი ხელახლა.</p>`);return}
-    try{const cw=await user.can("data.write");if(cw===false){banner(`<h2 style="font-family:var(--display);margin:0 0 8px">მხოლოდ ყურება</h2><p class="muted">ამ ლინკით მხოლოდ რუკის ნახვა შეგიძლია. სათამაშოდ მასპინძელმა უნდა მოგიწვიოს რედაქტორად.</p>`)}}catch{}
-  }else if(FIREBASE_CONFIG&&window.firebase){
-    try{const f=await fireDB();db=f.db;ME=f.uid}catch(e){banner(`<h2 style="font-family:var(--display);margin:0 0 8px">სერვერთან კავშირი ვერ დამყარდა</h2><p class="muted">${esc(e.message||e)}</p>`);return}
-    isOwnerViewer=location.hash==="#admin";
+    if(!ME){banner(`<p>შენი ანგარიში ვერ ამოვიცანი.</p>`);return}
   }else{
-    DEMO=true;db=mockDB();
-    try{ME=sessionStorage.getItem("cw_uid")||("demo_"+Math.random().toString(36).slice(2,8));sessionStorage.setItem("cw_uid",ME)}catch{ME="demo_local"}
-    isOwnerViewer=true;
+    if(typeof Peer==="undefined"){banner(`<h2>ქსელი ვერ ჩაიტვირთა</h2><p class="muted">განაახლე გვერდი.</p>`);return}
+    ME=playerId();
+    const m=location.hash.match(/^#w-([a-z0-9]+)$/);let hostId=null;try{hostId=localStorage.getItem("cw_host")}catch{}
+    if(m&&m[1]!==hostId){
+      NET.role="client";NET.wid=m[1];setWait("wait");
+      await new Promise(r=>startClient(m[1],r));
+      $("#banner")?.remove();
+    }else{
+      if(!m&&!hostId){await landing();hostId=rid(10);try{localStorage.setItem("cw_host",hostId)}catch{}}
+      NET.role="host";NET.wid=m?m[1]:hostId;history.replaceState(null,"","#w-"+NET.wid);isOwnerViewer=true;
+      startHost(NET.wid);
+    }
   }
   ME=String(ME);
-  let gotC=false;const timer=setTimeout(()=>{if(!gotC)toast("სერვერთან კავშირი ნელია…","err")},10000);
-  db.collection("countries").onSnapshot(s=>{gotC=true;clearTimeout(timer);const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,uid:d.id}}countries=next;rebuildOwners();
+  db.collection("countries").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,uid:d.id}}countries=next;rebuildOwners();
     if(!booted){booted=true;const c=me();if(c){cam.x=tx(c.capital)*TS+8;cam.y=ty(c.capital)*TS+8;cam.z=1.8}else showOnboarding()}
     else if(!me()&&!$("#onb")&&countries[ME]?.alive===false){toast("შენი ქვეყანა დაეცა. შეგიძლია ახალი დააარსო.","err");showOnboarding()}
-    renderAll()},e=>toast("მონაცემები ვერ ჩაიტვირთა: "+e.code,"err"));
+    else if(me()&&$("#onb"))$("#onb").remove();
+    renderAll()},e=>toast("მონაცემები ვერ ჩაიტვირთა","err"));
   db.collection("attacks").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,id:d.id}}
-    for(const id in next){const a=next[id];if(a.to===ME&&a.status==="marching"&&!attacks[id]&&booted)toast(`⚠ ${countries[a.from]?.name||"მტერი"} გიტევს!`,"err")}
+    for(const id in next){const a=next[id];if(a.to===ME&&a.status==="marching"&&!attacks[id]&&booted)toast(`${countries[a.from]?.name||"მტერი"} გიტევს!`,"err")}
     attacks=next;renderAll()},()=>{});
-  db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat"){renderPane(false)}else renderTabs()},()=>{});
+  db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat")renderPane(false);else if(booted&&me())renderTabs()},()=>{});
   setInterval(()=>{renderHUD();if(Date.now()-lastPane>4000){lastPane=Date.now();renderPane(false);renderTile()}},1000);
   setInterval(resolveAttacks,2500);
-  if(DEMO)toast("სერვერი ჯერ არ არის ჩართული: თამაში მხოლოდ ამ ბრაუზერში ინახება","err");
 }
 boot();
 </script>
-
 </body>
 </html>
