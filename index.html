@@ -1287,7 +1287,7 @@ function renderTile(){
   let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${b?B[b].n:neutral?"ნეიტრალური სოფელი":TNAME[t]}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span> · `:""}${TNAME[t]}</div>`;
   if(o&&o.uid===ME){
     if(!b){const opts=BUILD_ORDER.filter(k=>B[k].on.includes(t)&&(!B[k].coast||N4(i).some(n=>TER[n]===WATER)));
-      h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodHTML(k)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button></div>`}).join("")+`</div>`
+      h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodHTML(k)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span>${k==="wall"?`<span class="btns"><button class="btn sm gold" data-wallmode="1">ბევრის ხატვა</button><button class="btn sm" data-build="${k}">ერთი</button></span>`:`<button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button>`}</div>`}).join("")+`</div>`
         :`<p class="muted">აქ ვერაფერს ააშენებ.</p>`}
     else if(UPG[b]){const nx=UPG[b];h+=`<div class="item" style="margin-top:10px">${icn(nx)}<span class="tx"><b>${B[nx].n}</b><span>+${B[nx].prod.gold} ოქრო/წთ, +${B[nx].pop} მოსახლე</span>${costHTML(B[nx].cost,c)}</span><button class="btn sm ${canPay(c,B[nx].cost)?"gold":""}" data-upg="1">გაუმჯობესება</button></div>
       <div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`}
@@ -1310,6 +1310,7 @@ $("#tile").addEventListener("click",e=>{const t=e.target.closest("button");if(!t
   if(d.upg)act(()=>upgradeAt(selected),"გაუმჯობესდა");
   if(d.claim)act(()=>claim(selected),"შემოიერთე");
   if(d.claimmode){selected=-1;renderTile();startPlacing("claim")}
+  if(d.wallmode){const first=selected;selected=-1;renderTile();startPlacing("wall");lastPaint=-1;placeWallAt(first)}
   if(d.demolish)act(()=>demolish(selected));
   if(d.attack)openAttack(selected);
   if(d.ship)act(()=>buildShip(),"გემი აშენდა");
