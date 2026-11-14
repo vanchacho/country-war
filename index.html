@@ -1249,13 +1249,16 @@ function renderTabs(){
 }
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;tab=b.dataset.tab;$("#side").classList.remove("min");renderAll(true)});
 $("#collapse").addEventListener("click",()=>{$("#side").classList.toggle("min");$("#collapse").textContent=$("#side").classList.contains("min")?"▴":"▾"});
+const TQ={};
+function maxTrain(c,u){const d=UNITS[u],s=stats(c);let n=Math.floor((s.pop-s.army-s.queued)/(d.pop||1));for(const k in d.cost)if(d.cost[k]>0)n=Math.min(n,Math.floor((c.res[k]||0)/d.cost[k]));return Math.max(0,n)}
 function unitRow(c,s,u){
   const d=UNITS[u],n=c.army[u]||0,hasReq=d.req.every(r=>s.cnt[r]),mOk=!d.summon||(c.army.mage||0)>=d.mages;
   const need=!hasReq?"საჭიროა: "+d.req.map(r=>B[r].n).join(", "):!mOk?`საჭიროა ${d.mages} ჯადოქარი`:"";
-  return `<div class="item">${icn(u)}<span class="tx"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b><span>შეტევა ${d.atk} · დაცვა ${d.def} · ${+trainSecs(u,s.cnt).toFixed(1)} წმ${trainFactor(u,s.cnt)>1?` <b style="display:inline;color:var(--ok)">×${trainFactor(u,s.cnt)} სწრაფად</b>`:""}</span>
+  return `<div class="item" style="flex-wrap:wrap">${icn(u)}<span class="tx" style="flex:1;min-width:0"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b><span>შეტევა ${d.atk} · დაცვა ${d.def} · ${+trainSecs(u,s.cnt).toFixed(1)} წმ${trainFactor(u,s.cnt)>1?` <b style="display:inline;color:var(--ok)">×${trainFactor(u,s.cnt)} სწრაფად</b>`:""}</span>
     ${need?`<div class="cost"><span class="no">${need}</span></div>`:costHTML(d.cost,c)}</span>
     <span class="btns">${d.summon?`<button class="btn sm magic" data-train="${u}" data-n="1" ${need?"disabled":""}>მოხმობა</button>`:
-      `<button class="btn sm" data-train="${u}" data-n="1" ${need?"disabled":""}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${need?"disabled":""}>+5</button>`}</span></div>`;
+      `<button class="btn sm" data-train="${u}" data-n="1" ${need?"disabled":""}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${need?"disabled":""}>+5</button>`}</span>
+    ${d.summon||need?"":`<div class="row" style="width:100%;margin-top:6px;gap:6px;justify-content:flex-end"><input type="number" min="1" step="1" id="tq-${u}" data-tq="${u}" value="${TQ[u]||10}" style="width:72px"><button class="btn sm gold" data-train="${u}" data-tqn="1">ყიდვა</button><button class="btn sm" data-tmax="${u}">მაქს. ${maxTrain(c,u)}</button></div>`}</div>`;
 }
 function renderPane(force){
   const pane=$("#pane");
@@ -1352,6 +1355,8 @@ function renderPane(force){
 }
 $("#pane").addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;const d=t.dataset;
+  if(d.train&&d.tqn){const n=Math.floor(+TQ[d.train]||+document.getElementById("tq-"+d.train)?.value||0);if(!(n>0)){toast("ჩაწერე რაოდენობა","err");return}act(()=>trainUnits(d.train,n),`${UNITS[d.train].n} × ${n}`);return}
+  if(d.tmax){const n=maxTrain(live(ME),d.tmax);TQ[d.tmax]=n;const inp=document.getElementById("tq-"+d.tmax);if(inp)inp.value=n;return}
   if(d.train)act(()=>trainUnits(d.train,+d.n),UNITS[d.train].summon?UNITS[d.train].n+" გამოჩნდება":`${UNITS[d.train].n} × ${d.n}`);
   if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
   if(d.peace)act(()=>offerPeace(d.peace),"ზავი გაგზავნილია");
@@ -1376,7 +1381,8 @@ $("#pane").addEventListener("click",e=>{
   if(t.id==="abandon"){if(t.dataset.sure)act(abandon);else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება"}}
   if(t.id==="resetWorld"){if(t.dataset.sure)act(resetWorld,"სამყარო გასუფთავდა");else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
 });
-$("#pane").addEventListener("input",e=>{const k=e.target.dataset?.mq;if(!k)return;MQ[k]=e.target.value;const info=document.querySelector(`[data-mqinfo="${k}"]`);if(info)info.innerHTML=mqInfo(k,live(ME))});
+$("#pane").addEventListener("input",e=>{const u=e.target.dataset?.tq;if(u){TQ[u]=e.target.value;return}const k=e.target.dataset?.mq;if(!k)return;MQ[k]=e.target.value;const info=document.querySelector(`[data-mqinfo="${k}"]`);if(info)info.innerHTML=mqInfo(k,live(ME))});
+$("#pane").addEventListener("keydown",e=>{const u=e.target.dataset?.tq;if(u&&e.key==="Enter"){e.preventDefault();e.target.closest(".item")?.querySelector(`[data-tqn]`)?.click()}});
 $("#pane").addEventListener("submit",e=>{if(e.target.id!=="chatForm")return;e.preventDefault();const v=$("#chatIn").value.trim();if(!v)return;$("#chatIn").value="";postChat(v)});
 
 /* tile card */
