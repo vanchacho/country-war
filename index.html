@@ -362,7 +362,7 @@ const B={
   magetower:{n:"ჯადოქრის კოშკი",cost:{stone:120,iron:20,gold:150},prod:{mana:3},on:[...LAND,MOUNTAIN],d:"მანა, ჯადოქრები და მოხმობა"},
   bridge:{n:"ხიდი",cost:{wood:40,stone:30,gold:20},on:[RIVER],d:"მდინარეზე გადასასვლელი: ჯარი აქ არ ყოვნდება"},
   port:{n:"ნავსადგური",cost:{wood:120,stone:40,gold:80},on:LAND,coast:1,d:"გემები და ჯარის ზღვით გადაყვანა"},
-  tower:{n:"საგუშაგო კოშკი",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"+25% დაცვა ახლოს"},
+  tower:{n:"საგუშაგო კოშკი",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"აკონტროლებს საზღვარს 6 უჯრის რადიუსში. დაუცველ საზღვარზე შემოსულ მტერს ჯარის მხოლოდ ნაწილი დახვდება"},
   wall:{n:"გალავანი",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა ახლოს"},
 };
 const UPG={village:"village2",village2:"village3"};
@@ -1191,6 +1191,7 @@ function frame(){
     ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6*k;ctx.beginPath();for(let j=0;j<10;j++){const an=j*Math.PI/5+t*2,r1=(4+t*10)*k,r2=(10+t*24)*k;ctx.moveTo(e.x+Math.cos(an)*r1,e.y+Math.sin(an)*r1);ctx.lineTo(e.x+Math.cos(an)*r2,e.y+Math.sin(an)*r2)}ctx.stroke();
     ctx.fillStyle="rgba(255,240,200,"+(1-t)*.8+")";ctx.beginPath();ctx.arc(e.x,e.y,(7*(1-t)+2)*k,0,7);ctx.fill();
     drawIcon(ctx,"sword",e.x,e.y,(14+t*6)*k);ctx.globalAlpha=1}
+  drawGuard();
   drawRoutePreview(now);
   for(const i of upQ){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6;ctx.strokeRect(tx(i)*TS+1.5,ty(i)*TS+1.5,TS-3,TS-3)}
   for(const i of wallQ){if(paintB==="wall"){ctx.fillStyle="rgba(200,192,175,.75)";ctx.fillRect(tx(i)*TS+3,ty(i)*TS+3,TS-6,TS-6)}else{ctx.globalAlpha=.6;drawBuildingSprite(ctx,paintB,i,tx(i)*TS+8,ty(i)*TS+8,1);ctx.globalAlpha=1}}
@@ -1278,6 +1279,7 @@ function renderPane(force){
     const ring=borderRing(),rc=ringCost(c,ring);
     h+=`</div><h3>მიწა</h3><div class="list"><div class="row" style="flex-wrap:wrap"><button class="btn gold" id="claimMode">მონიშვნით შემოერთება</button>
       <button class="btn" id="claimRing" ${ring.length?"":"disabled"}>საზღვრის გაფართოება · ${ring.length} უჯრა</button></div>${ring.length?costHTML({gold:rc},c):""}</div>
+      ${(()=>{const bt=borderTiles(c),gs=guardSet(c),g=bt.filter(t=>gs.has(t)).length,pc=bt.length?Math.round(g/bt.length*100):100;return `<h3>საზღვარი</h3><p class="muted" style="margin:0 0 6px;font-size:12.5px">დაცულია <b style="display:inline;color:${pc>=80?"var(--ok)":pc>=40?"var(--brass2)":"var(--danger)"}">${pc}%</b> (${g}/${bt.length} უჯრა). რუკაზე მწვანე ხაზი დაცულია, წითელი წყვეტილი ხაზი არა. თითო საგუშაგო კოშკი ${TOWER_R} უჯრის რადიუსში აკონტროლებს. დაუცველ ადგილას შემოსულ მტერს ჯარის მხოლოდ ნაწილი დახვდება.</p>`})()}
       <h3>გალავანი</h3>${(()=>{const bw=borderWallTiles();return `<div class="list"><div class="row" style="flex-wrap:wrap"><button class="btn gold" id="wallMode">გალავნის ხატვა</button><button class="btn" id="wallRing" ${bw.length?"":"disabled"}>მთელი საზღვრის შემოზღუდვა · ${bw.length}</button></div>${bw.length?costHTML({stone:wallCostFor(c,bw.length)},c):""}</div>`})()}
       <h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,10).map(l=>`<div>${hhmm(l.t)} · ${esc(l.m)}</div>`).join("")}</div>
       <div class="row" style="margin-top:20px;flex-wrap:wrap"><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>${isOwnerViewer?`<button class="btn sm red" id="resetWorld">სამყაროს წაშლა</button>`:""}</div>`;
@@ -1651,6 +1653,25 @@ function openCamp(tile){
 }
 
 /* ================= actions ================= */
+const TOWER_R=6;
+function guardSet(c){const g=new Set();if(!c?.tiles)return g;for(const k in c.tiles){if(c.tiles[k]!=="tower")continue;const X=tx(+k),Y=ty(+k);
+  for(let dy=-TOWER_R;dy<=TOWER_R;dy++)for(let dx=-TOWER_R;dx<=TOWER_R;dx++){if(dx*dx+dy*dy>TOWER_R*TOWER_R+1)continue;const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;g.add(idx(x,y))}}return g}
+function borderTiles(c){const out=[];if(!c?.tiles)return out;for(const k in c.tiles){const i=+k;if(N4(i).some(n=>!(n in c.tiles)&&TER[n]!==WATER))out.push(i)}return out}
+// where an attack crosses into the defender's land: the first of its tiles on the way in
+function entryTile(a,def){const pp=pathOf(a);for(let j=1;j<pp.length;j++){const x0=tx(pp[j-1]),y0=ty(pp[j-1]),x1=tx(pp[j]),y1=ty(pp[j]),n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0))||1;
+  for(let q=0;q<=n;q++){const t=idx(Math.round(x0+(x1-x0)*q/n),Math.round(y0+(y1-y0)*q/n));if(t in (def.tiles||{}))return t}}return a.target}
+let GUARD_CACHE={key:"",gs:null,bt:null};
+function drawGuard(){const c=countries[ME];if(!c?.tiles)return;const key=Object.keys(c.tiles).length+":"+Object.entries(c.tiles).filter(e=>e[1]==="tower").map(e=>e[0]).join(",");
+  if(GUARD_CACHE.key!==key)GUARD_CACHE={key,gs:guardSet(c),bt:borderTiles(c)};const {gs,bt}=GUARD_CACHE;const lw=Math.max(1.2,2.2/cam.z);
+  // edges facing outward: green where a tower watches, red dashes where nobody does
+  for(const pass of [true,false]){ctx.beginPath();for(const i of bt){if(gs.has(i)!==pass)continue;const X=tx(i)*TS,Y=ty(i)*TS,ins=3.2;
+      for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){const x=tx(i)+dx,y=ty(i)+dy;if(x<0||y<0||x>=W||y>=H)continue;const n=idx(x,y);if(n in c.tiles||TER[n]===WATER)continue;
+        if(dy===-1){ctx.moveTo(X,Y+ins);ctx.lineTo(X+TS,Y+ins)}else if(dy===1){ctx.moveTo(X,Y+TS-ins);ctx.lineTo(X+TS,Y+TS-ins)}else if(dx===-1){ctx.moveTo(X+ins,Y);ctx.lineTo(X+ins,Y+TS)}else{ctx.moveTo(X+TS-ins,Y);ctx.lineTo(X+TS-ins,Y+TS)}}}
+    ctx.strokeStyle=pass?"rgba(110,235,120,1)":"rgba(245,85,65,.95)";ctx.lineWidth=lw;ctx.setLineDash(pass?[]:[4,3]);ctx.stroke()}
+  ctx.setLineDash([]);
+  // the reach of a tower while placing one or when one is selected
+  const show=[];if(placing==="build"&&paintB==="tower"&&hoverTile>=0)show.push(hoverTile);if(selected>=0&&c.tiles[selected]==="tower")show.push(selected);
+  for(const t of show){const [x,y]=TC(t);ctx.fillStyle="rgba(120,220,130,.08)";ctx.strokeStyle="rgba(120,220,130,.7)";ctx.lineWidth=lw;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(x,y,(TOWER_R+.5)*TS,0,7);ctx.fill();ctx.stroke();ctx.setLineDash([])}}
 function countNear(c,t,type,r){let n=0;const X=tx(t),Y=ty(t);for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;if(c.tiles?.[idx(x,y)]===type)n++}return n}
 function travelTime(from,to,units){
   const spd=Math.max(...Object.keys(units).filter(u=>units[u]>0).map(u=>UNITS[u].spd),1);
@@ -1773,14 +1794,16 @@ function battle(a,def){
   const breakN=a.breached?wallList.length:mode==="raid"?0:Math.min(wallList.length,Math.floor(siegePower(u,mode))),wallsDestroyed=wallList.slice(0,breakN),wallsLeft=wallList.length-breakN;
   const blocked=mode!=="raid"&&wallsLeft>0&&!(mode==="flank"&&wallsLeft<4);
   const towers=countNear(def,a.target,"tower",3),starving=(def.res?.food||0)<1;
+  const entry=entryTile(a,def),gs=guardSet(def),guarded=!def.tiles||!Object.keys(def.tiles).length||gs.has(entry)||gs.has(a.target),guardF=guarded?1:def.capital===a.target?.6:.35;
   let wallB=Math.min(1.2,wallsLeft*.12)*(mode==="siege"?.5:1),towerB=Math.min(.75,towers*.25);if(mode==="flank"){wallB*=.5;towerB*=.5}
   const bonus=(wallB+towerB+(def.capital===a.target?.3:0))*Math.max(0,1-(u.mage||0)*.06);
   const terr=mode==="flank"?0:({[HILL]:.2,[MOUNTAIN]:.4,[FOREST]:.1}[TER[a.target]]||0);
-  let D=(UK.reduce((s,k)=>s+(def.army?.[k]||0)*UNITS[k].def*(k==="spear"?1+f:1)*(UNITS[k].naval?(coastal(a.target)?.5:0):1),0)+30+(def.capital===a.target?80:0))*(1+bonus+terr)+towers*25*(mode==="flank"?.5:1);
+  let D=(UK.reduce((s,k)=>s+(def.army?.[k]||0)*UNITS[k].def*(k==="spear"?1+f:1)*(UNITS[k].naval?(coastal(a.target)?.5:0):1),0)*guardF+30+(def.capital===a.target?80:0))*(1+bonus+terr)+towers*25*(mode==="flank"?.5:1);
   if(starving)D*=.6;D*=rnd(2);
   const win=A>D;let atkLoss,defLoss;
   if(win){atkLoss=clamp(.5*Math.pow(D/A,1.3),.03,.9);defLoss=clamp(.6+.3*(A/D-1),.6,1)}else{atkLoss=clamp(.55+.3*(D/Math.max(A,1)-1),.55,1);defLoss=clamp(.5*Math.pow(A/D,1.3),.02,.9)}
   if(mode==="raid"){atkLoss*=.7;defLoss*=.6}
+  if(!guarded)defLoss*=guardF;
   if(a.breached&&wallList.length)atkLoss=Math.min(.95,atkLoss+Math.min(.25,wallList.length*.015));
   if(win&&a.area?.length)atkLoss=Math.min(.95,atkLoss+Math.min(.3,a.area.length*.004));
   const survivors={};let survivorsN=0,atkLostN=0;for(const k in u){survivors[k]=Math.floor(u[k]*(1-atkLoss));survivorsN+=survivors[k];atkLostN+=u[k]-survivors[k]}
@@ -1804,7 +1827,7 @@ function battle(a,def){
   if(win&&!blocked&&a.area?.length&&mode!=="raid")for(const t of a.area){if(!(t in (def.tiles||{}))||(t===def.capital&&t!==a.target)||safe(t))continue;
     if(a.burn){if(def.tiles[t]&&def.tiles[t]!=="wall"&&def.tiles[t]!=="capital"&&!ravaged.includes(t))ravaged.push(t)}else tiles[t]=def.tiles[t]}
   const lootFrac=!win?0:mode==="raid"?.24+ravaged.length*.02:blocked?0:lootCap?.4:.12,loot={};for(const k of RK)loot[k]=Math.floor((def.res?.[k]||0)*Math.min(.6,lootFrac));
-  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,ravaged,burned:!!a.burn,conquered,at:Date.now()};
+  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,unguarded:!guarded,ravaged,burned:!!a.burn,conquered,at:Date.now()};
 }
 const unitSum=u=>UK.reduce((t,k)=>t+(u?.[k]||0),0);
 function unitsHTML(u){const ks=UK.filter(k=>u?.[k]);return ks.length?`<div class="cost" style="gap:4px 10px">${ks.map(k=>`<span title="${UNITS[k].n}">${icn(k,1)}${u[k]}</span>`).join("")}</div>`:'<span class="muted">—</span>'}
@@ -1890,6 +1913,7 @@ function showReport(a){
     <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">${side(A,pA,lostA,ic?"დამხვედრი":"თავდამსხმელი")}${side(D,pD,lostD,ic?"ლაშქარი":"დამცველი")}</div>
     ${r.sea&&r.win?`<p style="margin:12px 0 0">ჩაიძირა ${r.shipsSunk||0} სატრანსპორტო გემი${r.ravaged?.length?`, დაინგრა ${r.ravaged.length} სანაპირო შენობა`:""}.</p>`:""}
     ${!ic?`<p class="muted" style="margin:12px 0 0;font-size:12px">${MODES[r.mode||"direct"].n}${a.naval?" · ზღვით":""}${r.wallsDestroyed?.length?` · დაინგრა ${r.wallsDestroyed.length} გალავანი`:""}${r.starving?" · დამცველები შიმშილობდნენ":""}</p>`:""}
+    ${!ic&&r.unguarded?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">საზღვრის ეს მონაკვეთი საგუშაგოს არ ეკავა, ამიტომ მტერს ჯარის მხოლოდ ნაწილი დახვდა.</p>`:""}
     ${!ic&&r.win&&r.burned&&!r.blocked?`<p style="margin:10px 0 0;color:#f08a2c">დაიწვა ${r.ravaged?.length||0} შენობა.</p>`:""}
     ${!ic&&r.win&&r.blocked?`<p style="margin:10px 0 0;color:var(--brass2)">ბრძოლა მოიგო, მაგრამ გალავანმა გაუძლო და ქალაქში ვერ შევიდა. საჭიროა კატაპულტები ან დრაკონი.</p>`:""}
     ${ic?`<p style="margin:14px 0 0">${r.win?"მტრის ჯარი უკუიქცა და სახლში ბრუნდება.":"მტრის ჯარმა გაარღვია და გზას აგრძელებს."}</p>`:
