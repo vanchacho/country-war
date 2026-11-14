@@ -637,7 +637,7 @@ const BROKER="wss://broker.emqx.io:8084/mqtt";
 const topic=(wid,s)=>"countrywar-ka/v1/"+wid+"/"+s;
 function mqttConnect(prefix){return mqtt.connect(BROKER,{clientId:prefix+rid(10),clean:true,keepalive:30,reconnectPeriod:3000,connectTimeout:10000})}
 function startHost(wid){
-  const store=makeStore(wid);
+  const store=makeStore(wid);if(store.data["meta/admin"]?.uid!==ME)store.ops.set("meta/admin",{uid:ME});
   db=netDB(()=>store.data,store.listeners,async(op,...a)=>store.ops[op](...a));
   const seen=new Map();
   const online=()=>{const now=Date.now();let n=1;for(const [k,t] of seen){if(now-t<30000)n++;else seen.delete(k)}return n};
@@ -652,7 +652,8 @@ function startHost(wid){
     if(!m||!m.c)return;
     const isNew=!seen.has(m.c);seen.set(m.c,Date.now());
     if(tp.endsWith("/hello")){if(isNew){NET.peers=online();renderNet()}pubState();return}
-    let res=null,err=null;try{res=store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}
+    let res=null,err=null;const banned=store.data["meta/bans"]?.ids||[];
+    if(m.op!=="get"&&banned.includes(m.p))err="ადმინმა გაგაგდო ამ სამყაროდან";else try{res=store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}
     cl.publish(topic(wid,"res/"+m.c),JSON.stringify({id:m.id,res,err}),{qos:1});
   });
   setInterval(()=>{if(cl.connected){NET.peers=online();renderNet();cl.publish(topic(wid,"hb"),JSON.stringify({n:NET.peers,ts:Date.now()}))}},5000);
@@ -664,7 +665,7 @@ function startClient(wid,onFirst){
   const call=(op,...a)=>new Promise((res,rej)=>{
     if(!cl.connected)return rej(new Error("ინტერნეტთან კავშირი არ არის"));
     if(!hostUp())return rej(new Error("მასპინძელი არ არის ონლაინ"));
-    const id=++seq;pending.set(id,{res,rej});cl.publish(topic(wid,"req"),JSON.stringify({c:me_c,id,op,a}),{qos:1});
+    const id=++seq;pending.set(id,{res,rej});cl.publish(topic(wid,"req"),JSON.stringify({c:me_c,p:ME,id,op,a}),{qos:1});
     setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error("მასპინძელი არ პასუხობს"))}},12000)});
   const recent={};
   db=netDB(()=>mirror,listeners,call,(p,d)=>{recent[p]={d,t:Date.now()};mirror={...mirror,[p]:d};for(const f of listeners)f()});
@@ -1224,11 +1225,11 @@ function renderPane(force){
     h+=`<h3>ქვეყნები ${alive().length}/5</h3><div class="list">`;
     if(!others.length)h+=`<p class="muted">ჯერ მარტო ხარ.</p><button class="btn gold" id="invOpen">მეგობრების მოწვევა</button>`;
     for(const o of others){const dead=o.alive===false,w=atWar(ME,o.uid),theyOffer=(o.peace||[]).includes(ME),iOffer=(c.peace||[]).includes(o.uid),os=stats(o);
-      h+=`<div class="item"><canvas width="36" height="24" data-flag="${esc(o.uid)}" style="flex:none;border-radius:2px"></canvas><span class="tx"><b style="color:${o.color}">${esc(o.name)}</b>
+      h+=`<div class="item"><canvas width="36" height="24" data-flag="${esc(o.uid)}" style="flex:none;border-radius:2px"></canvas><span class="tx"><b style="color:${o.color}">${esc(o.name)}${ADMIN===o.uid?' <span class="tag" style="display:inline-block">ადმინი</span>':""}</b>
         <span>${esc(o.ruler)} · ${Object.keys(o.tiles||{}).length} უჯრა · ~${os.units} ჯარისკაცი</span></span>
         <span class="btns" style="align-items:flex-end">${dead?'<span class="tag">დამარცხდა</span>':w?'<span class="tag war">ომი</span>':'<span class="tag peace">მშვიდობა</span>'}
         ${dead?"":w?(theyOffer?`<button class="btn sm gold" data-accept="${esc(o.uid)}">ზავის მიღება</button>`:iOffer?'<span class="muted" style="font-size:11px">ზავი გაგზავნილია</span>':`<button class="btn sm" data-peace="${esc(o.uid)}">ზავი</button>`)
-          :`<button class="btn sm red" data-war="${esc(o.uid)}">ომი</button>`}</span></div>`}
+          :`<button class="btn sm red" data-war="${esc(o.uid)}">ომი</button>`}${isOwnerViewer?`<button class="btn sm" data-kick="${esc(o.uid)}">გაგდება</button>`:""}</span></div>`}
     h+=`</div>`;
     const incoming=Object.values(attacks).filter(a=>a.to===ME&&(a.status==="marching"||a.status==="besieging")&&!a.kind).sort((a,b)=>a.arrive-b.arrive);
     if(incoming.length){h=`<h3 style="color:var(--danger)">შემოტევა!</h3><div class="list">`+incoming.map(a=>`<div class="item" style="border-color:var(--danger)"><span class="tx"><b style="color:${countries[a.from]?.color}">${esc(countries[a.from]?.name||"?")}</b>
@@ -1283,6 +1284,7 @@ $("#pane").addEventListener("click",e=>{
   if(d.buy)act(()=>market(d.buy,20,false));
   if(t.id==="gSend")act(()=>sendGift($("#gTo").value,$("#gRes").value,+$("#gAmt").value),"გაგზავნილია");
   if(d.intercept)openIntercept(d.intercept);
+  if(d.kick){if(t.dataset.sure)act(()=>kickPlayer(d.kick),"მოთამაშე გაგდებულია");else{t.dataset.sure=1;t.textContent="ნამდვილად გავაგდო?";t.classList.add("red")}}
   if(d.campret)act(()=>campReturn(d.campret),"ჯარი სახლში ბრუნდება");
   if(d.recall)act(()=>recallArmy(d.recall),"ჯარი ბრუნდება");
   if(d.redirect)startRedirect(d.redirect);
@@ -1821,6 +1823,14 @@ async function collect(a){
     for(const k of RK)c.res[k]+=a.result.loot[k]||0;if(a.result.survivorsN)pushLog(c,`ჯარი დაბრუნდა (${a.result.survivorsN})`);c.applied=[key,...(c.applied||[])].slice(0,60)});
   await mutate("attacks/"+a.id,cur=>{if(!cur)return;cur.status="done";return cur});
 }
+async function kickPlayer(uid){
+  if(!isOwnerViewer)throw new Error("მხოლოდ ადმინს შეუძლია");if(uid===ME)throw new Error("საკუთარ თავს ვერ გააგდებ");const nm=countries[uid]?.name||"მოთამაშე";
+  await mutate("meta/bans",cur=>{cur=cur||{ids:[]};if(!cur.ids.includes(uid))cur.ids=[...cur.ids,uid];return cur});
+  await mutate("meta/slots",cur=>{if(!cur)return;for(const k in cur.slots)if(cur.slots[k]===uid)delete cur.slots[k];return cur});
+  for(const a of Object.values(attacks))if(a.from===uid||a.to===uid&&a.status!=="done")await db.doc("attacks/"+a.id).delete();
+  await db.doc("countries/"+uid).delete();
+  for(const o of Object.values(countries))if(o.uid!==uid&&((o.wars||[]).includes(uid)||(o.peace||[]).includes(uid)))await mutate("countries/"+o.uid,c=>{if(!c)return;c.wars=(c.wars||[]).filter(x=>x!==uid);c.peace=(c.peace||[]).filter(x=>x!==uid);return c});
+  postChat(`${nm} ადმინმა გააგდო`,true)}
 async function abandon(){
   await mutate("meta/slots",cur=>{cur=cur||{slots:{}};for(const k in cur.slots)if(cur.slots[k]===ME)delete cur.slots[k];return cur});
   const nm=countries[ME]?.name;await db.doc("countries/"+ME).delete();delete countries[ME];postChat(`${nm} გაქრა რუკიდან`,true);showOnboarding();
@@ -1869,7 +1879,7 @@ function showOnboarding(){
 }
 async function foundCountry(){
   const ruler=draft.ruler.trim(),name=draft.name.trim(),currency=draft.currency.trim()||"ოქრო";
-  if(!ruler)throw new Error("ჩაწერე შენი სახელი");if(!name)throw new Error("დაარქვი სახელი ქვეყანას");
+  if(BANNED)throw new Error("ამ სამყაროდან გაგდებული ხარ");if(!ruler)throw new Error("ჩაწერე შენი სახელი");if(!name)throw new Error("დაარქვი სახელი ქვეყანას");
   let slot=-1;
   await mutate("meta/slots",async cur=>{cur=cur||{slots:{}};
     for(const k in cur.slots){if(cur.slots[k]===ME){slot=+k;return cur}}
@@ -1887,7 +1897,7 @@ async function foundCountry(){
 }
 
 /* ================= boot ================= */
-let isOwnerViewer=false,booted=false,lastPane=0;
+let isOwnerViewer=false,booted=false,lastPane=0,ADMIN=null,BANNED=false;
 function renderAll(force){
   if(!booted)return;
   const has=!!me();$("#side").hidden=!has;
@@ -1939,6 +1949,9 @@ async function boot(){
     for(const id in next){const a=next[id],pr=attacks[id];if(a.to===ME&&a.status==="marching"&&a.kind!=="intercept"&&!pr&&booted)toast(`${countries[a.from]?.name||"მტერი"} გიტევს!`,"err");
       if(a.status==="returning"&&a.result&&!a.result.missed&&!a.result.camp&&((pr&&(pr.status==="marching"||pr.status==="besieging"))||(!pr&&Date.now()-(a.result.at||0)<6000))){const loc=a.retFrom??a.target;FX.push({x:tx(loc)*TS+8,y:ty(loc)*TS+8,t0:Date.now(),col:countries[a.from]?.color||"#fff"});const sc=sceneFromAttack(a);if(sc)SCENES.push(sc)}}
     attacks=next;renderAll()},()=>{});
+  db.doc("meta/admin").onSnapshot(s=>{ADMIN=s.exists?s.data().uid:null},()=>{});
+  db.doc("meta/bans").onSnapshot(s=>{const ids=s.exists?(s.data().ids||[]):[];if(ids.includes(ME)&&!BANNED){BANNED=true;document.querySelectorAll(".overlay").forEach(o=>o.remove());$("#hud").hidden=true;$("#side").hidden=true;$("#tile").hidden=true;
+    banner(`<h2>გაგდებული ხარ</h2><p class="muted">ამ სამყაროს ადმინმა გაგაგდო. შეგიძლია შექმნა საკუთარი სამყარო.</p><a class="btn gold" href="${location.origin+location.pathname}" style="text-decoration:none;display:inline-block;margin-top:8px">ჩემი სამყარო</a>`)}},()=>{});
   db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat")renderPane(false);else if(booted&&me())renderTabs()},()=>{});
   setInterval(()=>{renderHUD();if(Date.now()-lastPane>4000){lastPane=Date.now();renderPane(false);renderTile()}},1000);
   setInterval(resolveAttacks,2500);
