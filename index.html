@@ -306,6 +306,8 @@ function drawIcon(g,k,x,y,s){
     case"harcher":P(O,()=>{g.moveTo(8,30);g.lineTo(10,17);g.lineTo(5,13);g.lineTo(11,4);g.lineTo(19,6);g.lineTo(27,13);g.lineTo(23,17);g.lineTo(19,14);g.lineTo(18,21);g.lineTo(22,30)});
       P("#8a5a2b",()=>{g.moveTo(9.5,28.5);g.lineTo(11.5,17);g.lineTo(7,13);g.lineTo(11.6,6);g.lineTo(18.4,7.6);g.lineTo(25,13);g.lineTo(23,15);g.lineTo(18,12);g.lineTo(16.6,21);g.lineTo(20,28.5)});
       S(O,2.4,()=>{g.moveTo(12,5);g.lineTo(9,14);g.lineTo(11,22)});C(O,15,10,1.1);S("#efe7d2",1.3,()=>g.arc(27,24,6,Math.PI*.6,Math.PI*1.4));break;
+    case"torch":S(O,4,()=>{g.moveTo(10,30);g.lineTo(19,11)});S("#8a5a2b",2.4,()=>{g.moveTo(10,30);g.lineTo(19,11)});R(O,16,8,7,5);R("#6b6660",17,9,5,3);
+      P("#f08a2c",()=>{g.moveTo(15,9);g.quadraticCurveTo(14,2,21,0);g.quadraticCurveTo(19,4,24,8);g.closePath()});P("#f2c771",()=>{g.moveTo(17,9);g.quadraticCurveTo(17,5,20,3);g.quadraticCurveTo(20,6,22,9);g.closePath()});break;
     case"knight":P(O,()=>{g.moveTo(4,4);g.lineTo(28,4);g.lineTo(28,15);g.quadraticCurveTo(28,26,16,31);g.quadraticCurveTo(4,26,4,15);g.closePath()});
       P("#3b6fb5",()=>{g.moveTo(6,6);g.lineTo(26,6);g.lineTo(26,15);g.quadraticCurveTo(26,24.5,16,29);g.quadraticCurveTo(6,24.5,6,15);g.closePath()});R("#f2c771",14,7,4,21);R("#f2c771",7,13,18,4);break;
     case"catapult":C(O,8,26,4.4);C("#8a5a2b",8,26,3);C(O,24,26,4.4);C("#8a5a2b",24,26,3);R(O,3,20,26,5);R("#a8743f",4,21,24,3);
@@ -405,6 +407,11 @@ function drawFlyer(g,u,x,y,s,ph,dir){
   g.restore()}
 function drawUnitSprite(g,u,x,y,s,col,ph,skin,dir=0){
   const bob=Math.abs(Math.sin(ph))*s*.1;
+  if(u==="torch"){drawHorse(g,x,y,s*1.3,"#5a3a24",ph);const rx=x+s*.05,ry=y-s-bob;g.fillStyle=col;g.fillRect(rx-s*.18,ry-s*.55,s*.36,s*.55);g.fillStyle=skin;g.fillRect(rx-s*.18,ry-s*.75,s*.36,s*.22);
+    g.strokeStyle="#6b4423";g.lineWidth=s*.09;g.beginPath();g.moveTo(rx+s*.15,ry-s*.3);g.lineTo(rx+s*.45,ry-s*1.05);g.stroke();
+    const fx=rx+s*.47,fy=ry-s*1.1,fl=1+Math.sin(ph*3)*.15;g.save();g.globalCompositeOperation="lighter";const gl=g.createRadialGradient(fx,fy,0,fx,fy,s*1.2);gl.addColorStop(0,"rgba(255,160,50,.45)");gl.addColorStop(1,"rgba(255,120,30,0)");g.fillStyle=gl;g.beginPath();g.arc(fx,fy,s*1.2,0,7);g.fill();g.restore();
+    g.fillStyle="#f08a2c";g.beginPath();g.moveTo(fx-s*.18,fy);g.quadraticCurveTo(fx-s*.1,fy-s*.5*fl,fx+s*.05,fy-s*.7*fl);g.quadraticCurveTo(fx+s*.15,fy-s*.35,fx+s*.18,fy);g.fill();
+    g.fillStyle="#ffe08a";g.beginPath();g.moveTo(fx-s*.08,fy);g.quadraticCurveTo(fx,fy-s*.35*fl,fx+s*.08,fy);g.fill();return}
   if(u==="harcher"||u==="knight"){drawHorse(g,x,y,s*1.3,u==="knight"?"#8d8f94":"#8a5a2b",ph);
     const rx=x+s*.05,ry=y-s*1-bob;g.fillStyle=col;g.fillRect(rx-s*.18,ry-s*.55,s*.36,s*.55);g.fillStyle=skin;g.fillRect(rx-s*.18,ry-s*.75,s*.36,s*.22);
     if(u==="knight"){g.strokeStyle="#cfd5db";g.lineWidth=s*.1;g.beginPath();g.moveTo(rx+s*.1,ry-s*.3);g.lineTo(rx+s*1.3,ry-s*.75);g.stroke()}
@@ -518,7 +525,7 @@ function drawSiegeFire(a,spots,cx0,cy0,now,k){const D=countries[a.to];if(!spots.
     const cx=sx+(dx-sx)*ph,cy=sy+(dy-sy)*ph-Math.sin(ph*Math.PI)*8*k,nx=sx+(dx-sx)*(ph+.05),ny=sy+(dy-sy)*(ph+.05)-Math.sin((ph+.05)*Math.PI)*8*k,ang=Math.atan2(ny-cy,nx-cx);
     ctx.strokeStyle="#2a1d12";ctx.lineWidth=.9*k;ctx.beginPath();ctx.moveTo(cx-Math.cos(ang)*3*k,cy-Math.sin(ang)*3*k);ctx.lineTo(cx+Math.cos(ang)*3*k,cy+Math.sin(ang)*3*k);ctx.stroke()}}
 
-const UNIT_ORDER=["warship","knight","harcher","sword","spear","golem","archer","mage","catapult","griffin","dragon"];
+const UNIT_ORDER=["warship","torch","knight","harcher","sword","spear","golem","archer","mage","catapult","griffin","dragon"];
 function formationSlots(units,max){const N=unitSum(units);if(!N)return[];const out=[];
   for(const u of UNIT_ORDER){if(!units[u])continue;const n=Math.max(1,Math.round(units[u]/N*max));for(let i=0;i<n&&out.length<max+3;i++)out.push(u)}return out}
 
@@ -530,6 +537,7 @@ const UNITS={
   archer:{n:"მშვილდოსანი",atk:12,def:5,spd:3,pop:1,up:.15,time:8,cost:{gold:14,food:8,wood:12},req:["range"]},
   harcher:{n:"შვილდოსანი მხედარი",atk:15,def:7,spd:1.5,pop:2,up:.35,time:14,cost:{gold:40,food:20,wood:12},req:["range","stable"]},
   knight:{n:"რაინდი",atk:22,def:16,spd:1.8,pop:2,up:.45,time:18,cost:{gold:60,food:20,iron:10},req:["stable"]},
+  torch:{n:"ჩირაღდნიანი მხედარი",atk:8,def:5,spd:1.4,pop:2,up:.3,time:10,cost:{gold:35,food:15,wood:20},req:["stable"]},
   catapult:{n:"კატაპულტი",atk:28,def:2,spd:5,pop:3,up:.6,time:30,cost:{gold:80,wood:70,stone:25},req:["workshop"]},
   mage:{n:"ჯადოქარი",atk:18,def:8,spd:3,pop:1,up:.3,time:15,cost:{gold:50,food:10,iron:5},req:["magetower"]},
   golem:{n:"ქვის გოლემი",atk:14,def:24,spd:4,pop:2,up:.1,time:4,cost:{mana:40},req:["magetower"],summon:1,mages:1},
@@ -548,6 +556,7 @@ function speedUpQueue(c,before){const after=stats(c).cnt,now=Date.now();const li
 const FLYERS=["griffin","dragon"];const isAir=u=>unitSum(u)>0&&UK.every(k=>!u[k]||FLYERS.includes(k));
 const BARB={uid:"barbarians",name:"უცხო ტომელები",ruler:"ბელადი",color:"#7a4a2a",flag:{p:"diag",c:["#2a1d12","#8a2a1a","#000"],e:"✖",ec:"#e8d6b0"}};
 const cOf=u=>countries[u]||(u==="barbarians"?BARB:undefined);
+const isTorch=u=>unitSum(u)>0&&UK.every(k=>!u[k]||k==="torch");
 const isFleet=u=>unitSum(u)>0&&UK.every(k=>!u[k]||UNITS[k].naval);
 const hasFleet=u=>(u?.warship||0)>0;
 const coastal=i=>N4(i).some(n=>TER[n]===WATER);
@@ -556,6 +565,7 @@ const MODES={direct:{n:"პირდაპირი შეტევა",d:"ს�
   flank:{n:"უკნიდან შემოვლა",d:"გზა გრძელია, მაგრამ გალავნისა და კოშკების დაცვა ნახევრდება, პატარა გალავანს გვერდს უვლი",t:1.5},
   siege:{n:"ალყა",d:"ქალაქს ალყაში აქცევ: მტერი შიმშილობს, შემოსავალი უნახევრდება, გალავანი სუსტდება. მერე იერიში",t:1},
   naval:{n:"ზღვის შეტევა",d:"ფლოტი ესხმის მტრის სანაპიროს: ძირავს მის გემებს და ბომბავს სანაპირო შენობებს",t:1},
+  burnforest:{n:"ტყის გადაწვა",d:"ჩირაღდნიანი მხედრები გზაზე და მის გვერდებზე ტყეს გადაწვავენ. მტრის ტყეში მდგარ შენობებსაც",t:1},
   raid:{n:"დარბევა",d:"სწრაფი თავდასხმა ნადავლისთვის: ორმაგი ნადავლი, ნაკლები დანაკარგი, მიწას არ იპყრობ",t:.8}};
 const SIEGE_MS=150e3,SHIP_CAP=10,SHIP_COST={wood:80,gold:40};
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
@@ -566,7 +576,7 @@ const ECO_SPEED=2,TRAIN_SPEED=2,MARCH_SPEED=1.6; // pace of the game
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
   for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
-    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;for(const r in d.prod)prod[r]+=d.prod[r]*m}}
+    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b==="lumber"&&t!==FOREST)m=0;for(const r in d.prod)prod[r]+=d.prod[r]*m}}
   let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
   const civ=Math.max(0,pop-army);
@@ -603,7 +613,8 @@ function costHTML(cost,c,mult=1){return `<div class="cost">${Object.keys(cost).m
 let db=null,user=null,ME=null;
 const HOLDER=rid(10);
 let countries={},attacks={},chat=[];
-let OWNER=new Int16Array(W*H).fill(-1),ORDER=[];const BRIDGES=new Set();
+let OWNER=new Int16Array(W*H).fill(-1),ORDER=[];let FOREST_FIRE={};const WAS_FOREST=new Uint8Array(W*H);
+function applyForestFires(){const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS}}}const BRIDGES=new Set();
 let selected=-1,placing=null,tab="land",lastChatSeen=0;
 const NET={role:null,wid:null,status:"",peers:0};
 
@@ -1090,6 +1101,16 @@ function frame(){
         const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy;
         drawPerson(ctx,x,y+3,clamp(5/z,3,4.5),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
   drawFires(now,vis);
+  // forest fires: tiles ignite as the riders pass, burn a few minutes, then stay scorched and slowly green over
+  for(const k in FOREST_FIRE){const i=+k;if(!vis(i))continue;const age=(now-FOREST_FIRE[k])/60000;if(age<0)continue;const x=tx(i)*TS+8,y=ty(i)*TS+8,seed=hash(i,2,88);
+    const g2=age<40?0:Math.min(1,(age-40)/80),cr=Math.round(36+(118-36)*g2),cg=Math.round(30+(150-30)*g2),cb=Math.round(22+(76-22)*g2);
+    const sc=ctx.createRadialGradient(x,y,2,x,y,12);sc.addColorStop(0,`rgba(${cr},${cg},${cb},.97)`);sc.addColorStop(.75,`rgba(${cr},${cg},${cb},.9)`);sc.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+    ctx.fillStyle=sc;ctx.beginPath();ctx.ellipse(x,y,12,11,0,0,7);ctx.fill();
+    if(g2<.8){ctx.strokeStyle=`rgba(20,14,10,${.85*(1-g2)})`;ctx.lineWidth=1.1;ctx.beginPath();for(let q=0;q<4;q++){const sx=x-6+hash(i,q,21)*12,sy=y-4+hash(i,q,22)*9;ctx.moveTo(sx,sy+3);ctx.lineTo(sx+(hash(i,q,23)-.5)*2,sy-3)}ctx.stroke()}
+    if(age<4){const heat=1-age/4;ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-2,1,x,y-2,20);gl.addColorStop(0,`rgba(255,130,40,${.5*heat})`);gl.addColorStop(1,"rgba(255,90,20,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-2,20,0,7);ctx.fill();ctx.restore();
+      for(let f=0;f<6;f++){const fx=x-6+hash(i,f,24)*12,fy=y-2+hash(i,f,25)*8;flame(ctx,fx,fy,(5+hash(i,f,26)*7)*(.5+heat*.7)*(.85+Math.sin(now/110+f*2+seed*9)*.18),1.6+hash(i,f,27),now/130+f*2.3+seed*7)}}
+    if(age<10){const dens=age<4?.45:.45-(age-4)*.07;for(let s2=0;s2<4;s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t);if(a<=.01)continue;const sx=x+t*26+Math.sin(t*5+s2)*3,sy=y-6-t*28,r=3+t*10;
+      const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,r);sg.addColorStop(0,`rgba(70,66,62,${a})`);sg.addColorStop(1,"rgba(70,66,62,0)");ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sx,sy,r,0,7);ctx.fill()}}}
   // creatures at home: dragons and griffins circle over the capital, golems patrol around it
   if(z>.35){const tt=now/1000,kk=clamp(1.5/z,.8,3);
     for(const c of ORDER){const cap=c.capital;if(cap==null)continue;const cx=tx(cap)*TS+8,cy=ty(cap)*TS+8;if(!vis(cap)&&Math.abs(tx(cap)-(x0+x1)/2)>(x1-x0)/2+6)continue;const A=c.army||{};
@@ -1504,6 +1525,8 @@ function analyzeRoute(){
   if(!routeDraw)return null;if(routeDraw.an)return routeDraw.an;const pts=routeDraw.pts,last=pts[pts.length-1];let res={ok:false};
   if(pts.length<2){routeDraw.an=res;return res}
   const c=countries[ME],sea=pts.some(q=>TER[q]===WATER),inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
+  if(isTorch(routeDraw.units)){if(pts.slice(1).some(q=>TER[q]===WATER)){routeDraw.an={ok:false,why:"ცხენოსნები ზღვაზე ვერ გადავლენ"};return routeDraw.an}
+    res={ok:true,target:last,mode:"burnforest",path:[...pts],naval:false};res.fires=forestAlong(res.path).length;res.time=pathTravel(res.path,routeDraw.units);routeDraw.an=res;return res}
   if(isFleet(routeDraw.units)){ // a war fleet: sails only on the sea
     if(pts.slice(1,-1).some(q=>TER[q]!==WATER&&!coastal(q))){routeDraw.an={ok:false,why:"ფლოტი მხოლოდ ზღვაზე დადის"};return routeDraw.an}
     let best=-1,bs=0;for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){const x=tx(last)+dx,y=ty(last)+dy;if(!inb(x,y))continue;const t=idx(x,y);if(!enemyTile(t))continue;const sw=sweepAround(pts,t)+(ownerOf(t).capital===t?1.2:0);if(sw>bs){bs=sw;best=t}}
@@ -1541,6 +1564,20 @@ function analyzeRoute(){
   routeDraw.an=res;return res}
 const ROUTE_NAME={...Object.fromEntries(Object.entries(MODES).map(([k,m])=>[k,m.n])),camp:"ბანაკი"};
 const ROUTE_DESC={...Object.fromEntries(Object.entries(MODES).map(([k,m])=>[k,m.d])),camp:"ჯარი აქ დაბანაკდება. აქედან შემდეგი შეტევა უფრო ახლოს იქნება"};
+// forest tiles the riders set alight: along the path and one tile to each side; never land of a country you are at peace with
+function forestAlong(path){const out=new Map();let d=0;const L=path.length;
+  path.forEach((q,j)=>{for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=tx(q)+dx,y=ty(q)+dy;if(x<0||y<0||x>=W||y>=H)continue;const t=idx(x,y);if(TER[t]!==FOREST||out.has(t))continue;
+    const o=ownerOf(t);if(o&&o.uid!==ME&&!atWar(ME,o.uid))continue;out.set(t,j/Math.max(1,L-1))}});return [...out.entries()]}
+async function launchBurnRun(units,path,src){
+  const fires=forestAlong(path);if(!fires.length)throw new Error("გზაზე დასაწვავი ტყე არ არის");
+  const ref=db.collection("attacks").doc(),now=Date.now(),time=pathTravel(path,units);let doc;
+  const startFrom=s=>({id:ref.id,kind:"burn",from:ME,to:null,units,target:path[path.length-1],fromTile:s,path,launch:now,arrive:now+time,status:"marching",burnTiles:fires.map(f=>f[0])});
+  if(src==="home"||!src)await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=startFrom(c.capital);pushLog(c,"ტყის გადაწვა")});
+  else await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}for(const u in units)cur.units[u]-=units[u];if(!unitSum(cur.units))cur.status="done";doc=startFrom(cur.fromTile);return cur});
+  await ref.set(doc);
+  // each tile catches fire as the riders pass it
+  await mutate("world/forestfire",cur=>{cur=cur||{t:{}};cur.t=cur.t||{};for(const [t,f] of fires)if(!(t in cur.t))cur.t[t]=now+Math.round(f*time);return cur});
+  postChat(`${countries[ME].name}-ის ჩირაღდნიანი მხედრები ტყეს წვავენ!`,true)}
 function simplifyPath(p){const out=[p[0]];const stride=Math.max(2,Math.ceil(p.length/70));for(let j=stride;j<p.length-1;j+=stride)out.push(p[j]);out.push(p[p.length-1]);return out}
 function finishRoute(){
   const an=analyzeRoute();if(!an||!an.ok){if(routeDraw&&routeDraw.pts.length>2)toast(an?.why||"გზა ხმელეთზე დაასრულე","err");return}
@@ -1548,7 +1585,7 @@ function finishRoute(){
   const rd=routeDraw,T=ownerOf(an.target);
   const ov=document.createElement("div");ov.className="overlay";ov.style.background="rgba(8,11,16,.35)";ov.style.alignItems="flex-end";
   ov.innerHTML=`<div class="card" style="max-width:420px"><h2>${ROUTE_NAME[an.mode]}${an.naval?" (ზღვით)":""}${T&&an.mode!=="camp"?`: <span style="color:${T.color}">${esc(T.name)}</span>`:""}</h2>
-    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>
+    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}${an.mode==="burnforest"?` <b>${an.fires} ტყის უჯრა დაიწვება.</b>`:""}</p>
     ${["direct","flank"].includes(an.mode)?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm" id="rtArea">ტერიტორიის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} უჯრა`:"მთელი მონიშნული მიწა დაიპყრობა"}</span></div>`:""}
     ${["direct","flank","siege"].includes(an.mode)?`<label class="row" style="margin-top:12px;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rtBurn" ${rd.burnPick?"checked":""}><span><b>გადაწვა</b> <span class="muted">შენობებს დაწვავს, მიწას არ დაიპყრობს</span></span></label>`:""}
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" id="rtRe">თავიდან დახატვა</button><button class="btn red" id="rtGo">წინ!</button></div></div>`;
@@ -1556,7 +1593,7 @@ function finishRoute(){
   ov.querySelector("#rtRe").onclick=()=>{ov.remove();AREA.clear();if(routeDraw){routeDraw.pts=[routeDraw.from];routeDraw.an=null;routeDraw.area=null}};
   const ab=ov.querySelector("#rtArea");if(ab)ab.onclick=()=>{rd.burnPick=!!ov.querySelector("#rtBurn")?.checked;ov.remove();rd.areaFoe=T?.uid;AREA.clear();(rd.area||[]).forEach(t=>AREA.add(t));AREA.add(an.target);startArea()};
   ov.querySelector("#rtGo").onclick=()=>{an.burn=!!ov.querySelector("#rtBurn")?.checked;an.area=rd.area?.length?rd.area:null;AREA.clear();ov.remove();const r=routeDraw;routeDraw=null;stopPlacing();const path=simplifyPath(an.path);
-    act(()=>r.move?redirectArmy(r.move,an,path):an.mode==="camp"?launchCamp(an.target,r.units,path,r.src):launchAttack(an.target,r.units,an.mode,an.naval,r.src,path,an.line||null,an.burn,an.area),r.move?"ჯარს ახალი გზა მიეცა":an.mode==="camp"?"ჯარი ბანაკისკენ გაემართა":"ჯარი გაემართა შენი გზით")};
+    act(()=>an.mode==="burnforest"?launchBurnRun(r.units,an.path,r.src):r.move?redirectArmy(r.move,an,path):an.mode==="camp"?launchCamp(an.target,r.units,path,r.src):launchAttack(an.target,r.units,an.mode,an.naval,r.src,path,an.line||null,an.burn,an.area),r.move?"ჯარს ახალი გზა მიეცა":an.mode==="camp"?"ჯარი ბანაკისკენ გაემართა":"ჯარი გაემართა შენი გზით")};
 }
 function drawRoutePreview(now){
   if(placing!=="route"||!routeDraw)return;const c=countries[ME],col=c?.color||"#fff",pts=routeDraw.pts.map(TC),k=clamp(1.5/cam.z,.8,3);
@@ -1858,7 +1895,11 @@ async function resolveAttacks(){
     const involved=a.from===ME||a.to===ME;
     if(a.kind==="intercept"&&a.status==="marching"){if(a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);try{await resolveIntercept(a)}catch(e){console.warn(e)}finally{busyA.delete(a.id)}}continue}
     try{
-      if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
+      if(a.kind==="burn"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);
+          const hit={};for(const t of a.burnTiles||[]){const o=ownerOf(t);if(o&&o.uid!==ME&&o.tiles[t]&&o.tiles[t]!=="capital")(hit[o.uid]=hit[o.uid]||[]).push(t)}
+          for(const uid in hit)await mutate("countries/"+uid,c=>{if(!c)return;const now2=Date.now();c.burnt=c.burnt||{};for(const t of hit[uid]){if(c.tiles[t]&&c.tiles[t]!=="capital"){c.tiles[t]="";c.burnt[t]=now2}}pushLog(c,`ტყე და ${hit[uid].length} შენობა დაწვეს (${countries[ME].name})`);return c});
+          await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;const n2=Date.now(),sv=cur.units;cur.result={survivors:sv,survivorsN:unitSum(sv),loot:{},camp:1,at:n2};cur.status="returning";cur.retFrom=cur.target;cur.arrive=n2;cur.returnAt=n2+travelTime(cur.target,cur.fromTile,sv);return cur})}}
+      else if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
       else if(a.status==="marching"&&a.mode==="siege"&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
         await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="besieging";cur.siegeEnd=Date.now()+SIEGE_MS;started=cur.siegeEnd;return cur});
         if(started){await mutate("countries/"+a.to,c=>{if(!c)return;c=materialize(c,Date.now());c.siege={id:a.id,by:a.from,until:started};pushLog(c,"ალყა! "+(cOf(a.from)?.name||""));return c});postChat(`ალყა: ${cOf(a.from)?.name} → ${countries[a.to]?.name}`,true)}}
@@ -2044,6 +2085,8 @@ async function boot(){
     for(const id in next){const a=next[id],pr=attacks[id];if(a.to===ME&&a.status==="marching"&&a.kind!=="intercept"&&!pr&&booted)toast(`${cOf(a.from)?.name||"მტერი"} გიტევს!`,"err");
       if(a.status==="returning"&&a.result&&!a.result.missed&&!a.result.camp&&((pr&&(pr.status==="marching"||pr.status==="besieging"))||(!pr&&Date.now()-(a.result.at||0)<6000))){const loc=a.retFrom??a.target;FX.push({x:tx(loc)*TS+8,y:ty(loc)*TS+8,t0:Date.now(),col:cOf(a.from)?.color||"#fff"});const sc=sceneFromAttack(a);if(sc)SCENES.push(sc)}}
     attacks=next;renderAll()},()=>{});
+  db.doc("world/forestfire").onSnapshot(s=>{FOREST_FIRE=s.exists?(s.data().t||{}):{};applyForestFires()},()=>{});
+  setInterval(applyForestFires,3000);
   db.doc("meta/admin").onSnapshot(s=>{ADMIN=s.exists?s.data().uid:null},()=>{});
   db.doc("meta/bans").onSnapshot(s=>{const ids=s.exists?(s.data().ids||[]):[];if(ids.includes(ME)&&!BANNED){BANNED=true;document.querySelectorAll(".overlay").forEach(o=>o.remove());$("#hud").hidden=true;$("#side").hidden=true;$("#tile").hidden=true;
     banner(`<h2>გაგდებული ხარ</h2><p class="muted">ამ სამყაროს ადმინმა გაგაგდო. შეგიძლია შექმნა საკუთარი სამყარო.</p><a class="btn gold" href="${location.origin+location.pathname}" style="text-decoration:none;display:inline-block;margin-top:8px">ჩემი სამყარო</a>`)}},()=>{});
