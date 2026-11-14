@@ -614,7 +614,12 @@ let db=null,user=null,ME=null;
 const HOLDER=rid(10);
 let countries={},attacks={},chat=[];
 let OWNER=new Int16Array(W*H).fill(-1),ORDER=[];let FOREST_FIRE={};const WAS_FOREST=new Uint8Array(W*H);
-function applyForestFires(){const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS}}}const BRIDGES=new Set();
+const BAKED=new Set();
+function bakeBurnt(){if(!terrCv.width)return;const now=Date.now(),g=terrCv.getContext("2d"),k2=terrCv.width/PW;
+  for(const k in FOREST_FIRE){if(BAKED.has(k)||now-FOREST_FIRE[k]<3*60000)continue;BAKED.add(k);const i=+k,x=(tx(i)*TS+8)*k2,y=(ty(i)*TS+8)*k2,r=12*k2;
+    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,"rgba(104,152,68,1)");gr.addColorStop(.65,"rgba(104,152,68,.92)");gr.addColorStop(1,"rgba(104,152,68,0)");g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();
+    for(let q=0;q<26;q++){const v=hash(i,q,3);g.fillStyle=`rgba(${70+v*50|0},${118+v*48|0},${46+v*20|0},.55)`;const rx=(hash(i,q,4)-.5)*15*k2,ry=(hash(i,q,5)-.5)*15*k2;if(rx*rx+ry*ry<r*r*.6)g.fillRect(x+rx,y+ry,1.4*k2,1.4*k2)}}}
+function applyForestFires(){bakeBurnt();const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS}}}const BRIDGES=new Set();
 let selected=-1,placing=null,tab="land",lastChatSeen=0;
 const NET={role:null,wid:null,status:"",peers:0};
 
@@ -1006,8 +1011,8 @@ function drawRivers(g){
   for(const pass of [[8,"rgba(110,100,60,.3)"],[6,"rgb(38,96,134)"],[3.8,"rgb(66,140,182)"],[1.2,"rgba(190,228,245,.55)"]]){
     g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();for(const c of curves)if(c.length>1)line(c);g.stroke()}}
 function drawTerrain(){
-  terrainJob(8,0,(cvs,HT,tw,th)=>{terrCv.width=tw;terrCv.height=th;terrCv.getContext("2d").drawImage(cvs,0,0);HEIGHT=HT;TR=8;TW=tw;THh=th;buildWaterFX()});
-  setTimeout(()=>terrainJob(16,10,(cvs)=>{terrCv.width=cvs.width;terrCv.height=cvs.height;terrCv.getContext("2d").drawImage(cvs,0,0);terrainHi=true}),300);
+  terrainJob(8,0,(cvs,HT,tw,th)=>{terrCv.width=tw;terrCv.height=th;terrCv.getContext("2d").drawImage(cvs,0,0);HEIGHT=HT;TR=8;TW=tw;THh=th;buildWaterFX();BAKED.clear();bakeBurnt()});
+  setTimeout(()=>terrainJob(16,10,(cvs)=>{terrCv.width=cvs.width;terrCv.height=cvs.height;terrCv.getContext("2d").drawImage(cvs,0,0);terrainHi=true;BAKED.clear();bakeBurnt()}),300);
 }
 /* moving water: three pre-rendered frames of wave glints and shore foam, cross-faded over time */
 const WFX=[];
@@ -1103,10 +1108,8 @@ function frame(){
   drawFires(now,vis);
   // forest fires: tiles ignite as the riders pass, burn a few minutes, then stay scorched and slowly green over
   for(const k in FOREST_FIRE){const i=+k;if(!vis(i))continue;const age=(now-FOREST_FIRE[k])/60000;if(age<0)continue;const x=tx(i)*TS+8,y=ty(i)*TS+8,seed=hash(i,2,88);
-    const g2=age<40?0:Math.min(1,(age-40)/80),cr=Math.round(36+(118-36)*g2),cg=Math.round(30+(150-30)*g2),cb=Math.round(22+(76-22)*g2);
-    const sc=ctx.createRadialGradient(x,y,2,x,y,12);sc.addColorStop(0,`rgba(${cr},${cg},${cb},.97)`);sc.addColorStop(.75,`rgba(${cr},${cg},${cb},.9)`);sc.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
-    ctx.fillStyle=sc;ctx.beginPath();ctx.ellipse(x,y,12,11,0,0,7);ctx.fill();
-    if(g2<.8){ctx.strokeStyle=`rgba(20,14,10,${.85*(1-g2)})`;ctx.lineWidth=1.1;ctx.beginPath();for(let q=0;q<4;q++){const sx=x-6+hash(i,q,21)*12,sy=y-4+hash(i,q,22)*9;ctx.moveTo(sx,sy+3);ctx.lineTo(sx+(hash(i,q,23)-.5)*2,sy-3)}ctx.stroke()}
+    const dark=age<3?.9:Math.max(0,.9*(1-(age-3)/5));
+    if(dark>0){const sc=ctx.createRadialGradient(x,y,1,x,y,12);sc.addColorStop(0,`rgba(34,28,20,${dark})`);sc.addColorStop(.55,`rgba(34,28,20,${dark*.8})`);sc.addColorStop(1,"rgba(34,28,20,0)");ctx.fillStyle=sc;ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.fill()}
     if(age<3){const heat=1-age/3;ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-2,1,x,y-2,20);gl.addColorStop(0,`rgba(255,130,40,${.5*heat})`);gl.addColorStop(1,"rgba(255,90,20,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-2,20,0,7);ctx.fill();ctx.restore();
       for(let f=0;f<6;f++){const fx=x-6+hash(i,f,24)*12,fy=y-2+hash(i,f,25)*8;flame(ctx,fx,fy,(5+hash(i,f,26)*7)*(.5+heat*.7)*(.85+Math.sin(now/110+f*2+seed*9)*.18),1.6+hash(i,f,27),now/130+f*2.3+seed*7)}}
     if(age<8){const dens=age<3?.45:.45-(age-3)*.09;for(let s2=0;s2<4;s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t);if(a<=.01)continue;const sx=x+t*26+Math.sin(t*5+s2)*3,sy=y-6-t*28,r=3+t*10;
