@@ -1517,14 +1517,14 @@ async function redirectArmy(id,an,path){let lift=null;const T=ownerOf(an.target)
     await mutate("attacks/"+id,cur=>{if(!cur||cur.status!=="returning")throw new Error("ჯარი უკვე სახლშია");units=cur.result?.survivors||{};loot=cur.result?.loot||{};fromTile=cur.fromTile;cur.status="done";return cur});
     await mutateMe(c=>{const key=id+":c";if((c.applied||[]).includes(key))return false;for(const k of RK)c.res[k]=(c.res[k]||0)+(loot[k]||0);c.applied=[key,...(c.applied||[])].slice(0,60)});
     const ref=db.collection("attacks").doc(),now=Date.now(),doc={id:ref.id,from:ME,units,target:an.target,fromTile,path,launch:now,arrive:now+an.time,status:"marching",naval:!!an.naval,redirected:true,...(an.burn?{burn:true}:{}),...(an.area?{area:an.area}:{})};
-    if(T&&an.mode!=="camp"&&!isFleet(units)){const wc=wallCut(path,T.uid);if(wc){doc.path=wc.head;doc.rest=wc.rest;doc.arrive=now+pathTravel(wc.head,units)}}
+    if(T&&an.mode!=="camp"&&!isFleet(units)){const wc=wallCut(path,T.uid,{noGap:an.mode==="wall",air:isAir(units)});if(wc){doc.path=wc.head;if(wc.rest)doc.rest=wc.rest;doc.arrive=now+pathTravel(wc.head,units)}}
     if(an.mode==="camp"){doc.kind="camp";doc.to=null}else{doc.to=T?.uid||null;doc.mode=an.mode;if(an.line)doc.siegeLine=an.line}
     await ref.set(doc);postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""}`,true);return}
   await mutate("attacks/"+id,cur=>{if(!canCommand(cur))throw new Error("ამ ჯარს ვეღარ მართავ");const now=Date.now();
     if(cur.status==="besieging")lift={to:cur.to,id:cur.id};
     if(an.mode==="camp"){cur.kind="camp";cur.to=null;delete cur.mode}else{delete cur.kind;cur.to=T?.uid||null;cur.mode=an.mode}
     cur.naval=!!an.naval;cur.path=path;cur.target=an.target;if(an.burn)cur.burn=true;else delete cur.burn;if(an.area)cur.area=an.area;else delete cur.area;if(an.line)cur.siegeLine=an.line;else delete cur.siegeLine;cur.launch=now;cur.arrive=now+an.time;cur.status="marching";cur.redirected=true;delete cur.rest;delete cur.inside;cur.gate=false;delete cur.breachWalls;delete cur.breachEnd;
-    if(cur.to&&!isFleet(cur.units)){const wc=wallCut(path,cur.to);if(wc){cur.path=wc.head;cur.rest=wc.rest;cur.arrive=now+pathTravel(wc.head,cur.units)}}delete cur.siegeEnd;return cur});
+    if(cur.to&&!isFleet(cur.units)){const wc=wallCut(path,cur.to,{noGap:cur.mode==="wall",air:isAir(cur.units)});if(wc){cur.path=wc.head;if(wc.rest)cur.rest=wc.rest;cur.arrive=now+pathTravel(wc.head,cur.units)}}delete cur.siegeEnd;return cur});
   if(lift)await mutate("countries/"+lift.to,c=>{if(!c||!c.siege||c.siege.id!==lift.id)return;c.siege=null;return c});
   postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""} (გზა შეიცვალა)`,true)}
 function startRouteDraw(src,units,raid){
@@ -1611,7 +1611,7 @@ function finishRoute(){
   const rd=routeDraw,T=ownerOf(an.target);
   const ov=document.createElement("div");ov.className="overlay";ov.style.background="rgba(8,11,16,.35)";ov.style.alignItems="flex-end";
   ov.innerHTML=`<div class="card" style="max-width:420px"><h2>${ROUTE_NAME[an.mode]}${an.naval?" (ზღვით)":""}${T&&an.mode!=="camp"?`: <span style="color:${T.color}">${esc(T.name)}</span>`:""}</h2>
-    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>${an.mode!=="wall"&&an.mode!=="camp"&&ownerOf(an.target)&&!isFleet(rd.units)&&wallCut(an.path,ownerOf(an.target).uid)?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">გზაზე გალავანია. ჯარი მასთან გაჩერდება და ჯერ მას დაანგრევს. კატაპულტები და დრაკონები ამას აჩქარებენ.</p>`:""}${an.mode==="burnforest"?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm gold" id="rtForest">ტყის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} ტყის უჯრა`:"ჯერ მონიშნე, რომელი ტყე დაიწვას"}</span></div>`:""}
+    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>${an.mode!=="wall"&&an.mode!=="camp"&&ownerOf(an.target)&&!isFleet(rd.units)&&(()=>{const wc=wallCut(an.path,ownerOf(an.target).uid,{air:isAir(rd.units)});return wc&&!wc.rest?"open":wc?"shut":""})()==="shut"?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">გზაზე დახურული გალავანია. ჯარი მასთან გაჩერდება და ჯერ მას დაანგრევს. კატაპულტები და დრაკონები ამას აჩქარებენ.</p>`:""}${an.mode==="burnforest"?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm gold" id="rtForest">ტყის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} ტყის უჯრა`:"ჯერ მონიშნე, რომელი ტყე დაიწვას"}</span></div>`:""}
     ${["direct","flank"].includes(an.mode)?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm" id="rtArea">ტერიტორიის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} უჯრა`:"მთელი მონიშნული მიწა დაიპყრობა"}</span></div>`:""}
     ${["direct","flank","siege"].includes(an.mode)?`<label class="row" style="margin-top:12px;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rtBurn" ${rd.burnPick?"checked":""}><span><b>გადაწვა</b> <span class="muted">შენობებს დაწვავს, მიწას არ დაიპყრობს</span></span></label>`:""}
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" id="rtRe">თავიდან დახატვა</button><button class="btn red" id="rtGo">წინ!</button></div></div>`;
@@ -1728,7 +1728,13 @@ async function sendGift(t,k,n){n=Math.floor(n);if(!(n>0))throw new Error("მი
   await mutateMe(c=>{pay(c,{[k]:n});pushLog(c,`საჩუქარი → ${o.name}: ${n} ${resName(k,c)}`)});
   await mutate("countries/"+t,cur=>{if(!cur)return;cur.res[k]=(cur.res[k]||0)+n;pushLog(cur,`საჩუქარი (${countries[ME].name}): ${n} ${k==="gold"?"ოქრო":RES[k].n}`);return cur});
 }
-function wallCut(path,foe){const F=typeof foe==="string"?countries[foe]:foe;if(!F?.tiles||!path?.length)return null;let prev=path[0];
+// a way through a gap in the foe's walls, walking tile to tile (no slipping between diagonal wall stones)
+function gapPath(from,to,F,air){const lim=Math.abs(tx(from)-tx(to))+Math.abs(ty(from)-ty(to))+30,prev=new Map([[from,-1]]),dist=new Map([[from,0]]),q=[from];
+  for(let h=0;h<q.length;h++){const t=q[h];if(t===to){const out=[];for(let c=t;c!==-1;c=prev.get(c))out.push(c);return out.reverse()}const d=dist.get(t);if(d>=lim)continue;
+    for(const n of N4(t)){if(prev.has(n)||F.tiles[n]==="wall"||(!air&&TER[n]===WATER&&n!==to))continue;prev.set(n,t);dist.set(n,d+1);q.push(n)}}return null}
+function wallCut(path,foe,opt={}){const c0=wallCut0(path,foe);if(!c0||opt.noGap)return c0;const F=typeof foe==="string"?countries[foe]:foe;
+  const gp=gapPath(c0.rest[0],path[path.length-1],F,opt.air);if(gp)return{head:[...c0.head.slice(0,-1),...gp],rest:null,open:true};return c0}
+function wallCut0(path,foe){const F=typeof foe==="string"?countries[foe]:foe;if(!F?.tiles||!path?.length)return null;let prev=path[0];
   for(let j=1;j<path.length;j++){const x0=tx(path[j-1]),y0=ty(path[j-1]),x1=tx(path[j]),y1=ty(path[j]),n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0))||1;
     for(let q=0;q<=n;q++){const t=idx(Math.round(x0+(x1-x0)*q/n),Math.round(y0+(y1-y0)*q/n));
       if(F.tiles[t]==="wall"){const head=[...path.slice(0,j),prev].filter((v,k,arr)=>k===0||v!==arr[k-1]);if(head.length<2)head.unshift(path[0]);return{head,rest:[prev,t,...path.slice(j)].filter((v,k,arr)=>k===0||v!==arr[k-1]),wall:t}}
@@ -1766,7 +1772,7 @@ async function launchAttack(target,units,mode="direct",naval=false,src="home",cu
   const ref=db.collection("attacks").doc();let doc;const c0=live(ME);
   const from=src==="home"?c0.capital:attacks[src]?.target;if(from==null)throw new Error("ბანაკი აღარ არსებობს");
   const pl=customPath?{time:pathTravel(customPath,units)*(mode==="raid"?.8:1),path:customPath}:planRoute(c0,from,target,units,mode,naval&&src==="home");if(pl.err)throw new Error(pl.err);
-  const cut=isFleet(units)?null:wallCut(pl.path,o.uid);if(cut){pl.path=cut.head;pl.rest=cut.rest;pl.time=pathTravel(cut.head,units)*(mode==="raid"?.8:1)}
+  const cut=isFleet(units)?null:wallCut(pl.path,o.uid,{noGap:mode==="wall",air:isAir(units)});if(cut){pl.path=cut.head;pl.rest=cut.rest;pl.time=pathTravel(cut.head,units)*(mode==="raid"?.8:1)}
   const mk=()=>{const now=Date.now();return{id:ref.id,from:ME,to:o.uid,units,target,fromTile:from,launch:now,arrive:now+pl.time,status:"marching",mode,naval:!!pl.naval,path:pl.path,...(pl.rest?{rest:pl.rest}:{}),...(siegeLine?{siegeLine}:{}),...(burn?{burn:true}:{}),...(area?{area}:{})}};
   if(src==="home")await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=mk();pushLog(c,`${MODES[mode].n}: ${o.name}`)});
   else await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}
@@ -1806,7 +1812,7 @@ function battle(a,def){
   for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(def.tiles?.[i]==="wall")wallList.push(i)}
   wallList.sort((p,q)=>Math.hypot(tx(p)-X,ty(p)-Y)-Math.hypot(tx(q)-X,ty(q)-Y));
   const breakN=a.breached?wallList.length:mode==="raid"?0:Math.min(wallList.length,Math.floor(siegePower(u,mode))),wallsDestroyed=wallList.slice(0,breakN),wallsLeft=wallList.length-breakN;
-  const blocked=!a.inside&&mode!=="raid"&&wallsLeft>0&&!(mode==="flank"&&wallsLeft<4);
+  const blocked=!a.inside&&mode==="siege"&&wallsLeft>0&&!(mode==="flank"&&wallsLeft<4);
   const towers=countNear(def,a.target,"tower",3),starving=(def.res?.food||0)<1;
   const entry=entryTile(a,def),gs=guardSet(def),guarded=!def.tiles||!Object.keys(def.tiles).length||gs.has(entry)||gs.has(a.target),guardF=guarded?1:def.capital===a.target?.6:.35,defending=!!(a.defend||def.autoDefend),fightF=defending?guardF:0;
   let wallB=Math.min(1.2,wallsLeft*.12)*(mode==="siege"?.5:1),towerB=Math.min(.75,towers*.25);if(mode==="flank"){wallB*=.5;towerB*=.5}
@@ -1947,8 +1953,8 @@ async function barbarianTick(){
   let sp=-1;for(let k=0;k<300&&sp<0;k++){const an=Math.random()*Math.PI*2,r=16+Math.random()*12,x=Math.round(tx(target)+Math.cos(an)*r),y=Math.round(ty(target)+Math.sin(an)*r);if(x<1||y<1||x>W-2||y>H-2)continue;const i=idx(x,y);if(TER[i]!==WATER&&OWNER[i]<0)sp=i}
   if(sp<0)return;const lt=live(T.uid),defP=UK.reduce((t,k)=>t+(lt.army?.[k]||0)*UNITS[k].def,0)+30,n=clamp(Math.round(defP*(.5+Math.random()*.6)/9),6,160);
   const units={sword:Math.round(n*.45),spear:Math.round(n*.2),archer:Math.round(n*.25),knight:Math.max(1,Math.round(n*.1))},path=[sp,target],ref=db.collection("attacks").doc();
-  const bc=wallCut(path,T.uid),bpath=bc?bc.head:path;
-  await ref.set({id:ref.id,from:"barbarians",to:T.uid,units,target,fromTile:sp,path:bpath,...(bc?{rest:bc.rest}:{}),launch:now,arrive:now+pathTravel(bpath,units)*1.2,status:"marching",mode:"raid",burn:true});
+  const bc=wallCut(path,T.uid),bpath=bc?bc.head:path;if(bc&&!bc.rest)delete bc.rest;
+  await ref.set({id:ref.id,from:"barbarians",to:T.uid,units,target,fromTile:sp,path:bpath,...(bc?.rest?{rest:bc.rest}:{}),launch:now,arrive:now+pathTravel(bpath,units)*1.2,status:"marching",mode:"raid",burn:true});
   postChat(`უცხო ტომელები მოდიან: ${T.name}!`,true)}
 const busyA=new Set();
 async function resolveAttacks(){
@@ -1967,7 +1973,8 @@ async function resolveAttacks(){
       else if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
       else if(a.status==="marching"&&a.rest&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
         await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching"||!cur.rest)return;const foe=countries[cur.to],w=cur.rest[1];
-          if(foe?.tiles?.[w]!=="wall"){const nc=wallCut(cur.rest,cur.to);cur.path=nc?nc.head:cur.rest;cur.rest=nc?nc.rest:null;if(!cur.rest)delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(cur.path,cur.units);return cur}
+          if(foe?.tiles?.[w]!=="wall"){const nc=wallCut(cur.rest,cur.to,{noGap:cur.mode==="wall",air:isAir(cur.units)});cur.path=nc?nc.head:cur.rest;cur.rest=nc?nc.rest:null;if(!cur.rest)delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(cur.path,cur.units);return cur}
+          if(cur.mode!=="wall"){const gp=gapPath(cur.rest[0],cur.rest[cur.rest.length-1],foe,isAir(cur.units));if(gp){cur.path=gp;delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(gp,cur.units);return cur}}
           const walls=gateWalls(foe,w),sp=siegePower(cur.units,cur.mode),secs=clamp((10+walls.length*12)/(1+sp*1.5+unitSum(cur.units)/40),8,150);
           cur.status="breaching";cur.gate=true;cur.breachWalls=walls;cur.breachEnd=Date.now()+secs*1000;started=true;return cur});
         if(started)postChat(`${cOf(a.from)?.name||"მტერი"} ანგრევს ${countries[a.to]?.name}-ის გალავანს!`,true)}
@@ -1980,7 +1987,7 @@ async function resolveAttacks(){
             cur.result={win:true,A:0,D:0,atkLoss:loss,defLoss:0,survivors:sv,survivorsN:unitSum(sv),atkLostN:0,defLostN:0,defLost:{},tiles:{},tilesN:0,loot:{},mode:"wall",wallsDestroyed:walls,ravaged:[],at:n2};
             cur.status="returning";cur.retFrom=stand;delete cur.rest;cur.arrive=n2;cur.returnAt=n2+travelTime(stand,cur.fromTile,sv);return cur}
           const rest=cur.rest.slice(),F=JSON.parse(JSON.stringify(countries[cur.to]||{tiles:{}}));for(const w of walls)if(F.tiles?.[w]==="wall")F.tiles[w]="";
-          const nc=wallCut(rest,F);
+          const nc=wallCut(rest,F,{air:isAir(cur.units)});
           cur.path=nc?nc.head:rest;if(nc)cur.rest=nc.rest;else{delete cur.rest;cur.inside=true}cur.status="marching";cur.launch=n2;cur.arrive=n2+pathTravel(cur.path,cur.units)*(cur.mode==="raid"?.8:1);return cur});
         if(broke)await mutate("countries/"+a.to,c=>{if(!c)return;let n=0;for(const w of broke)if(c.tiles[w]==="wall"){c.tiles[w]="";n++}if(!n)return;pushLog(c,`${cOf(a.from)?.name||"მტერმა"} დაანგრია ${n} გალავანი`);return c})}
       else if(a.status==="marching"&&a.mode==="siege"&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
@@ -1993,7 +2000,7 @@ async function resolveAttacks(){
           const def=ds.exists?materialize(JSON.parse(JSON.stringify(ds.data())),Date.now()):{tiles:{},army:{},res:{}};
           if(def.alive===false){def.tiles={};def.army={}}
           if(cur.status==="breaching"||cur.status==="besieging")cur.breached=true;
-          else if(!cur.breached&&!cur.inside&&cur.mode!=="raid"&&!isFleet(cur.units)){const X=tx(cur.target),Y=ty(cur.target),walls=[];
+          else if(!cur.breached&&!cur.inside&&cur.mode==="siege"&&!isFleet(cur.units)){const X=tx(cur.target),Y=ty(cur.target),walls=[];
             for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(def.tiles?.[i]==="wall")walls.push(i)}
             const sp=Math.floor(siegePower(cur.units,cur.mode)),need=walls.length&&!(cur.mode==="flank"&&walls.length<4)&&sp<walls.length;
             if(need){const secs=clamp((8+walls.length*10)/(1+siegePower(cur.units,cur.mode)*1.5+unitSum(cur.units)/40),6,120);
