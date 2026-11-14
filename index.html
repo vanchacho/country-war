@@ -1218,7 +1218,7 @@ function renderPane(force){
           else if(r?.routed)st=out?"ჯარი გზაზე დაამარცხეს":"მტერი გზაზე უკუაქციე";
           else if(r){const won=out?r.win:!r.win;st=`${won?"გამარჯვება":"დამარცხება"} · დანაკარგი ${out?r.atkLostN:r.defLostN}${r.win&&r.tilesN?` · ${r.tilesN} უჯრა`:""}${r.capital?" · დედაქალაქი დაეცა":""}`}}
         if(a.status==="returning"&&out&&a.returnAt>Date.now()&&r?.survivorsN)st+=` · ბრუნდება <span data-until="${a.returnAt}">${mmss(a.returnAt-Date.now())}</span>`;
-        const cmd=out&&canCommand(a)?`<span class="btns">${!ic?`<button class="btn sm gold" data-redirect="${esc(a.id)}">გზა</button>`:""}<button class="btn sm" data-recall="${esc(a.id)}">დაბრუნება</button></span>`:"";
+        const cmd=out&&canCommand(a)?`<span class="btns">${!ic||a.status==="returning"?`<button class="btn sm gold" data-redirect="${esc(a.id)}">${a.status==="returning"?"ისევ":"გზა"}</button>`:""}${a.status!=="returning"?`<button class="btn sm" data-recall="${esc(a.id)}">დაბრუნება</button>`:""}</span>`:"";
         h+=`<div class="item">${icn(ic?"spear":out?"sword":"knight")}<span class="tx"><b>${ttl}</b><span>${st}</span></span>${cmd}${r&&!r.routed&&!r.missed?`<button class="btn sm" data-report="${esc(a.id)}">ანგარიში</button>`:""}</div>`}
       h+=`</div>`}
   }
@@ -1280,7 +1280,7 @@ function renderTile(){
         <div class="muted" style="font-size:12px">${what}${a.status==="camped"?"":` · <span data-until="${a.status==="besieging"?a.siegeEnd:P.going?a.arrive:a.returnAt}">${mmss((a.status==="besieging"?a.siegeEnd:P.going?a.arrive:a.returnAt)-Date.now())}</span>`}</div>
         <div style="margin-top:8px">${unitsHTML(u)}</div>${a.to===ME&&P.going&&!ic?'<p style="color:var(--danger);margin:8px 0 0;font-size:12px">ეს ჯარი შენზე მოდის!</p>':""}
         ${canI?`<div class="acts"><button class="btn sm gold" data-intercept="${esc(a.id)}">${a.status==="besieging"?"ალყის გარღვევა":a.status==="camped"?"ბანაკზე თავდასხმა":"დახვედრა"}</button></div>`:""}
-        ${canCommand(a)?`<div class="acts">${a.kind!=="intercept"?`<button class="btn sm gold" data-redirect="${esc(a.id)}">გზის შეცვლა</button>`:""}<button class="btn sm" data-recall="${esc(a.id)}">დაბრუნება</button>${a.status==="camped"?`<button class="btn sm" data-sendcamp="1">ნაწილის გაგზავნა</button>`:""}</div>`:""}`;paintIcons(el);return}
+        ${canCommand(a)?`<div class="acts">${a.kind!=="intercept"||a.status==="returning"?`<button class="btn sm gold" data-redirect="${esc(a.id)}">${a.status==="returning"?"ისევ გაგზავნა":"გზის შეცვლა"}</button>`:""}${a.status!=="returning"?`<button class="btn sm" data-recall="${esc(a.id)}">დაბრუნება</button>`:""}${a.status==="camped"?`<button class="btn sm" data-sendcamp="1">ნაწილის გაგზავნა</button>`:""}</div>`:""}`;paintIcons(el);return}
     selectedArmy=null}
   if(selected<0||!me()){el.hidden=true;return}el.hidden=false;
   const i=selected,o=ownerOf(i),c=live(ME),t=TER[i],b=o?o.tiles[i]:"",neutral=!o&&NEUTRAL.has(i);
@@ -1371,15 +1371,22 @@ function pathTravel(path,units){
   for(const q of path){const r=TER[q]===RIVER&&!BRIDGES.has(q);if(r&&!prev)rivers++;prev=r}
   return Math.max(12,(t+rivers*8)/MARCH_SPEED)*1000}
 function armyTile(a){const P=armyPos(a,Date.now());return P?idx(clamp(Math.floor(P.x/TS),0,W-1),clamp(Math.floor(P.y/TS),0,H-1)):a.target}
-const canCommand=a=>a&&a.from===ME&&["marching","besieging","camped"].includes(a.status);
+const canCommand=a=>a&&a.from===ME&&(["marching","besieging","camped"].includes(a.status)||a.status==="returning"&&a.result?.survivorsN>0&&Date.now()<a.returnAt);
+const armyUnits=a=>a.status==="returning"?{...(a.result?.survivors||{})}:{...a.units};
 async function recallArmy(id){let lift=null;
   await mutate("attacks/"+id,cur=>{if(!canCommand(cur))throw new Error("ამ ჯარს ვეღარ დააბრუნებ");const here=armyTile(cur),now=Date.now(),sv=cur.units;
     if(cur.status==="besieging")lift={to:cur.to,id:cur.id};
     cur.result={survivors:sv,survivorsN:unitSum(sv),loot:{},camp:1,recall:1,at:now};cur.status="returning";cur.retFrom=here;cur.path=null;cur.arrive=now;cur.returnAt=now+travelTime(here,cur.fromTile,sv);return cur});
   if(lift)await mutate("countries/"+lift.to,c=>{if(!c||!c.siege||c.siege.id!==lift.id)return;c.siege=null;return c})}
 function startRedirect(id){const a=attacks[id];if(!canCommand(a))return toast("ამ ჯარს ვეღარ მართავ","err");
-  startRouteDraw("move",{...a.units},false);if(routeDraw){routeDraw.move=id;routeDraw.from=armyTile(a);routeDraw.pts=[routeDraw.from]}}
+  startRouteDraw("move",armyUnits(a),false);if(routeDraw){routeDraw.move=id;routeDraw.from=armyTile(a);routeDraw.pts=[routeDraw.from]}}
 async function redirectArmy(id,an,path){let lift=null;const T=ownerOf(an.target);
+  if(attacks[id]?.status==="returning"){let units=null,loot=null,fromTile=null;
+    await mutate("attacks/"+id,cur=>{if(!cur||cur.status!=="returning")throw new Error("ჯარი უკვე სახლშია");units=cur.result?.survivors||{};loot=cur.result?.loot||{};fromTile=cur.fromTile;cur.status="done";return cur});
+    await mutateMe(c=>{const key=id+":c";if((c.applied||[]).includes(key))return false;for(const k of RK)c.res[k]=(c.res[k]||0)+(loot[k]||0);c.applied=[key,...(c.applied||[])].slice(0,60)});
+    const ref=db.collection("attacks").doc(),now=Date.now(),doc={id:ref.id,from:ME,units,target:an.target,fromTile,path,launch:now,arrive:now+an.time,status:"marching",naval:!!an.naval,redirected:true};
+    if(an.mode==="camp"){doc.kind="camp";doc.to=null}else{doc.to=T?.uid||null;doc.mode=an.mode;if(an.line)doc.siegeLine=an.line}
+    await ref.set(doc);postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""}`,true);return}
   await mutate("attacks/"+id,cur=>{if(!canCommand(cur))throw new Error("ამ ჯარს ვეღარ მართავ");const now=Date.now();
     if(cur.status==="besieging")lift={to:cur.to,id:cur.id};
     if(an.mode==="camp"){cur.kind="camp";cur.to=null;delete cur.mode}else{delete cur.kind;cur.to=T?.uid||null;cur.mode=an.mode}
