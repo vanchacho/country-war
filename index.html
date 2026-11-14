@@ -479,7 +479,7 @@ function sceneFromAttack(a){
   if(!unitSum(defU))defU={spear:Math.max(3,Math.round(unitSum(atkU)/4))}; // town militia
   const loc=a.retFrom??a.target,from=(a.path&&a.path.length>1?a.path[a.path.length-2]:a.fromTile)??a.fromTile;
   return{id:a.id,x:tx(loc)*TS+8,y:ty(loc)*TS+8,dir:Math.atan2(ty(loc)-ty(from),tx(loc)-tx(from))||0,t0:Date.now(),seed:strHash(a.id),
-    A:{u:atkU,lost:atkLost,col:countries[a.from]?.color||"#fff"},D:{u:defU,lost:defLost,col:countries[a.to]?.color||"#999"},win:ic?r.win:r.win}}
+    A:{u:atkU,lost:atkLost,col:cOf(a.from)?.color||"#fff"},D:{u:defU,lost:defLost,col:countries[a.to]?.color||"#999"},win:ic?r.win:r.win}}
 function sideSlots(S,max){const slots=formationSlots(S.u,max),tot=unitSum(S.u)||1,lostFrac=unitSum(S.lost)/tot;return{slots,lostFrac}}
 function drawScene(sc,now,k){
   const t=(now-sc.t0)/SCENE_MS;if(t>1)return false;const fade=t>.9?(1-t)/.1:1;
@@ -546,6 +546,8 @@ function speedUpQueue(c,before){const after=stats(c).cnt,now=Date.now();const li
   for(const q of (c.queue||[]).slice().sort((a,b)=>a.done-b.done)){if(q.done<=now)continue;const f0=trainFactor(q.u,before),f1=trainFactor(q.u,after);if(f0===f1)continue;
     const L=lineOf(q.u),start=lines[L]??now;q.done=Math.max(start,now+(q.done-now)*f0/f1);lines[L]=q.done}}
 const FLYERS=["griffin","dragon"];const isAir=u=>unitSum(u)>0&&UK.every(k=>!u[k]||FLYERS.includes(k));
+const BARB={uid:"barbarians",name:"უცხო ტომელები",ruler:"ბელადი",color:"#7a4a2a",flag:{p:"diag",c:["#2a1d12","#8a2a1a","#000"],e:"✖",ec:"#e8d6b0"}};
+const cOf=u=>countries[u]||(u==="barbarians"?BARB:undefined);
 const isFleet=u=>unitSum(u)>0&&UK.every(k=>!u[k]||UNITS[k].naval);
 const hasFleet=u=>(u?.warship||0)>0;
 const coastal=i=>N4(i).some(n=>TER[n]===WATER);
@@ -1059,6 +1061,12 @@ function frame(){
         const ph=tt*(.25+sd*.25)+sd*20,f=(Math.sin(ph)+1)/2,ox=(hash(i,m,5)-.5)*8,oy=(hash(i,m,6)-.5)*6;
         const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy;
         drawPerson(ctx,x,y+3,clamp(5/z,3,4.5),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
+  // burned places: scorched ground, flames for a few minutes, smoke rising for longer
+  for(const c of ORDER){if(!c.burnt)continue;for(const k in c.burnt){const i=+k;if(!vis(i))continue;const age=(now-c.burnt[k])/60000;if(age>10)continue;const x=tx(i)*TS,y=ty(i)*TS;
+    ctx.fillStyle=`rgba(28,20,12,${.55*(1-age/10)})`;ctx.beginPath();ctx.ellipse(x+8,y+9,8,6,0,0,7);ctx.fill();
+    if(age<4)for(let f=0;f<3;f++){const fx=x+4+f*4,fy=y+11,h=5+Math.sin(now/90+f*2+i)*1.6;ctx.fillStyle="rgba(240,120,30,.85)";ctx.beginPath();ctx.moveTo(fx-2,fy);ctx.quadraticCurveTo(fx-1.5,fy-h*.6,fx,fy-h);ctx.quadraticCurveTo(fx+1.5,fy-h*.6,fx+2,fy);ctx.fill();
+      ctx.fillStyle="rgba(255,215,90,.9)";ctx.beginPath();ctx.moveTo(fx-1,fy);ctx.quadraticCurveTo(fx,fy-h*.5,fx,fy-h*.6);ctx.quadraticCurveTo(fx,fy-h*.5,fx+1,fy);ctx.fill()}
+    for(let s2=0;s2<3;s2++){const t=((now/2600)+s2/3+hash(i,s2,5))%1,a=(.35-.25*age/10)*(1-t);if(a<=0)continue;ctx.fillStyle=`rgba(70,66,62,${a})`;ctx.beginPath();ctx.arc(x+8+Math.sin(t*4+s2)*3,y+6-t*22,2.5+t*6,0,7);ctx.fill()}}}
   // creatures at home: dragons and griffins circle over the capital, golems patrol around it
   if(z>.35){const tt=now/1000,kk=clamp(1.5/z,.8,3);
     for(const c of ORDER){const cap=c.capital;if(cap==null)continue;const cx=tx(cap)*TS+8,cy=ty(cap)*TS+8;if(!vis(cap)&&Math.abs(tx(cap)-(x0+x1)/2)>(x1-x0)/2+6)continue;const A=c.army||{};
@@ -1069,7 +1077,7 @@ function frame(){
   const k=clamp(1.5/z,.8,3),pulse=(now%1200)/1200;
   for(const a of Object.values(attacks)){
     if(SCENES.some(sc=>sc.id===a.id||sc.id===a.targetAttack||attacks[sc.id]?.targetAttack===a.id))continue;
-    const P=armyPos(a,now);if(!P)continue;const C=countries[a.from],col=C?.color||"#fff",ic=a.kind==="intercept";
+    const P=armyPos(a,now);if(!P)continue;const C=cOf(a.from),col=C?.color||"#fff",ic=a.kind==="intercept";
     const units=P.going||P.stat?a.units:a.result?.survivors||{},N=unitSum(units);if(!N)continue;
     if(P.going){
       const pts=pathOf(a).map(TC),q=along(pathOf(a),clamp((now-a.launch)/(a.arrive-a.launch),0,1));
@@ -1238,14 +1246,14 @@ function renderPane(force){
           :`<button class="btn sm red" data-war="${esc(o.uid)}">ომი</button>`}${isOwnerViewer?`<button class="btn sm" data-kick="${esc(o.uid)}">გაგდება</button>`:""}</span></div>`}
     h+=`</div>`;
     const incoming=Object.values(attacks).filter(a=>a.to===ME&&(a.status==="marching"||a.status==="besieging")&&!a.kind).sort((a,b)=>a.arrive-b.arrive);
-    if(incoming.length){h=`<h3 style="color:var(--danger)">შემოტევა!</h3><div class="list">`+incoming.map(a=>`<div class="item" style="border-color:var(--danger)"><span class="tx"><b style="color:${countries[a.from]?.color}">${esc(countries[a.from]?.name||"?")}</b>
+    if(incoming.length){h=`<h3 style="color:var(--danger)">შემოტევა!</h3><div class="list">`+incoming.map(a=>`<div class="item" style="border-color:var(--danger)"><span class="tx"><b style="color:${cOf(a.from)?.color}">${esc(cOf(a.from)?.name||"?")}</b>
       <span>${a.status==="besieging"?`ალყა! იერიში <span data-until="${a.siegeEnd}">${mmss(a.siegeEnd-Date.now())}</span>-ში`:`${MODES[a.mode||"direct"].n}${a.naval?" ზღვით":""} · მოვა <span data-until="${a.arrive}">${mmss(a.arrive-Date.now())}</span>-ში`}</span><div style="margin-top:4px">${unitsHTML(a.units)}</div></span>
       <span class="btns"><button class="btn sm gold" data-intercept="${esc(a.id)}">${a.status==="besieging"?"გარღვევა":"დახვედრა"}</button><button class="btn sm" data-goto="${esc(a.id)}">ნახვა</button></span></div>`).join("")+`</div>`+h}
     const camps=Object.values(attacks).filter(a=>a.kind==="camp"&&a.from===ME&&(a.status==="camped"||a.status==="marching"));
     if(camps.length)h+=`<h3>ბანაკები</h3><div class="list">`+camps.map(a=>`<div class="item">${icn("camp")}<span class="tx"><b>${a.status==="camped"?"ბანაკი":"მიდის ბანაკისკენ"}</b>${unitsHTML(a.units)}</span><span class="btns"><button class="btn sm" data-goto="${esc(a.id)}">ნახვა</button>${a.status==="camped"||a.status==="marching"?`<button class="btn sm gold" data-redirect="${esc(a.id)}">გზა</button><button class="btn sm" data-recall="${esc(a.id)}">დაბრუნება</button>`:""}</span></div>`).join("")+`</div>`;
     const mine=Object.values(attacks).filter(a=>a.kind!=="camp"&&(a.from===ME||a.to===ME)).sort((a,b)=>b.launch-a.launch).slice(0,15);
     if(mine.length){h+=`<h3>ბრძოლები</h3><div class="list">`;
-      for(const a of mine){const out=a.from===ME,o=countries[out?a.to:a.from],r=a.result,ic=a.kind==="intercept";let st="",ttl="";
+      for(const a of mine){const out=a.from===ME,o=cOf(out?a.to:a.from),r=a.result,ic=a.kind==="intercept";let st="",ttl="";
         if(ic){ttl=`დახვედრა: ${esc(o?.name||"?")}`;
           if(a.status==="marching")st=out?`მიდის შესახვედრად <span data-until="${a.arrive}">${mmss(a.arrive-Date.now())}</span>`:"მტერი გზაზე გხვდება";
           else if(r?.missed)st="ვერ შეხვდა";else if(r)st=(out?r.win:!r.win)?"ველზე გამარჯვება":"ველზე დამარცხება"}
@@ -1311,9 +1319,9 @@ function selectTile(i){selected=i;selectedArmy=null;renderTile()}
 function renderTile(){
   const el=$("#tile");
   if(selectedArmy&&me()){const a=attacks[selectedArmy],P=a&&armyPos(a,Date.now());
-    if(P){const C=countries[a.from],T=countries[a.to],u=P.going?a.units:a.result?.survivors||{},ic=a.kind==="intercept";
+    if(P){const C=cOf(a.from),T=countries[a.to],u=P.going?a.units:a.result?.survivors||{},ic=a.kind==="intercept";
       const what=a.status==="besieging"?`ალყა: ${esc(T?.name||"")}`:a.status==="camped"?"ბანაკი":!P.going?"ბრუნდება სახლში":ic?`მიდის შესახვედრად: ${esc(T?.name||"")}`:a.kind==="camp"?"მიდის ბანაკის გასაშლელად":`${MODES[a.mode||"direct"].n}${a.naval?" (ზღვით)":""}: ${esc(T?.name||"")}`;
-      const canI=(P.going||a.status==="besieging"||a.status==="camped")&&!ic&&a.from!==ME&&atWar(ME,a.from);
+      const canI=(P.going||a.status==="besieging"||a.status==="camped")&&!ic&&a.from!==ME&&(atWar(ME,a.from)||a.from==="barbarians");
       el.hidden=false;el.innerHTML=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4 style="color:${C?.color}">${esc(C?.name||"?")}</h4>
         <div class="muted" style="font-size:12px">${what}${a.status==="camped"?"":` · <span data-until="${a.status==="besieging"?a.siegeEnd:P.going?a.arrive:a.returnAt}">${mmss((a.status==="besieging"?a.siegeEnd:P.going?a.arrive:a.returnAt)-Date.now())}</span>`}</div>
         <div style="margin-top:8px">${unitsHTML(u)}</div>${a.to===ME&&P.going&&!ic?'<p style="color:var(--danger);margin:8px 0 0;font-size:12px">ეს ჯარი შენზე მოდის!</p>':""}
@@ -1424,13 +1432,13 @@ async function redirectArmy(id,an,path){let lift=null;const T=ownerOf(an.target)
   if(attacks[id]?.status==="returning"){let units=null,loot=null,fromTile=null;
     await mutate("attacks/"+id,cur=>{if(!cur||cur.status!=="returning")throw new Error("ჯარი უკვე სახლშია");units=cur.result?.survivors||{};loot=cur.result?.loot||{};fromTile=cur.fromTile;cur.status="done";return cur});
     await mutateMe(c=>{const key=id+":c";if((c.applied||[]).includes(key))return false;for(const k of RK)c.res[k]=(c.res[k]||0)+(loot[k]||0);c.applied=[key,...(c.applied||[])].slice(0,60)});
-    const ref=db.collection("attacks").doc(),now=Date.now(),doc={id:ref.id,from:ME,units,target:an.target,fromTile,path,launch:now,arrive:now+an.time,status:"marching",naval:!!an.naval,redirected:true};
+    const ref=db.collection("attacks").doc(),now=Date.now(),doc={id:ref.id,from:ME,units,target:an.target,fromTile,path,launch:now,arrive:now+an.time,status:"marching",naval:!!an.naval,redirected:true,...(an.burn?{burn:true}:{})};
     if(an.mode==="camp"){doc.kind="camp";doc.to=null}else{doc.to=T?.uid||null;doc.mode=an.mode;if(an.line)doc.siegeLine=an.line}
     await ref.set(doc);postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""}`,true);return}
   await mutate("attacks/"+id,cur=>{if(!canCommand(cur))throw new Error("ამ ჯარს ვეღარ მართავ");const now=Date.now();
     if(cur.status==="besieging")lift={to:cur.to,id:cur.id};
     if(an.mode==="camp"){cur.kind="camp";cur.to=null;delete cur.mode}else{delete cur.kind;cur.to=T?.uid||null;cur.mode=an.mode}
-    cur.naval=!!an.naval;cur.path=path;cur.target=an.target;if(an.line)cur.siegeLine=an.line;else delete cur.siegeLine;cur.launch=now;cur.arrive=now+an.time;cur.status="marching";cur.redirected=true;delete cur.siegeEnd;return cur});
+    cur.naval=!!an.naval;cur.path=path;cur.target=an.target;if(an.burn)cur.burn=true;else delete cur.burn;if(an.line)cur.siegeLine=an.line;else delete cur.siegeLine;cur.launch=now;cur.arrive=now+an.time;cur.status="marching";cur.redirected=true;delete cur.siegeEnd;return cur});
   if(lift)await mutate("countries/"+lift.to,c=>{if(!c||!c.siege||c.siege.id!==lift.id)return;c.siege=null;return c});
   postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""} (გზა შეიცვალა)`,true)}
 function startRouteDraw(src,units,raid){
@@ -1496,11 +1504,12 @@ function finishRoute(){
   const ov=document.createElement("div");ov.className="overlay";ov.style.background="rgba(8,11,16,.35)";ov.style.alignItems="flex-end";
   ov.innerHTML=`<div class="card" style="max-width:420px"><h2>${ROUTE_NAME[an.mode]}${an.naval?" (ზღვით)":""}${T&&an.mode!=="camp"?`: <span style="color:${T.color}">${esc(T.name)}</span>`:""}</h2>
     <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>
+    ${["direct","flank","siege"].includes(an.mode)?`<label class="row" style="margin-top:12px;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rtBurn"><span><b>გადაწვა</b> <span class="muted">შენობებს დაწვავს, მიწას არ დაიპყრობს</span></span></label>`:""}
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" id="rtRe">თავიდან დახატვა</button><button class="btn red" id="rtGo">წინ!</button></div></div>`;
   $("#app").appendChild(ov);
   ov.querySelector("#rtRe").onclick=()=>{ov.remove();if(routeDraw){routeDraw.pts=[routeDraw.from];routeDraw.an=null}};
-  ov.querySelector("#rtGo").onclick=()=>{ov.remove();const r=routeDraw;routeDraw=null;stopPlacing();const path=simplifyPath(an.path);
-    act(()=>r.move?redirectArmy(r.move,an,path):an.mode==="camp"?launchCamp(an.target,r.units,path,r.src):launchAttack(an.target,r.units,an.mode,an.naval,r.src,path,an.line||null),r.move?"ჯარს ახალი გზა მიეცა":an.mode==="camp"?"ჯარი ბანაკისკენ გაემართა":"ჯარი გაემართა შენი გზით")};
+  ov.querySelector("#rtGo").onclick=()=>{an.burn=!!ov.querySelector("#rtBurn")?.checked;ov.remove();const r=routeDraw;routeDraw=null;stopPlacing();const path=simplifyPath(an.path);
+    act(()=>r.move?redirectArmy(r.move,an,path):an.mode==="camp"?launchCamp(an.target,r.units,path,r.src):launchAttack(an.target,r.units,an.mode,an.naval,r.src,path,an.line||null,an.burn),r.move?"ჯარს ახალი გზა მიეცა":an.mode==="camp"?"ჯარი ბანაკისკენ გაემართა":"ჯარი გაემართა შენი გზით")};
 }
 function drawRoutePreview(now){
   if(placing!=="route"||!routeDraw)return;const c=countries[ME],col=c?.color||"#fff",pts=routeDraw.pts.map(TC),k=clamp(1.5/cam.z,.8,3);
@@ -1608,13 +1617,13 @@ function planRoute(c,from,target,units,mode,naval){
     path=[from,idx(mx,my),idx(bx,by),target]}
   return{time:travelTime(from,target,units)*mt,path}
 }
-async function launchAttack(target,units,mode="direct",naval=false,src="home",customPath=null,siegeLine=null){
+async function launchAttack(target,units,mode="direct",naval=false,src="home",customPath=null,siegeLine=null,burn=false){
   const o=ownerOf(target);if(!o)throw new Error("სამიზნე არ არის");if(!atWar(ME,o.uid))throw new Error("ამ ქვეყანასთან ომში არ ხარ");
   if(!unitSum(units))throw new Error("აირჩიე ჯარისკაცები");
   const ref=db.collection("attacks").doc();let doc;const c0=live(ME);
   const from=src==="home"?c0.capital:attacks[src]?.target;if(from==null)throw new Error("ბანაკი აღარ არსებობს");
   const pl=customPath?{time:pathTravel(customPath,units)*(mode==="raid"?.8:1),path:customPath}:planRoute(c0,from,target,units,mode,naval&&src==="home");if(pl.err)throw new Error(pl.err);
-  const mk=()=>{const now=Date.now();return{id:ref.id,from:ME,to:o.uid,units,target,fromTile:from,launch:now,arrive:now+pl.time,status:"marching",mode,naval:!!pl.naval,path:pl.path,...(siegeLine?{siegeLine}:{})}};
+  const mk=()=>{const now=Date.now();return{id:ref.id,from:ME,to:o.uid,units,target,fromTile:from,launch:now,arrive:now+pl.time,status:"marching",mode,naval:!!pl.naval,path:pl.path,...(siegeLine?{siegeLine}:{}),...(burn?{burn:true}:{})}};
   if(src==="home")await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=mk();pushLog(c,`${MODES[mode].n}: ${o.name}`)});
   else await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}
     for(const u in units)cur.units[u]-=units[u];if(!unitSum(cur.units))cur.status="done";doc=mk();return cur});
@@ -1677,8 +1686,11 @@ function battle(a,def){
   const ravaged=[];
   if(win&&!blocked&&mode!=="raid")for(const t of trail)if(!(t in tiles))tiles[t]=def.tiles[t];
   if(win&&mode==="raid")for(const t of trail)if(def.tiles[t])ravaged.push(t);
-  const lootFrac=!win?0:mode==="raid"?.24+ravaged.length*.02:blocked?0:capital?.4:.12,loot={};for(const k of RK)loot[k]=Math.floor((def.res?.[k]||0)*Math.min(.6,lootFrac));
-  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,ravaged,at:Date.now()};
+  if(win&&!blocked&&a.burn&&mode!=="raid"){for(const t in tiles){const b=def.tiles[t];if(b&&b!=="capital"&&b!=="wall")ravaged.push(+t)}for(const t of trail)if(def.tiles[t]&&!ravaged.includes(t))ravaged.push(t)}
+  if(win&&mode==="raid"&&a.burn){const X0=tx(a.target),Y0=ty(a.target);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const i=idx(clamp(X0+dx,0,W-1),clamp(Y0+dy,0,H-1));if(def.tiles?.[i]&&def.tiles[i]!=="capital"&&def.tiles[i]!=="wall"&&!ravaged.includes(i))ravaged.push(i)}}
+  const lootCap=capital;if(a.burn&&mode!=="raid"){for(const t in tiles)delete tiles[t];capital=false}
+  const lootFrac=!win?0:mode==="raid"?.24+ravaged.length*.02:blocked?0:lootCap?.4:.12,loot={};for(const k of RK)loot[k]=Math.floor((def.res?.[k]||0)*Math.min(.6,lootFrac));
+  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,ravaged,burned:!!a.burn,at:Date.now()};
 }
 const unitSum=u=>UK.reduce((t,k)=>t+(u?.[k]||0),0);
 function unitsHTML(u){const ks=UK.filter(k=>u?.[k]);return ks.length?`<div class="cost" style="gap:4px 10px">${ks.map(k=>`<span title="${UNITS[k].n}">${icn(k,1)}${u[k]}</span>`).join("")}</div>`:'<span class="muted">—</span>'}
@@ -1691,7 +1703,7 @@ function interceptPlan(a,units){
 function openIntercept(aid){
   const a=attacks[aid],c=live(ME);if(!a||!c)return;
   if(!["marching","besieging","camped"].includes(a.status)){toast("ეს ჯარი უკვე აღარ არის იქ","err");return}
-  const ov=document.createElement("div");ov.className="overlay";const avail=UK.filter(u=>(c.army[u]||0)>0),E=countries[a.from];
+  const ov=document.createElement("div");ov.className="overlay";const avail=UK.filter(u=>(c.army[u]||0)>0),E=cOf(a.from);
   ov.innerHTML=`<div class="card modal"><h2>დახვედრა: <span style="color:${E?.color}">${esc(E?.name||"?")}</span></h2>
     <p class="muted" style="margin:0 0 6px">გზაზე შეხვდები და ველზე შეებრძოლები. გალავანი აქ არ გეხმარება, მაგრამ შენს მიწაზე +15% ძალა გაქვს.</p>${unitsHTML(a.units)}
     ${avail.length?`<div class="units">${avail.map(u=>`<div class="item">${icn(u)}<span class="tx"><b>${UNITS[u].n}</b><span>გყავს ${c.army[u]}</span></span><input type="number" min="0" max="${c.army[u]}" value="${c.army[u]}" data-u="${u}"></div>`).join("")}</div><p id="icInfo"></p>`:`<p>ჯარი არ გყავს.</p>`}
@@ -1707,12 +1719,12 @@ function openIntercept(aid){
 }
 async function launchIntercept(aid,units){
   const a=attacks[aid];if(!a||!["marching","besieging","camped"].includes(a.status)||a.kind==="intercept")throw new Error("ამ ჯარს ვეღარ შეხვდები");
-  if(!atWar(ME,a.from))throw new Error("ამ ქვეყანასთან ომში არ ხარ");if(!unitSum(units))throw new Error("აირჩიე ჯარისკაცები");
+  if(!atWar(ME,a.from)&&a.from!=="barbarians")throw new Error("ამ ქვეყანასთან ომში არ ხარ");if(!unitSum(units))throw new Error("აირჩიე ჯარისკაცები");
   const pl=interceptPlan(a,units);if(!pl)throw new Error("ვერ მიუსწრებ");
   const ref=db.collection("attacks").doc();let doc;
   await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];
-    doc={id:ref.id,kind:"intercept",from:ME,to:a.from,targetAttack:aid,units,target:pl.tile,fromTile:pl.start??c.capital,launch:Date.now(),arrive:pl.meetAt,status:"marching"};pushLog(c,"დახვედრა: "+countries[a.from]?.name)});
-  await ref.set(doc);postChat(`დახვედრა: ${countries[ME].name} → ${countries[a.from]?.name}`,true);
+    doc={id:ref.id,kind:"intercept",from:ME,to:a.from,targetAttack:aid,units,target:pl.tile,fromTile:pl.start??c.capital,launch:Date.now(),arrive:pl.meetAt,status:"marching"};pushLog(c,"დახვედრა: "+cOf(a.from)?.name)});
+  await ref.set(doc);postChat(`დახვედრა: ${countries[ME].name} → ${cOf(a.from)?.name}`,true);
 }
 function fieldBattle(ic,tg){
   const atSea=TER[ic.target]===WATER,rnd=k=>.9+hash(strHash(ic.id),k,SEED)*.2,pw=u=>UK.reduce((t,k)=>t+(u[k]||0)*(UNITS[k].atk+UNITS[k].def)/2*(UNITS[k].naval?(atSea?1:0):(atSea?.15:1)),0);
@@ -1739,7 +1751,7 @@ async function resolveIntercept(a){
     cur.result=r.missed?{missed:true,survivors:sv,survivorsN:unitSum(sv),loot:{},at:now}:{field:true,...r,survivors:sv,survivorsN:unitSum(sv),loot:{},at:now};
     cur.status="returning";cur.retFrom=cur.target;cur.arrive=now;cur.returnAt=now+(unitSum(sv)?travelTime(cur.target,cur.fromTile,sv):1000);out=cur.result;return cur});
   if(liftSiege)await mutate("countries/"+liftSiege,c=>{if(!c||!c.siege)return;c.siege=null;pushLog(c,"ალყა გაარღვიე");return c});
-  if(out&&!out.missed){const I=countries[a.from],E=countries[a.to];postChat(`ველზე ბრძოლა: ${I?.name} ↔ ${E?.name}. გაიმარჯვა ${out.win?I?.name:E?.name}`,true)}
+  if(out&&!out.missed){const I=cOf(a.from),E=countries[a.to];postChat(`ველზე ბრძოლა: ${I?.name} ↔ ${E?.name}. გაიმარჯვა ${out.win?I?.name:E?.name}`,true)}
 }
 /* battle reports */
 function seenReports(){try{return JSON.parse(localStorage.getItem("cw_seen")||"[]")}catch{return[]}}
@@ -1750,7 +1762,7 @@ function checkReports(){
   if(a){markSeen(a.id);showReport(a)}
 }
 function showReport(a){
-  const r=a.result,ic=a.kind==="intercept",A=countries[a.from],D=countries[a.to];
+  const r=a.result,ic=a.kind==="intercept",A=cOf(a.from),D=countries[a.to];
   const iWon=a.from===ME?r.win:a.to===ME?!r.win:null;
   const pA=ic?r.P1:r.A,pD=ic?r.P2:r.D,lostA=ic?r.myLost:Object.fromEntries(UK.filter(k=>a.units[k]).map(k=>[k,a.units[k]-(r.survivors[k]||0)]).filter(x=>x[1])),lostD=ic?r.theirLost:r.defLost||{};
   const side=(C,pw,lost,label)=>`<div style="flex:1;min-width:0"><div class="row"><canvas width="36" height="24" data-flagc="${esc(C?.uid||"")}" style="border-radius:2px"></canvas><b style="color:${C?.color}">${esc(C?.name||"?")}</b></div>
@@ -1763,6 +1775,7 @@ function showReport(a){
     <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">${side(A,pA,lostA,ic?"დამხვედრი":"თავდამსხმელი")}${side(D,pD,lostD,ic?"ლაშქარი":"დამცველი")}</div>
     ${r.sea&&r.win?`<p style="margin:12px 0 0">ჩაიძირა ${r.shipsSunk||0} სატრანსპორტო გემი${r.ravaged?.length?`, დაინგრა ${r.ravaged.length} სანაპირო შენობა`:""}.</p>`:""}
     ${!ic?`<p class="muted" style="margin:12px 0 0;font-size:12px">${MODES[r.mode||"direct"].n}${a.naval?" · ზღვით":""}${r.wallsDestroyed?.length?` · დაინგრა ${r.wallsDestroyed.length} გალავანი`:""}${r.starving?" · დამცველები შიმშილობდნენ":""}</p>`:""}
+    ${!ic&&r.win&&r.burned&&!r.blocked?`<p style="margin:10px 0 0;color:#f08a2c">დაიწვა ${r.ravaged?.length||0} შენობა.</p>`:""}
     ${!ic&&r.win&&r.blocked?`<p style="margin:10px 0 0;color:var(--brass2)">ბრძოლა მოიგო, მაგრამ გალავანმა გაუძლო და ქალაქში ვერ შევიდა. საჭიროა კატაპულტები ან დრაკონი.</p>`:""}
     ${ic?`<p style="margin:14px 0 0">${r.win?"მტრის ჯარი უკუიქცა და სახლში ბრუნდება.":"მტრის ჯარმა გაარღვია და გზას აგრძელებს."}</p>`:
       r.win&&r.mode==="raid"?`<p style="margin:14px 0 0">დარბევა წარმატებულია${r.ravaged?.length?`, გზაზე დაინგრა ${r.ravaged.length} შენობა`:""}.</p>${loot.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">ნადავლი:</span>${loot.map(k=>`<span class="row" style="gap:3px">${icn(k,1)}${fmt(r.loot[k])}</span>`).join("")}</div>`:""}`:r.win&&!r.blocked?`<p style="margin:14px 0 0">დაპყრობილია ${r.tilesN} უჯრა${r.capital?", დედაქალაქი დაეცა":""}.</p>${(()=>{const bs=Object.values(r.tiles||{}).filter(b=>b&&b!=="capital"&&B[b]);return bs.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">${a.from===ME?"შენი გახდა":"დაკარგე"}:</span>${bs.map(b=>`<span class="row" style="gap:3px">${icn(b,1)}${B[b].n}</span>`).join("")}</div>`:""})()}${loot.length?`<div class="row" style="flex-wrap:wrap;gap:4px 10px;margin-top:6px"><span class="muted" style="font-size:12px">ნადავლი:</span>${loot.map(k=>`<span class="row" style="gap:3px">${icn(k,1)}${fmt(r.loot[k])}</span>`).join("")}</div>`:""}`:r.win?"":`<p style="margin:14px 0 0">შეტევა მოგერიებულია.</p>`}
@@ -1771,6 +1784,17 @@ function showReport(a){
   ov.querySelector("#rpClose").onclick=()=>ov.remove();
 }
 
+async function barbarianTick(){
+  if(NET.role!=="host"||!booted)return;const now=Date.now(),m=await db.doc("meta/barb").get(),next=m.exists?m.data().next:0;
+  if(!next){await db.doc("meta/barb").set({next:now+(4+Math.random()*4)*60000});return}if(now<next)return;
+  await db.doc("meta/barb").set({next:now+(8+Math.random()*6)*60000});
+  const targets=alive().filter(c=>now-(c.created||0)>10*60000&&Object.keys(c.tiles||{}).length);if(!targets.length)return;const T=targets[Math.floor(Math.random()*targets.length)];
+  const tl=Object.keys(T.tiles).map(Number),bt=tl.filter(i=>T.tiles[i]&&T.tiles[i]!=="capital"&&T.tiles[i]!=="wall"),pool=bt.length?bt:tl,target=pool[Math.floor(Math.random()*pool.length)];
+  let sp=-1;for(let k=0;k<300&&sp<0;k++){const an=Math.random()*Math.PI*2,r=16+Math.random()*12,x=Math.round(tx(target)+Math.cos(an)*r),y=Math.round(ty(target)+Math.sin(an)*r);if(x<1||y<1||x>W-2||y>H-2)continue;const i=idx(x,y);if(TER[i]!==WATER&&OWNER[i]<0)sp=i}
+  if(sp<0)return;const lt=live(T.uid),defP=UK.reduce((t,k)=>t+(lt.army?.[k]||0)*UNITS[k].def,0)+30,n=clamp(Math.round(defP*(.5+Math.random()*.6)/9),6,160);
+  const units={sword:Math.round(n*.45),spear:Math.round(n*.2),archer:Math.round(n*.25),knight:Math.max(1,Math.round(n*.1))},path=[sp,target],ref=db.collection("attacks").doc();
+  await ref.set({id:ref.id,from:"barbarians",to:T.uid,units,target,fromTile:sp,path,launch:now,arrive:now+pathTravel(path,units)*1.2,status:"marching",mode:"raid",burn:true});
+  postChat(`უცხო ტომელები მოდიან: ${T.name}!`,true)}
 const busyA=new Set();
 async function resolveAttacks(){
   if(!db||!ME||!booted)return;const now=Date.now();
@@ -1782,14 +1806,14 @@ async function resolveAttacks(){
       if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
       else if(a.status==="marching"&&a.mode==="siege"&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
         await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="besieging";cur.siegeEnd=Date.now()+SIEGE_MS;started=cur.siegeEnd;return cur});
-        if(started){await mutate("countries/"+a.to,c=>{if(!c)return;c=materialize(c,Date.now());c.siege={id:a.id,by:a.from,until:started};pushLog(c,"ალყა! "+(countries[a.from]?.name||""));return c});postChat(`ალყა: ${countries[a.from]?.name} → ${countries[a.to]?.name}`,true)}}
+        if(started){await mutate("countries/"+a.to,c=>{if(!c)return;c=materialize(c,Date.now());c.siege={id:a.id,by:a.from,until:started};pushLog(c,"ალყა! "+(cOf(a.from)?.name||""));return c});postChat(`ალყა: ${cOf(a.from)?.name} → ${countries[a.to]?.name}`,true)}}
       else if((a.status==="marching"&&a.arrive<=now||a.status==="besieging"&&a.siegeEnd<=now)&&(involved||now-(a.siegeEnd||a.arrive)>15000)){busyA.add(a.id);
         let res=null;
         await mutate("attacks/"+a.id,async cur=>{if(!cur||!(cur.status==="marching"||cur.status==="besieging"))return;const ds=await db.doc("countries/"+cur.to).get();
           const def=ds.exists?materialize(JSON.parse(JSON.stringify(ds.data())),Date.now()):{tiles:{},army:{},res:{}};
           if(def.alive===false){def.tiles={};def.army={}}
           const back=cur.arrive-cur.launch;res=battle(cur,def);cur.result=res;cur.status="returning";cur.arrive=Date.now();cur.returnAt=cur.arrive+Math.max(back*.8,8000);return cur});
-        if(res){const A=countries[a.from],Dd=countries[a.to];postChat(res.win?(res.blocked?`გალავანმა გაუძლო: ${A?.name} → ${Dd?.name}`:res.mode==="raid"?`დარბევა: ${A?.name} → ${Dd?.name}`:`გამარჯვება: ${A?.name} → ${Dd?.name}, +${res.tilesN} უჯრა${res.capital?", დედაქალაქი დაეცა":""}`):`შეტევა მოგერიებულია: ${A?.name} → ${Dd?.name}`,true)}
+        if(res){const A=cOf(a.from),Dd=countries[a.to];postChat(res.win?(res.blocked?`გალავანმა გაუძლო: ${A?.name} → ${Dd?.name}`:res.mode==="raid"?`დარბევა: ${A?.name} → ${Dd?.name}`:`გამარჯვება: ${A?.name} → ${Dd?.name}, +${res.tilesN} უჯრა${res.capital?", დედაქალაქი დაეცა":""}`):`შეტევა მოგერიებულია: ${A?.name} → ${Dd?.name}`,true)}
       }
       if(a.status==="returning"&&a.result&&!a.kind&&!a.result.recall){
         const D=countries[a.to];if(D&&!(D.applied||[]).includes(a.id)&&(involved||now-a.arrive>15000)){busyA.add(a.id);await applyDefender(a)}
@@ -1797,6 +1821,7 @@ async function resolveAttacks(){
       }
       if(a.status==="returning"&&a.result&&a.from===ME&&a.returnAt<=now){busyA.add(a.id);await collect(a)}
       if(a.status==="done"&&a.from===ME&&now-a.returnAt>3*3600e3){busyA.add(a.id);await db.doc("attacks/"+a.id).delete()}
+      if(a.from==="barbarians"&&NET.role==="host"&&(a.status==="done"||a.status==="returning"&&a.result&&now>a.returnAt&&(countries[a.to]?.applied||[]).includes(a.id))){busyA.add(a.id);await db.doc("attacks/"+a.id).delete()}
     }catch(e){console.warn(e)}finally{busyA.delete(a.id)}
   }
 }
@@ -1805,15 +1830,15 @@ async function applyDefender(a){
   await mutate("countries/"+a.to,cur=>{if(!cur||(cur.applied||[]).includes(a.id))return;const c=materialize(cur,Date.now());
     for(const k of UK)c.army[k]=Math.floor((c.army[k]||0)*(1-r.defLoss));
     for(const i of r.wallsDestroyed||[])if(c.tiles[i]==="wall")c.tiles[i]="";
-    for(const i of r.ravaged||[])if(c.tiles[i]&&c.tiles[i]!=="capital")c.tiles[i]="";
+    {const now=Date.now();c.burnt=Object.fromEntries(Object.entries(c.burnt||{}).filter(([,t])=>now-t<15*60e3));for(const i of r.ravaged||[]){if(c.tiles[i]&&c.tiles[i]!=="capital")c.tiles[i]="";if(i in c.tiles)c.burnt[i]=now}}
     if(r.shipsSunk)c.ships=Math.max(0,(c.ships||0)-r.shipsSunk);
     if(c.siege&&c.siege.id===a.id)c.siege=null;
     if(r.win){for(const i in r.tiles)delete c.tiles[i];for(const k of RK)c.res[k]=Math.max(0,c.res[k]-(r.loot[k]||0));
       if(r.capital||!(c.capital in c.tiles)){const keys=Object.keys(c.tiles).map(Number);
         if(!keys.length){c.alive=false;pushLog(c,"ქვეყანა დაეცა")}
         else{const old=c.capital;keys.sort((p,q)=>Math.hypot(tx(p)-tx(old),ty(p)-ty(old))-Math.hypot(tx(q)-tx(old),ty(q)-ty(old)));c.capital=keys[0];c.tiles[keys[0]]="capital";pushLog(c,"დედაქალაქი გადავიდა")}}
-      pushLog(c,`დამარცხება (${countries[a.from]?.name||"მტერი"}): -${r.tilesN} უჯრა, -${r.defLostN} ჯარისკაცი`)}
-    else pushLog(c,`შეტევა მოიგერიე (${countries[a.from]?.name||"მტერი"}), დანაკარგი ${r.defLostN}`);
+      pushLog(c,`დამარცხება (${cOf(a.from)?.name||"მტერი"}): -${r.tilesN} უჯრა, -${r.defLostN} ჯარისკაცი`)}
+    else pushLog(c,`შეტევა მოიგერიე (${cOf(a.from)?.name||"მტერი"}), დანაკარგი ${r.defLostN}`);
     c.applied=[a.id,...(c.applied||[])].slice(0,60);return c});
 }
 async function applyAttacker(a){
@@ -1952,8 +1977,8 @@ async function boot(){
     else if(me()&&$("#onb"))$("#onb").remove();
     renderAll()},e=>toast("მონაცემები ვერ ჩაიტვირთა","err"));
   db.collection("attacks").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,id:d.id}}
-    for(const id in next){const a=next[id],pr=attacks[id];if(a.to===ME&&a.status==="marching"&&a.kind!=="intercept"&&!pr&&booted)toast(`${countries[a.from]?.name||"მტერი"} გიტევს!`,"err");
-      if(a.status==="returning"&&a.result&&!a.result.missed&&!a.result.camp&&((pr&&(pr.status==="marching"||pr.status==="besieging"))||(!pr&&Date.now()-(a.result.at||0)<6000))){const loc=a.retFrom??a.target;FX.push({x:tx(loc)*TS+8,y:ty(loc)*TS+8,t0:Date.now(),col:countries[a.from]?.color||"#fff"});const sc=sceneFromAttack(a);if(sc)SCENES.push(sc)}}
+    for(const id in next){const a=next[id],pr=attacks[id];if(a.to===ME&&a.status==="marching"&&a.kind!=="intercept"&&!pr&&booted)toast(`${cOf(a.from)?.name||"მტერი"} გიტევს!`,"err");
+      if(a.status==="returning"&&a.result&&!a.result.missed&&!a.result.camp&&((pr&&(pr.status==="marching"||pr.status==="besieging"))||(!pr&&Date.now()-(a.result.at||0)<6000))){const loc=a.retFrom??a.target;FX.push({x:tx(loc)*TS+8,y:ty(loc)*TS+8,t0:Date.now(),col:cOf(a.from)?.color||"#fff"});const sc=sceneFromAttack(a);if(sc)SCENES.push(sc)}}
     attacks=next;renderAll()},()=>{});
   db.doc("meta/admin").onSnapshot(s=>{ADMIN=s.exists?s.data().uid:null},()=>{});
   db.doc("meta/bans").onSnapshot(s=>{const ids=s.exists?(s.data().ids||[]):[];if(ids.includes(ME)&&!BANNED){BANNED=true;document.querySelectorAll(".overlay").forEach(o=>o.remove());$("#hud").hidden=true;$("#side").hidden=true;$("#tile").hidden=true;
@@ -1961,6 +1986,7 @@ async function boot(){
   db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat")renderPane(false);else if(booted&&me())renderTabs()},()=>{});
   setInterval(()=>{renderHUD();if(Date.now()-lastPane>4000){lastPane=Date.now();renderPane(false);renderTile()}},1000);
   setInterval(resolveAttacks,2500);
+  setInterval(()=>barbarianTick().catch(()=>{}),30000);
   setInterval(checkReports,1500);
 }
 boot();
