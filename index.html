@@ -565,7 +565,7 @@ const MODES={direct:{n:"პირდაპირი შეტევა",d:"ს�
   flank:{n:"უკნიდან შემოვლა",d:"გზა გრძელია, მაგრამ გალავნისა და კოშკების დაცვა ნახევრდება, პატარა გალავანს გვერდს უვლი",t:1.5},
   siege:{n:"ალყა",d:"ქალაქს ალყაში აქცევ: მტერი შიმშილობს, შემოსავალი უნახევრდება, გალავანი სუსტდება. მერე იერიში",t:1},
   naval:{n:"ზღვის შეტევა",d:"ფლოტი ესხმის მტრის სანაპიროს: ძირავს მის გემებს და ბომბავს სანაპირო შენობებს",t:1},
-  burnforest:{n:"ტყის გადაწვა",d:"ჩირაღდნიანი მხედრები გზაზე და მის გვერდებზე ტყეს გადაწვავენ. მტრის ტყეში მდგარ შენობებსაც",t:1},
+  burnforest:{n:"ტყის გადაწვა",d:"ჩირაღდნიანი მხედრები მონიშნულ ტყეს წაუკიდებენ ცეცხლს. ხანძარი მეზობელ ტყეზეც გავრცელდება და მერე ჩაქრება",t:1},
   raid:{n:"დარბევა",d:"სწრაფი თავდასხმა ნადავლისთვის: ორმაგი ნადავლი, ნაკლები დანაკარგი, მიწას არ იპყრობ",t:.8}};
 const SIEGE_MS=150e3,SHIP_CAP=10,SHIP_COST={wood:80,gold:40};
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
@@ -1107,9 +1107,9 @@ function frame(){
     const sc=ctx.createRadialGradient(x,y,2,x,y,12);sc.addColorStop(0,`rgba(${cr},${cg},${cb},.97)`);sc.addColorStop(.75,`rgba(${cr},${cg},${cb},.9)`);sc.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
     ctx.fillStyle=sc;ctx.beginPath();ctx.ellipse(x,y,12,11,0,0,7);ctx.fill();
     if(g2<.8){ctx.strokeStyle=`rgba(20,14,10,${.85*(1-g2)})`;ctx.lineWidth=1.1;ctx.beginPath();for(let q=0;q<4;q++){const sx=x-6+hash(i,q,21)*12,sy=y-4+hash(i,q,22)*9;ctx.moveTo(sx,sy+3);ctx.lineTo(sx+(hash(i,q,23)-.5)*2,sy-3)}ctx.stroke()}
-    if(age<4){const heat=1-age/4;ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-2,1,x,y-2,20);gl.addColorStop(0,`rgba(255,130,40,${.5*heat})`);gl.addColorStop(1,"rgba(255,90,20,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-2,20,0,7);ctx.fill();ctx.restore();
+    if(age<3){const heat=1-age/3;ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-2,1,x,y-2,20);gl.addColorStop(0,`rgba(255,130,40,${.5*heat})`);gl.addColorStop(1,"rgba(255,90,20,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-2,20,0,7);ctx.fill();ctx.restore();
       for(let f=0;f<6;f++){const fx=x-6+hash(i,f,24)*12,fy=y-2+hash(i,f,25)*8;flame(ctx,fx,fy,(5+hash(i,f,26)*7)*(.5+heat*.7)*(.85+Math.sin(now/110+f*2+seed*9)*.18),1.6+hash(i,f,27),now/130+f*2.3+seed*7)}}
-    if(age<10){const dens=age<4?.45:.45-(age-4)*.07;for(let s2=0;s2<4;s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t);if(a<=.01)continue;const sx=x+t*26+Math.sin(t*5+s2)*3,sy=y-6-t*28,r=3+t*10;
+    if(age<8){const dens=age<3?.45:.45-(age-3)*.09;for(let s2=0;s2<4;s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t);if(a<=.01)continue;const sx=x+t*26+Math.sin(t*5+s2)*3,sy=y-6-t*28,r=3+t*10;
       const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,r);sg.addColorStop(0,`rgba(70,66,62,${a})`);sg.addColorStop(1,"rgba(70,66,62,0)");ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sx,sy,r,0,7);ctx.fill()}}}
   // creatures at home: dragons and griffins circle over the capital, golems patrol around it
   if(z>.35){const tt=now/1000,kk=clamp(1.5/z,.8,3);
@@ -1191,7 +1191,7 @@ function frame(){
   drawRoutePreview(now);
   for(const i of wallQ){if(paintB==="wall"){ctx.fillStyle="rgba(200,192,175,.75)";ctx.fillRect(tx(i)*TS+3,ty(i)*TS+3,TS-6,TS-6)}else{ctx.globalAlpha=.6;drawBuildingSprite(ctx,paintB,i,tx(i)*TS+8,ty(i)*TS+8,1);ctx.globalAlpha=1}}
   for(const i of claimQ){ctx.fillStyle="rgba(242,199,113,.45)";ctx.fillRect(tx(i)*TS+1,ty(i)*TS+1,TS-2,TS-2)}
-  if(AREA.size&&(placing==="area"||placing==="route")){ctx.fillStyle="rgba(227,98,79,.32)";for(const i of AREA)ctx.fillRect(tx(i)*TS,ty(i)*TS,TS,TS)}
+  if(AREA.size&&(placing==="area"||placing==="route")){ctx.fillStyle=routeDraw?.areaFoe==="__forest"?"rgba(255,140,40,.35)":"rgba(227,98,79,.32)";for(const i of AREA)ctx.fillRect(tx(i)*TS,ty(i)*TS,TS,TS)}
   if(placing&&placing!=="route"&&placing!=="area"&&hoverTile>=0){const ok=placing==="claim"?canClaimTile(hoverTile):canWall(hoverTile);
     ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(tx(hoverTile)*TS+1,ty(hoverTile)*TS+1,TS-2,TS-2)}
   if(selected>=0){ctx.strokeStyle="#f2c771";ctx.lineWidth=2;ctx.strokeRect(tx(selected)*TS,ty(selected)*TS,TS,TS);ctx.strokeStyle="rgba(0,0,0,.5)";ctx.lineWidth=1;ctx.strokeRect(tx(selected)*TS-1.5,ty(selected)*TS-1.5,TS+3,TS+3)}
@@ -1429,10 +1429,10 @@ function startPlacing(kind,b){if(kind==="wall"){kind="build";b="wall"}if(kind===
   $("#place").innerHTML=`<span>${kind==="claim"?"გადაატარე თავისუფალ მიწაზე":`${B[paintB].n}: გადაატარე მიწაზე`}</span><button class="btn sm gold" id="stopPl">მზადაა</button>`;$("#stopPl").onclick=stopPlacing}
 function stopPlacing(){placing=null;$("#place").hidden=true}
 const AREA=new Set();
-function areaBanner(){$("#place").innerHTML=`<span>მონიშნე მტრის ტერიტორია · ${AREA.size} უჯრა</span><button class="btn sm" id="areaClr">გასუფთავება</button><button class="btn sm gold" id="areaOk">მზადაა</button>`;
+function areaBanner(){$("#place").innerHTML=`<span>${routeDraw?.areaFoe==="__forest"?"მონიშნე დასაწვავი ტყე":"მონიშნე მტრის ტერიტორია"} · ${AREA.size} უჯრა</span><button class="btn sm" id="areaClr">გასუფთავება</button><button class="btn sm gold" id="areaOk">მზადაა</button>`;
   $("#areaClr").onclick=()=>{AREA.clear();areaBanner()};$("#areaOk").onclick=()=>{placing="route";$("#place").hidden=true;if(routeDraw){routeDraw.area=[...AREA];finishRoute()}}}
 function startArea(){placing="area";$("#place").hidden=false;areaBanner()}
-function queueArea(i){const foe=routeDraw?.areaFoe;if(!foe)return;let add=false;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=tx(i)+dx,y=ty(i)+dy;if(x<0||y<0||x>=W||y>=H)continue;const t=idx(x,y);if(ownerOf(t)?.uid===foe&&!AREA.has(t)){AREA.add(t);add=true}}if(add)areaBanner()}
+function queueArea(i){const foe=routeDraw?.areaFoe;if(!foe)return;let add=false;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=tx(i)+dx,y=ty(i)+dy;if(x<0||y<0||x>=W||y>=H)continue;const t=idx(x,y);if((foe==="__forest"?canBurnHere(t):ownerOf(t)?.uid===foe)&&!AREA.has(t)){AREA.add(t);add=true}}if(add)areaBanner()}
 let lastPaint=-1;
 function placeAt(i){if(placing==="route")return addRoutePoint(i);if(i<0)return;
   const one=placing==="claim"?queueClaim:placing==="area"?queueArea:placeWallAt;if(placing!=="claim"&&placing!=="build"&&placing!=="area")return;
@@ -1526,7 +1526,7 @@ function analyzeRoute(){
   if(pts.length<2){routeDraw.an=res;return res}
   const c=countries[ME],sea=pts.some(q=>TER[q]===WATER),inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
   if(isTorch(routeDraw.units)){if(pts.slice(1).some(q=>TER[q]===WATER)){routeDraw.an={ok:false,why:"ცხენოსნები ზღვაზე ვერ გადავლენ"};return routeDraw.an}
-    res={ok:true,target:last,mode:"burnforest",path:[...pts],naval:false};res.fires=forestAlong(res.path).length;res.time=pathTravel(res.path,routeDraw.units);routeDraw.an=res;return res}
+    res={ok:true,target:last,mode:"burnforest",path:[...pts],naval:false};res.time=pathTravel(res.path,routeDraw.units);routeDraw.an=res;return res}
   if(isFleet(routeDraw.units)){ // a war fleet: sails only on the sea
     if(pts.slice(1,-1).some(q=>TER[q]!==WATER&&!coastal(q))){routeDraw.an={ok:false,why:"ფლოტი მხოლოდ ზღვაზე დადის"};return routeDraw.an}
     let best=-1,bs=0;for(let dy=-8;dy<=8;dy++)for(let dx=-8;dx<=8;dx++){const x=tx(last)+dx,y=ty(last)+dy;if(!inb(x,y))continue;const t=idx(x,y);if(!enemyTile(t))continue;const sw=sweepAround(pts,t)+(ownerOf(t).capital===t?1.2:0);if(sw>bs){bs=sw;best=t}}
@@ -1568,15 +1568,21 @@ const ROUTE_DESC={...Object.fromEntries(Object.entries(MODES).map(([k,m])=>[k,m.
 function forestAlong(path){const out=new Map();let d=0;const L=path.length;
   path.forEach((q,j)=>{for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=tx(q)+dx,y=ty(q)+dy;if(x<0||y<0||x>=W||y>=H)continue;const t=idx(x,y);if(TER[t]!==FOREST||out.has(t))continue;
     const o=ownerOf(t);if(o&&o.uid!==ME&&!atWar(ME,o.uid))continue;out.set(t,j/Math.max(1,L-1))}});return [...out.entries()]}
-async function launchBurnRun(units,path,src){
-  const fires=forestAlong(path);if(!fires.length)throw new Error("გზაზე დასაწვავი ტყე არ არის");
+const canBurnHere=t=>{if(TER[t]!==FOREST)return false;const o=ownerOf(t);return !o||o.uid===ME||atWar(ME,o.uid)};
+function firePlan(area,start){const plan=new Map(),q=[];for(const t of area)if(canBurnHere(t)&&!(t in FOREST_FIRE)){const ts=start+Math.round(hash(t,7,31)*15000);plan.set(t,{ts,d:0});q.push(t)}
+  for(let h=0;h<q.length;h++){const t=q[h],{ts,d}=plan.get(t);if(d>=4)continue;
+    for(const n of N4(t)){if(plan.has(n)||!canBurnHere(n)||(n in FOREST_FIRE))continue;if(hash(n,d,57)>.55)continue;plan.set(n,{ts:ts+40000+Math.round(hash(n,d,58)*50000),d:d+1});q.push(n)}}
+  return plan}
+async function launchBurnRun(units,path,src,area){
+  if(!area?.length)throw new Error("მონიშნე დასაწვავი ტყე");
   const ref=db.collection("attacks").doc(),now=Date.now(),time=pathTravel(path,units);let doc;
+  const plan=firePlan(area,now+time);if(!plan.size)throw new Error("მონიშნულ ადგილას დასაწვავი ტყე არ არის");const fires=[...plan.entries()].map(([t,v])=>[t,v.ts]);
   const startFrom=s=>({id:ref.id,kind:"burn",from:ME,to:null,units,target:path[path.length-1],fromTile:s,path,launch:now,arrive:now+time,status:"marching",burnTiles:fires.map(f=>f[0])});
   if(src==="home"||!src)await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=startFrom(c.capital);pushLog(c,"ტყის გადაწვა")});
   else await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}for(const u in units)cur.units[u]-=units[u];if(!unitSum(cur.units))cur.status="done";doc=startFrom(cur.fromTile);return cur});
   await ref.set(doc);
   // each tile catches fire as the riders pass it
-  await mutate("world/forestfire",cur=>{cur=cur||{t:{}};cur.t=cur.t||{};for(const [t,f] of fires)if(!(t in cur.t))cur.t[t]=now+Math.round(f*time);return cur});
+  await mutate("world/forestfire",cur=>{cur=cur||{t:{}};cur.t=cur.t||{};for(const [t,ts] of fires)if(!(t in cur.t))cur.t[t]=ts;return cur});
   postChat(`${countries[ME].name}-ის ჩირაღდნიანი მხედრები ტყეს წვავენ!`,true)}
 function simplifyPath(p){const out=[p[0]];const stride=Math.max(2,Math.ceil(p.length/70));for(let j=stride;j<p.length-1;j+=stride)out.push(p[j]);out.push(p[p.length-1]);return out}
 function finishRoute(){
@@ -1585,15 +1591,16 @@ function finishRoute(){
   const rd=routeDraw,T=ownerOf(an.target);
   const ov=document.createElement("div");ov.className="overlay";ov.style.background="rgba(8,11,16,.35)";ov.style.alignItems="flex-end";
   ov.innerHTML=`<div class="card" style="max-width:420px"><h2>${ROUTE_NAME[an.mode]}${an.naval?" (ზღვით)":""}${T&&an.mode!=="camp"?`: <span style="color:${T.color}">${esc(T.name)}</span>`:""}</h2>
-    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}${an.mode==="burnforest"?` <b>${an.fires} ტყის უჯრა დაიწვება.</b>`:""}</p>
+    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>${an.mode==="burnforest"?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm gold" id="rtForest">ტყის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} ტყის უჯრა`:"ჯერ მონიშნე, რომელი ტყე დაიწვას"}</span></div>`:""}
     ${["direct","flank"].includes(an.mode)?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm" id="rtArea">ტერიტორიის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} უჯრა`:"მთელი მონიშნული მიწა დაიპყრობა"}</span></div>`:""}
     ${["direct","flank","siege"].includes(an.mode)?`<label class="row" style="margin-top:12px;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rtBurn" ${rd.burnPick?"checked":""}><span><b>გადაწვა</b> <span class="muted">შენობებს დაწვავს, მიწას არ დაიპყრობს</span></span></label>`:""}
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" id="rtRe">თავიდან დახატვა</button><button class="btn red" id="rtGo">წინ!</button></div></div>`;
   $("#app").appendChild(ov);
   ov.querySelector("#rtRe").onclick=()=>{ov.remove();AREA.clear();if(routeDraw){routeDraw.pts=[routeDraw.from];routeDraw.an=null;routeDraw.area=null}};
+  const fb=ov.querySelector("#rtForest");if(fb)fb.onclick=()=>{ov.remove();rd.areaFoe="__forest";AREA.clear();(rd.area||[]).forEach(t=>AREA.add(t));startArea()};
   const ab=ov.querySelector("#rtArea");if(ab)ab.onclick=()=>{rd.burnPick=!!ov.querySelector("#rtBurn")?.checked;ov.remove();rd.areaFoe=T?.uid;AREA.clear();(rd.area||[]).forEach(t=>AREA.add(t));AREA.add(an.target);startArea()};
   ov.querySelector("#rtGo").onclick=()=>{an.burn=!!ov.querySelector("#rtBurn")?.checked;an.area=rd.area?.length?rd.area:null;AREA.clear();ov.remove();const r=routeDraw;routeDraw=null;stopPlacing();const path=simplifyPath(an.path);
-    act(()=>an.mode==="burnforest"?launchBurnRun(r.units,an.path,r.src):r.move?redirectArmy(r.move,an,path):an.mode==="camp"?launchCamp(an.target,r.units,path,r.src):launchAttack(an.target,r.units,an.mode,an.naval,r.src,path,an.line||null,an.burn,an.area),r.move?"ჯარს ახალი გზა მიეცა":an.mode==="camp"?"ჯარი ბანაკისკენ გაემართა":"ჯარი გაემართა შენი გზით")};
+    act(()=>an.mode==="burnforest"?launchBurnRun(r.units,an.path,r.src,an.area||rd.area):r.move?redirectArmy(r.move,an,path):an.mode==="camp"?launchCamp(an.target,r.units,path,r.src):launchAttack(an.target,r.units,an.mode,an.naval,r.src,path,an.line||null,an.burn,an.area),r.move?"ჯარს ახალი გზა მიეცა":an.mode==="camp"?"ჯარი ბანაკისკენ გაემართა":"ჯარი გაემართა შენი გზით")};
 }
 function drawRoutePreview(now){
   if(placing!=="route"||!routeDraw)return;const c=countries[ME],col=c?.color||"#fff",pts=routeDraw.pts.map(TC),k=clamp(1.5/cam.z,.8,3);
