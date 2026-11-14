@@ -1100,8 +1100,8 @@ function frame(){
 }
 /* input: drag, wheel, pinch, tap */
 const ptrs=new Map();let dragStart=null,moved=false,pinch=null;
-cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(ptrs.size===1){dragStart={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};moved=false}
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);{const r=cv.getBoundingClientRect(),[wx,wy]=s2w(e.clientX-r.left,e.clientY-r.top),X=Math.floor(wx/TS),Y=Math.floor(wy/TS);hoverTile=X>=0&&X<W&&Y>=0&&Y<H?idx(X,Y):-1}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1){dragStart={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};moved=false;lastPaint=-1;if(placing&&placing!=="route"&&hoverTile>=0)placeAt(hoverTile)}
   if(ptrs.size===2){const [p,q]=[...ptrs.values()];pinch={d:Math.hypot(p.x-q.x,p.y-q.y),z:cam.z};moved=true}});
 cv.addEventListener("pointermove",e=>{const r=cv.getBoundingClientRect();const [wx,wy]=s2w(e.clientX-r.left,e.clientY-r.top);
   const tX=Math.floor(wx/TS),tY=Math.floor(wy/TS);hoverTile=tX>=0&&tX<W&&tY>=0&&tY<H?idx(tX,tY):-1;
@@ -1109,10 +1109,11 @@ cv.addEventListener("pointermove",e=>{const r=cv.getBoundingClientRect();const [
   if(ptrs.size===2&&pinch){const [p,q]=[...ptrs.values()];cam.z=pinch.z*Math.hypot(p.x-q.x,p.y-q.y)/pinch.d;clampCam();return}
   if(dragStart){const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;if(Math.hypot(dx,dy)>6){moved=true;cv.classList.add("drag")}
     if(moved&&!placing){cam.x=dragStart.cx-dx/cam.z;cam.y=dragStart.cy-dy/cam.z;clampCam()}
-    if(placing&&(moved||placing==="route")&&ptrs.size===1)placeAt(hoverTile)}});
+    if(placing&&ptrs.size===1)placeAt(hoverTile)}});
 const endPtr=e=>{ptrs.delete(e.pointerId);cv.classList.remove("drag");
   if(ptrs.size===0&&placing==="route"){if(hoverTile>=0)addRoutePoint(hoverTile);dragStart=null;pinch=null;finishRoute();return}
-  if(ptrs.size===0){if(!moved&&dragStart&&hoverTile>=0){const r=cv.getBoundingClientRect(),ar=placing?null:armyAt(e.clientX-r.left,e.clientY-r.top);if(ar){selectedArmy=ar.id;selected=-1;renderTile()}else placing?placeAt(hoverTile):selectTile(hoverTile)}dragStart=null;pinch=null}
+  if(ptrs.size===0)lastPaint=-1;
+  if(ptrs.size===0){if(!moved&&dragStart&&hoverTile>=0&&!(placing&&placing!=="route")){const r=cv.getBoundingClientRect(),ar=placing?null:armyAt(e.clientX-r.left,e.clientY-r.top);if(ar){selectedArmy=ar.id;selected=-1;renderTile()}else placing?placeAt(hoverTile):selectTile(hoverTile)}dragStart=null;pinch=null}
   else if(ptrs.size===1){const [p]=[...ptrs.values()];dragStart={x:p.x,y:p.y,cx:cam.x,cy:cam.y};pinch=null}};
 cv.addEventListener("pointerup",endPtr);cv.addEventListener("pointercancel",endPtr);
 cv.addEventListener("wheel",e=>{e.preventDefault();const r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;const [wx,wy]=s2w(sx,sy);
@@ -1319,7 +1320,12 @@ $("#tile").addEventListener("click",e=>{const t=e.target.closest("button");if(!t
 function startPlacing(kind){placing=kind;$("#place").hidden=false;
   $("#place").innerHTML=`<span>${kind==="claim"?"გადაატარე თავისუფალ მიწაზე":"გადაატარე შენს მიწაზე"}</span><button class="btn sm gold" id="stopPl">მზადაა</button>`;$("#stopPl").onclick=stopPlacing}
 function stopPlacing(){placing=null;$("#place").hidden=true}
-function placeAt(i){if(placing==="claim")queueClaim(i);else if(placing==="route")addRoutePoint(i);else placeWallAt(i)}
+let lastPaint=-1;
+function placeAt(i){if(placing==="route")return addRoutePoint(i);if(i<0)return;
+  const one=placing==="claim"?queueClaim:placeWallAt;
+  if(lastPaint<0||lastPaint===i){one(i);lastPaint=i;return}
+  const x0=tx(lastPaint),y0=ty(lastPaint),x1=tx(i),y1=ty(i),n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0));
+  for(let s2=1;s2<=n;s2++)one(idx(Math.round(x0+(x1-x0)*s2/n),Math.round(y0+(y1-y0)*s2/n)));lastPaint=i}
 /* bulk land claiming: tiles are queued while painting and bought in one go */
 const claimQ=new Set();let claimT=null,claimBusy=false;
 const freeLand=i=>i>=0&&TER[i]!==WATER&&!ownerOf(i);
@@ -1341,15 +1347,16 @@ async function claimMany(list){let got=0;
   return got}
 /* bulk walls: painted tiles are queued and built together in one go, like buying land */
 const wallQ=new Set();let wallT=null,wallBusy=false;
-const canWall=i=>i>=0&&isMine(i)&&!countries[ME].tiles[i]&&B.wall.on.includes(TER[i])&&!wallQ.has(i);
+const canWall=i=>i>=0&&B.wall.on.includes(TER[i])&&!wallQ.has(i)&&(isMine(i)?!countries[ME].tiles[i]:freeLand(i)&&N4(i).some(n=>isMine(n)||wallQ.has(n)));
 function placeWallAt(i){if(!canWall(i))return;wallQ.add(i);clearTimeout(wallT);wallT=setTimeout(flushWalls,450)}
 async function flushWalls(){if(wallBusy){wallT=setTimeout(flushWalls,300);return}if(!wallQ.size)return;wallBusy=true;const list=[...wallQ];
-  try{const n=await buildWalls(list);if(n<list.length)toast(n?`აშენდა ${n} გალავანი, ქვა აღარ გყოფნის`:"ქვა არ გყოფნის","err")}catch(e){toast(e.message,"err")}
+  try{const n=await buildWalls(list);if(n<list.length)toast(n?`აშენდა ${n} გალავანი, ქვა ან ოქრო აღარ გყოფნის`:"ქვა ან ოქრო არ გყოფნის","err")}catch(e){toast(e.message,"err")}
   finally{list.forEach(i=>wallQ.delete(i));wallBusy=false;renderAll()}}
 function wallCostFor(c,count){const n0=stats(c).cnt.wall||0;let st=0;for(let k=0;k<count;k++)st+=Math.ceil(B.wall.cost.stone*(1+(n0+k)*.01));return st}
 async function buildWalls(list){let got=0;
-  await mutateMe(c=>{let n=stats(c).cnt.wall||0;for(const i of list){if(!(i in c.tiles)||c.tiles[i]||!B.wall.on.includes(TER[i]))continue;const cost=Math.ceil(B.wall.cost.stone*(1+n*.01));
-    if((c.res.stone||0)<cost)break;c.res.stone-=cost;c.tiles[i]="wall";n++;got++}if(!got)return false;pushLog(c,`აშენდა ${got} გალავანი`)});
+  await mutateMe(c=>{let n=stats(c).cnt.wall||0;for(const i of list){if(!B.wall.on.includes(TER[i]))continue;
+    if(!(i in c.tiles)){const o=ownerOf(i);if(o&&o.uid!==ME)continue;if(!N4(i).some(q=>q in c.tiles))continue;const land=claimCost(c,i).gold;if((c.res.gold||0)<land)break;c.res.gold-=land;c.tiles[i]=""}
+    if(c.tiles[i])continue;const cost=Math.ceil(B.wall.cost.stone*(1+n*.01));if((c.res.stone||0)<cost)break;c.res.stone-=cost;c.tiles[i]="wall";n++;got++}if(!got)return false;pushLog(c,`აშენდა ${got} გალავანი`)});
   return got}
 // every free tile on the outer edge of my land
 function borderWallTiles(){const c=countries[ME];if(!c)return[];return Object.keys(c.tiles).map(Number).filter(i=>!c.tiles[i]&&B.wall.on.includes(TER[i])&&(N4(i).some(n=>!isMine(n))||tx(i)===0||ty(i)===0||tx(i)===W-1||ty(i)===H-1))}
