@@ -584,6 +584,9 @@ function materialize(c,now){
   c.starving=c.res.food<1&&s.prod.food<0;
   c.army=c.army||{};const left=[];
   for(const q of c.queue||[]){if(q.done<=now)c.army[q.u]=(c.army[q.u]||0)+q.n;else left.push(q)}
+  // each production line works on its own; old orders are re-planned and never get slower than before
+  const cnt=stats({tiles:c.tiles,army:{}}).cnt,lines={};
+  for(const q of left.slice().sort((a,b)=>a.done-b.done)){const L=UNITS[q.u].req.join("+"),cur=lines[L]??now,nd=cur+UNITS[q.u].time/TRAIN_SPEED/Math.max(1,Math.min(10,...UNITS[q.u].req.map(r=>cnt[r]||0)))*q.n*1000;q.done=Math.min(q.done,nd);lines[L]=q.done}
   c.queue=left;c.t=now;return c;
 }
 const buildCost=(c,b)=>{const n=(stats(c).cnt[b]||0),m=b==="wall"?1+n*.01:1+n*.15,o={};for(const k in B[b].cost)o[k]=Math.ceil(B[b].cost[k]*m);return o};
@@ -1213,7 +1216,8 @@ function renderPane(force){
     if(s.cnt.port)h+=`<h3>ფლოტი</h3><div class="item">${icn("ship")}<span class="tx"><b>გემები: ${c.ships||0}</b><span>გადაიყვანს ${(c.ships||0)*SHIP_CAP} ჯარისკაცს</span>${costHTML(SHIP_COST,c)}</span><button class="btn sm gold" data-buyship="1">გემი</button></div>`;
     h+=`<h3>ჯარი <span class="muted" style="font-size:12px;font-family:var(--body)">${s.army+s.queued}/${s.pop}</span></h3><div class="list">`+UK.filter(u=>!UNITS[u].summon).map(u=>unitRow(c,s,u)).join("")+`</div>
       <h3>მოხმობა <span class="muted" style="font-size:12px;font-family:var(--body)">მანა ${fmt(c.res.mana)}</span></h3><div class="list">`+UK.filter(u=>UNITS[u].summon).map(u=>unitRow(c,s,u)).join("")+`</div>`;
-    if(c.queue.length)h+=`<h3>რიგში</h3><div class="list">`+c.queue.map(q=>`<div class="item">${icn(q.u)}<span class="tx"><b>${UNITS[q.u].n} × ${q.n}</b><span data-until="${q.done}">${mmss(q.done-Date.now())}</span></span></div>`).join("")+`</div>`;
+    if(c.queue.length){const grp={};for(const q of c.queue){const g2=grp[q.u]||(grp[q.u]={n:0,next:Infinity,last:0});g2.n+=q.n;g2.next=Math.min(g2.next,q.done);g2.last=Math.max(g2.last,q.done)}
+      h+=`<h3>რიგში</h3><div class="list">`+Object.entries(grp).sort((a,b)=>a[1].next-b[1].next).map(([u,g2])=>`<div class="item">${icn(u)}<span class="tx"><b>${UNITS[u].n} × ${g2.n}</b><span>შემდეგი <span data-until="${g2.next}">${mmss(g2.next-Date.now())}</span> · ყველა <span data-until="${g2.last}">${mmss(g2.last-Date.now())}</span></span></span></div>`).join("")+`</div>`}
   }
   if(tab==="war"){
     const others=Object.values(countries).filter(o=>o.uid!==ME);
