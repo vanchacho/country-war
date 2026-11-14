@@ -1579,13 +1579,12 @@ function firePlan(area,start){const plan=new Map(),q=[];for(const t of area)if(c
 async function launchBurnRun(units,path,src,area){
   if(!area?.length)throw new Error("მონიშნე დასაწვავი ტყე");
   const ref=db.collection("attacks").doc(),now=Date.now(),time=pathTravel(path,units);let doc;
-  const plan=firePlan(area,now+time);if(!plan.size)throw new Error("მონიშნულ ადგილას დასაწვავი ტყე არ არის");const fires=[...plan.entries()].map(([t,v])=>[t,v.ts]);
-  const startFrom=s=>({id:ref.id,kind:"burn",from:ME,to:null,units,target:path[path.length-1],fromTile:s,path,launch:now,arrive:now+time,status:"marching",burnTiles:fires.map(f=>f[0])});
+  if(!area.some(canBurnHere))throw new Error("მონიშნულ ადგილას დასაწვავი ტყე არ არის");
+  const startFrom=s=>({id:ref.id,kind:"burn",from:ME,to:null,units,target:path[path.length-1],fromTile:s,path,launch:now,arrive:now+time,status:"marching",burnArea:area});
   if(src==="home"||!src)await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=startFrom(c.capital);pushLog(c,"ტყის გადაწვა")});
   else await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}for(const u in units)cur.units[u]-=units[u];if(!unitSum(cur.units))cur.status="done";doc=startFrom(cur.fromTile);return cur});
   await ref.set(doc);
   // each tile catches fire as the riders pass it
-  await mutate("world/forestfire",cur=>{cur=cur||{t:{}};cur.t=cur.t||{};for(const [t,ts] of fires)if(!(t in cur.t))cur.t[t]=ts;return cur});
   postChat(`${countries[ME].name}-ის ჩირაღდნიანი მხედრები ტყეს წვავენ!`,true)}
 function simplifyPath(p){const out=[p[0]];const stride=Math.max(2,Math.ceil(p.length/70));for(let j=stride;j<p.length-1;j+=stride)out.push(p[j]);out.push(p[p.length-1]);return out}
 function finishRoute(){
@@ -1906,7 +1905,9 @@ async function resolveAttacks(){
     if(a.kind==="intercept"&&a.status==="marching"){if(a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);try{await resolveIntercept(a)}catch(e){console.warn(e)}finally{busyA.delete(a.id)}}continue}
     try{
       if(a.kind==="burn"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);
-          const hit={};for(const t of a.burnTiles||[]){const o=ownerOf(t);if(o&&o.uid!==ME&&o.tiles[t]&&o.tiles[t]!=="capital")(hit[o.uid]=hit[o.uid]||[]).push(t)}
+          let tiles=a.burnTiles||[];if(a.burnArea){let ok=false;await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching"||cur.lit)return;cur.lit=true;ok=true;return cur});
+            if(ok){const plan=firePlan(a.burnArea,Date.now());tiles=[...plan.keys()];await mutate("world/forestfire",cur=>{cur=cur||{t:{}};cur.t=cur.t||{};for(const [t,v] of plan)if(!(t in cur.t))cur.t[t]=v.ts;return cur})}else tiles=[]}
+          const hit={};for(const t of tiles){const o=ownerOf(t);if(o&&o.uid!==ME&&o.tiles[t]&&o.tiles[t]!=="capital")(hit[o.uid]=hit[o.uid]||[]).push(t)}
           for(const uid in hit)await mutate("countries/"+uid,c=>{if(!c)return;const now2=Date.now();c.burnt=c.burnt||{};for(const t of hit[uid]){if(c.tiles[t]&&c.tiles[t]!=="capital"){c.tiles[t]="";c.burnt[t]=now2}}pushLog(c,`ტყე და ${hit[uid].length} შენობა დაწვეს (${countries[ME].name})`);return c});
           await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;const n2=Date.now(),sv=cur.units;cur.result={survivors:sv,survivorsN:unitSum(sv),loot:{},camp:1,at:n2};cur.status="returning";cur.retFrom=cur.target;cur.arrive=n2;cur.returnAt=n2+travelTime(cur.target,cur.fromTile,sv);return cur})}}
       else if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
