@@ -1270,8 +1270,10 @@ function renderPane(force){
   if(tab==="trade"){
     h+=`<h3>ბაზარი</h3>`;
     if(!s.cnt.market)h+=`<p class="muted">ააშენე ბაზარი.</p>`;
-    else h+=`<div class="list">`+["food","wood","stone","iron"].map(k=>`<div class="item">${icn(k)}<span class="tx"><b>${RES[k].n}</b><span>გაყიდვა ${PRICE[k]} · ყიდვა ${(PRICE[k]*1.6).toFixed(2)}</span></span>
-      <span class="btns"><button class="btn sm" data-sell="${k}">გაყიდე 20</button><button class="btn sm" data-buy="${k}">იყიდე 20</button></span></div>`).join("")+`</div>`;
+    else h+=`<div class="list">`+["food","wood","stone","iron"].map(k=>`<div class="item">${icn(k)}<span class="tx"><b>${RES[k].n} <span class="muted" style="display:inline">გაქვს ${fmt(c.res[k])}</span></b><span>გაყიდვა ${PRICE[k]} · ყიდვა ${(PRICE[k]*1.6).toFixed(2)}</span>
+        <div class="row" style="margin-top:6px;gap:6px"><input type="number" min="1" step="10" id="mq-${k}" data-mq="${k}" value="${MQ[k]||100}" style="width:84px"><button class="btn sm" data-max="${k}">მაქს.</button></div>
+        <span data-mqinfo="${k}" style="display:block;margin-top:4px">${mqInfo(k,c)}</span></span>
+      <span class="btns"><button class="btn sm gold" data-buy="${k}">ყიდვა</button><button class="btn sm" data-sell="${k}">გაყიდვა</button></span></div>`).join("")+`</div>`;
     const others=alive().filter(o=>o.uid!==ME);
     h+=`<h3>საჩუქარი</h3>`;
     if(!others.length)h+=`<p class="muted">სხვა ქვეყანა ჯერ არ არის.</p>`;
@@ -1294,8 +1296,10 @@ $("#pane").addEventListener("click",e=>{
   if(d.war)act(()=>declareWar(d.war),"ომი გამოცხადდა");
   if(d.peace)act(()=>offerPeace(d.peace),"ზავი გაგზავნილია");
   if(d.accept)act(()=>acceptPeace(d.accept),"მშვიდობა დამყარდა");
-  if(d.sell)act(()=>market(d.sell,20,true));
-  if(d.buy)act(()=>market(d.buy,20,false));
+  if(d.sell){const n=Math.floor(+MQ[d.sell]||100);act(()=>market(d.sell,n,true),`გაიყიდა ${n} ${RES[d.sell].n}`)}
+  if(d.buy){const n=Math.floor(+MQ[d.buy]||100);act(()=>market(d.buy,n,false),`ნაყიდია ${n} ${RES[d.buy].n}`)}
+  if(d.max){const c=live(ME),k=d.max,canBuy=Math.floor((c.res.gold||0)/(PRICE[k]*1.6)),have=Math.floor(c.res[k]||0);MQ[k]=MQ.__lastMax===k+"b"?have:canBuy;MQ.__lastMax=MQ.__lastMax===k+"b"?k+"s":k+"b";
+    const inp=document.getElementById("mq-"+k);if(inp)inp.value=MQ[k];const info=document.querySelector(`[data-mqinfo="${k}"]`);if(info)info.innerHTML=mqInfo(k,c)}
   if(t.id==="gSend")act(()=>sendGift($("#gTo").value,$("#gRes").value,+$("#gAmt").value),"გაგზავნილია");
   if(d.intercept)openIntercept(d.intercept);
   if(d.kick){if(t.dataset.sure)act(()=>kickPlayer(d.kick),"მოთამაშე გაგდებულია");else{t.dataset.sure=1;t.textContent="ნამდვილად გავაგდო?";t.classList.add("red")}}
@@ -1312,6 +1316,7 @@ $("#pane").addEventListener("click",e=>{
   if(t.id==="abandon"){if(t.dataset.sure)act(abandon);else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება"}}
   if(t.id==="resetWorld"){if(t.dataset.sure)act(resetWorld,"სამყარო გასუფთავდა");else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
 });
+$("#pane").addEventListener("input",e=>{const k=e.target.dataset?.mq;if(!k)return;MQ[k]=e.target.value;const info=document.querySelector(`[data-mqinfo="${k}"]`);if(info)info.innerHTML=mqInfo(k,live(ME))});
 $("#pane").addEventListener("submit",e=>{if(e.target.id!=="chatForm")return;e.preventDefault();const v=$("#chatIn").value.trim();if(!v)return;$("#chatIn").value="";postChat(v)});
 
 /* tile card */
@@ -1585,7 +1590,9 @@ async function acceptPeace(t){
   await mutate("countries/"+t,cur=>{if(!cur)return;cur.wars=(cur.wars||[]).filter(x=>x!==ME);cur.peace=(cur.peace||[]).filter(x=>x!==ME);pushLog(cur,"მშვიდობა: "+countries[ME].name);return cur});
   postChat(`მშვიდობა: ${countries[ME].name} და ${countries[t].name}`,true);
 }
-async function market(k,n,sell){await mutateMe(c=>{if(!stats(c).cnt.market)throw new Error("ააშენე ბაზარი");
+const MQ={};
+function mqInfo(k,c){const n=Math.floor(+MQ[k]||100),buy=n*PRICE[k]*1.6,sell=n*PRICE[k];return `ყიდვა: <b style="display:inline">${fmt(buy)}</b> ${esc(resName("gold",c))}${buy>(c.res.gold||0)?' <span style="color:var(--danger)">არ გყოფნის</span>':""} · გაყიდვა: +${fmt(sell)}${n>(c.res[k]||0)?' <span style="color:var(--danger)">არ გაქვს</span>':""}`}
+async function market(k,n,sell){if(!(n>0))throw new Error("ჩაწერე რაოდენობა");await mutateMe(c=>{if(!stats(c).cnt.market)throw new Error("ააშენე ბაზარი");
   if(sell){pay(c,{[k]:n});c.res.gold+=n*PRICE[k]}else{pay(c,{gold:n*PRICE[k]*1.6});c.res[k]+=n}})}
 async function sendGift(t,k,n){n=Math.floor(n);if(!(n>0))throw new Error("მიუთითე რაოდენობა");const o=countries[t];if(!o)throw new Error("ქვეყანა ვერ მოიძებნა");
   await mutateMe(c=>{pay(c,{[k]:n});pushLog(c,`საჩუქარი → ${o.name}: ${n} ${resName(k,c)}`)});
