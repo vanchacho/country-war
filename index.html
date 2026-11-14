@@ -1059,6 +1059,12 @@ function frame(){
         const ph=tt*(.25+sd*.25)+sd*20,f=(Math.sin(ph)+1)/2,ox=(hash(i,m,5)-.5)*8,oy=(hash(i,m,6)-.5)*6;
         const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy;
         drawPerson(ctx,x,y+3,clamp(5/z,3,4.5),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
+  // creatures at home: dragons and griffins circle over the capital, golems patrol around it
+  if(z>.35){const tt=now/1000,kk=clamp(1.5/z,.8,3);
+    for(const c of ORDER){const cap=c.capital;if(cap==null)continue;const cx=tx(cap)*TS+8,cy=ty(cap)*TS+8;if(!vis(cap)&&Math.abs(tx(cap)-(x0+x1)/2)>(x1-x0)/2+6)continue;const A=c.army||{};
+      for(const [u,max,R,sp] of [["dragon",3,46,.32],["griffin",3,30,.5]]){const n=Math.min(A[u]||0,max);for(let m=0;m<n;m++){const an=tt*sp+m*Math.PI*2/n+hash(cap,m,9)*.6,r=R+m*7,x=cx+Math.cos(an)*r,y=cy+Math.sin(an)*r*.6;
+        drawFlyer(ctx,u,x,y,(u==="dragon"?6.8:5)*kk,tt*4+m*1.7,an+Math.PI/2)}}
+      const gn=Math.min(A.golem||0,3);for(let m=0;m<gn;m++){const an=tt*.12+m*2.1,r=20+m*4,x=cx+Math.cos(an)*r,y=cy+12+Math.sin(an)*r*.45;drawUnitSprite(ctx,"golem",x,y,4.5*kk,c.color,tt*3+m,SKIN[0])}}}
   // armies: route, marching formation by unit type, ships at sea, sieges and camps
   const k=clamp(1.5/z,.8,3),pulse=(now%1200)/1200;
   for(const a of Object.values(attacks)){
