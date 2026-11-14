@@ -517,6 +517,9 @@ const UNITS={
   dragon:{n:"დრაკონი",atk:75,def:45,spd:1.4,pop:6,up:.5,time:10,cost:{mana:220},req:["magetower"],summon:1,mages:5},
 };
 const UK=Object.keys(UNITS);
+// each building of the kind a unit needs trains in parallel: more workshops, faster catapults (up to 10x)
+const trainFactor=(u,cnt)=>Math.max(1,Math.min(10,...UNITS[u].req.map(r=>cnt[r]||0)));
+const trainSecs=(u,cnt)=>UNITS[u].time/TRAIN_SPEED/trainFactor(u,cnt);
 const isFleet=u=>unitSum(u)>0&&UK.every(k=>!u[k]||UNITS[k].naval);
 const hasFleet=u=>(u?.warship||0)>0;
 const coastal=i=>N4(i).some(n=>TER[n]===WATER);
@@ -1145,7 +1148,7 @@ $("#collapse").addEventListener("click",()=>{$("#side").classList.toggle("min");
 function unitRow(c,s,u){
   const d=UNITS[u],n=c.army[u]||0,hasReq=d.req.every(r=>s.cnt[r]),mOk=!d.summon||(c.army.mage||0)>=d.mages;
   const need=!hasReq?"საჭიროა: "+d.req.map(r=>B[r].n).join(", "):!mOk?`საჭიროა ${d.mages} ჯადოქარი`:"";
-  return `<div class="item">${icn(u)}<span class="tx"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b><span>შეტევა ${d.atk} · დაცვა ${d.def}</span>
+  return `<div class="item">${icn(u)}<span class="tx"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b><span>შეტევა ${d.atk} · დაცვა ${d.def} · ${+trainSecs(u,s.cnt).toFixed(1)} წმ${trainFactor(u,s.cnt)>1?` <b style="display:inline;color:var(--ok)">×${trainFactor(u,s.cnt)} სწრაფად</b>`:""}</span>
     ${need?`<div class="cost"><span class="no">${need}</span></div>`:costHTML(d.cost,c)}</span>
     <span class="btns">${d.summon?`<button class="btn sm magic" data-train="${u}" data-n="1" ${need?"disabled":""}>მოხმობა</button>`:
       `<button class="btn sm" data-train="${u}" data-n="1" ${need?"disabled":""}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${need?"disabled":""}>+5</button>`}</span></div>`;
@@ -1504,7 +1507,7 @@ async function trainUnits(u,n){
   await mutateMe(c=>{const s=stats(c),d=UNITS[u];if(!d.req.every(r=>s.cnt[r]))throw new Error("საჭიროა: "+d.req.map(r=>B[r].n).join(", "));
     if(d.summon&&(c.army.mage||0)<d.mages)throw new Error(`საჭიროა ${d.mages} ჯადოქარი`);
     if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები ან სოფლები");pay(c,d.cost,n);
-    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+d.time*n*1000/TRAIN_SPEED}];if(d.summon)pushLog(c,d.n+" მოიხმე")});
+    const last=Math.max(Date.now(),...(c.queue||[]).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+trainSecs(u,s.cnt)*n*1000}];if(d.summon)pushLog(c,d.n+" მოიხმე")});
 }
 async function declareWar(t){
   const o=countries[t];await mutateMe(c=>{if((c.wars||[]).includes(t))return false;c.wars=[...(c.wars||[]),t];c.peace=(c.peace||[]).filter(x=>x!==t);pushLog(c,"ომი: "+o.name)});
