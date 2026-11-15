@@ -697,7 +697,8 @@ function materialize(c,now){
   const end=Math.min(now,(c.seen||now)+PRESENCE_GRACE),from=c.t||now,dt=Math.min(Math.max(0,end-from),OFFLINE_CAP)/60000;
   const s=stats(c);c.res=c.res||{};
   for(const k of RK){const v=(c.res[k]||0)+s.prod[k]*dt;
-    if(k==="food"&&v<0&&s.prod.food<0){const starve=Math.min(dt,-v/(-s.prod.food)),fr=Math.min(.6,.03*starve);c.army=c.army||{};for(const u of UK)if(c.army[u])c.army[u]=Math.floor(c.army[u]*(1-fr))}
+    if(k==="food"&&v<0&&s.prod.food<0){const starve=Math.min(dt,-v/(-s.prod.food)),fr=Math.min(.6,.02*starve);c.army=c.army||{};
+      for(const u of UK)if(c.army[u]){const exact=c.army[u]*fr+(c.desertAcc?.[u]||0),gone=Math.floor(exact);c.desertAcc={...(c.desertAcc||{}),[u]:exact-gone};if(gone>0){c.army[u]=Math.max(0,c.army[u]-gone);c.starveLost=(c.starveLost||0)+gone}}}
     c.res[k]=Math.max(0,v)}
   c.starving=c.res.food<1&&s.prod.food<0;
   c.army=c.army||{};const left=[];
@@ -1740,7 +1741,7 @@ function renderPane(force){
     const pwr=u=>Math.round(UK.reduce((t,k)=>t+(u[k]||0)*UNITS[k].atk,0)),dpw=u=>Math.round(UK.reduce((t,k)=>t+(u[k]||0)*UNITS[k].def,0));
     h+=`<button class="btn gold" id="sendArmy" style="width:100%;margin-bottom:6px">ჯარის გაგზავნა (გზის დახატვა)</button>`;
     h+=`<h3>ჩემი ჯარი</h3><div class="item" style="flex-direction:column;align-items:stretch;gap:6px">
-      <div class="row" style="justify-content:space-between"><b>სახლში ${unitSum(c.army)}</b><span class="muted" style="font-size:12px">შეტევა ${pwr(c.army)} · დაცვა ${dpw(c.army)}</span></div>${unitsHTML(c.army)}
+      <div class="row" style="justify-content:space-between"><b>სახლში ${unitSum(c.army)}</b>${c.starving?`<span style="color:var(--danger);font-size:12px;margin-left:8px">შიმშილობს! ჯარი იფანტება, ააშენე ფერმები ან იყიდე საკვები</span>`:""}<span class="muted" style="font-size:12px">შეტევა ${pwr(c.army)} · დაცვა ${dpw(c.army)}</span></div>${unitsHTML(c.army)}
       ${unitSum(away)?`<div class="row" style="justify-content:space-between;margin-top:4px"><b>გზაში ${unitSum(away)}</b><span class="muted" style="font-size:12px">ლაშქრობაში</span></div>${unitsHTML(away)}`:""}</div>
     `;
     if(s.cnt.port)h+=`<h3>ფლოტი</h3><div class="item">${icn("ship")}<span class="tx"><b>გემები: ${c.ships||0}</b><span>გადაიყვანს ${(c.ships||0)*SHIP_CAP} ჯარისკაცს</span>${costHTML(SHIP_COST,c)}</span><button class="btn sm gold" data-buyship="1">გემი</button></div>`;
@@ -2800,6 +2801,13 @@ async function boot(){
           for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){if(Math.abs(dx)+Math.abs(dy)>3)continue;const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(TER[i]===WATER||OWNER[i]>=0&&countries[ORDER[OWNER[i]]?.uid]?.uid!==ME)continue;nt[i]=""}
           nt[sp]="capital";cur.tiles=nt;cur.capital=sp;pushLog(cur,"ქვეყანა ზღვაში აღმოჩნდა და ხმელეთზე გადავიდა")}}
       for(const k in cur.tiles){if(TER[+k]===WATER&&cur.tiles[k]!=="port")delete cur.tiles[k]}
+      if(!cur.barbRefund){const add={};let n=0;
+        // field battles against barbarians: the report keeps how many of each kind fell
+        for(const a of Object.values(attacks))if(a.kind==="intercept"&&a.from===ME&&a.to==="barbarians"&&a.result?.myLost)for(const k in a.result.myLost){const v=a.result.myLost[k]|0;if(v>0&&UNITS[k]){add[k]=(add[k]||0)+v;n+=v}}
+        // defending at home: the country's log keeps the count
+        const main=UK.filter(k=>!UNITS[k].summon&&!UNITS[k].naval).sort((p,q)=>(cur.army[q]||0)-(cur.army[p]||0))[0]||"sword";
+        for(const l of cur.log||[]){if(!/უცხო ტომელ/.test(l.m))continue;const m=l.m.match(/-(\d+) ჯარისკაცი/)||l.m.match(/დანაკარგი (\d+)/);if(m&&+m[1]>0){add[main]=(add[main]||0)+(+m[1]);n+=+m[1]}}
+        for(const k in add)cur.army[k]=(cur.army[k]||0)+add[k];cur.barbRefund=Date.now();if(n)pushLog(cur,`ბარბაროსებთან დაკარგული ${n} ჯარისკაცი დაგიბრუნდა`)}
       // anything standing inside the castle grounds is taken down and paid back
       if(cur.capital!=null)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const i=cur.capital+dy*W+dx;if(i===cur.capital||Math.abs(tx(i)-tx(cur.capital))>1)continue;const b=cur.tiles[i];
         if(b&&B[b]){const base=B[b].cost||{};for(const r in base)cur.res[r]=(cur.res[r]||0)+base[r];cur.tiles[i]="";pushLog(cur,B[b].n+" სასახლის ეზოდან აიღეს, ფასი დაგიბრუნდა")}}
