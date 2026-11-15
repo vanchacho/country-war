@@ -327,7 +327,7 @@ const nearRiver=i=>N4(i).some(n=>TER[n]===RIVER);
 
 /* ================= icons (drawn, no emoji) ================= */
 const O="#1b1712";
-function drawIcon(g,k,x,y,s){if(k==="lumber2"||k==="lumber3")k="lumber";if(k==="goldmine")k="gold";
+function drawIcon(g,k,x,y,s){if(k==="lumber2"||k==="lumber3")k="lumber";try{k=BASE[k]||k}catch{}if(k==="goldmine")k="gold";
   g.save();g.translate(x,y);g.scale(s/32,s/32);g.translate(-16,-16);g.lineJoin="round";g.lineCap="round";
   const P=(c,f)=>{g.fillStyle=c;g.beginPath();f();g.fill()};
   const R=(c,a,b,w,h)=>{g.fillStyle=c;g.fillRect(a,b,w,h)};
@@ -452,8 +452,15 @@ const B={
   wall:{n:"გალავანი",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა ახლოს"},
 };
 const UPG={village:"village2",village2:"village3",lumber:"lumber2",lumber2:"lumber3"};
+// level 2 gives a bit more than twice the output, level 3 more than three and a half times; each level costs more and the last needs some iron
+const BASE={lumber2:"lumber",lumber3:"lumber"};
+for(const [b,n2,n3] of [["farm","დიდი ფერმა","მამული"],["quarry","დიდი სამტეხლო","ქვის კარიერი"],["mine","ღრმა მაღარო","რკინის საბადო"],["goldmine","დიდი ოქროს საბადო","ოქროს მაღაროები"],["market","დიდი ბაზარი","სავაჭრო ცენტრი"],["magetower","მაგიის კოშკი","მაგიის ციტადელი"]]){
+  const d=B[b],up=(m,extra)=>{const o={};for(const k in d.cost)o[k]=Math.ceil(d.cost[k]*m);for(const k in extra)o[k]=(o[k]||0)+extra[k];return o},pr=m=>Object.fromEntries(Object.entries(d.prod).map(([k,v])=>[k,+(v*m).toFixed(1)]));
+  B[b+"2"]={n:n2,cost:up(1.4,{stone:30}),prod:pr(2.1),on:d.on,noBuild:true,coast:d.coast};B[b+"3"]={n:n3,cost:up(2.8,{stone:60,iron:10}),prod:pr(3.6),on:d.on,noBuild:true,coast:d.coast};
+  UPG[b]=b+"2";UPG[b+"2"]=b+"3";BASE[b+"2"]=b;BASE[b+"3"]=b}
+const baseOf=b=>BASE[b]||b;
 // how much of its normal output a building gives on this tile: river farms do better, hill mines worse, and on island worlds each region favours its own goods
-function tileMult(b,i){let m=1;const t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b.startsWith("lumber")&&t!==FOREST)m=0;
+function tileMult(b,i){b=baseOf(b);let m=1;const t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b.startsWith("lumber")&&t!==FOREST)m=0;
   if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=1.6;else if(b==="magetower")m*=cl===2?1.6:.6;else if(b==="farm"&&cl===1)m*=.4;else if(b.startsWith("lumber")&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}return m}
 // what a building would give if built on tile i (its real number, with a note when the place is poor or rich for it)
 function prodAtHTML(b,i){const d=B[b];if(!d.prod)return"";const m=tileMult(b,i);const parts=Object.keys(d.prod).map(r=>`<span>${icn(r,1)}+${+(d.prod[r]*m*ECO_SPEED).toFixed(1)}/წთ</span>`);
@@ -674,7 +681,7 @@ const ECO_SPEED=1,TRAIN_SPEED=2.6,MARCH_SPEED=1.6; // pace of the game
 
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
-  for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
+  for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;if(BASE[b])cnt[BASE[b]]=(cnt[BASE[b]]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
     if(d.prod){const m=tileMult(b,+k);for(const r in d.prod)prod[r]+=d.prod[r]*m}}
   let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
@@ -969,7 +976,7 @@ function drawTrees(g){
    Light comes from the north-west: soft blurred shadows fall south-east, roofs and towers are shaded with gradients,
    materials get texture (roof tiles, timber frames, stone courses) and a fine grain so nothing looks like plastic. */
 const BSPR={},BRES=3;
-function bsprite(b,v){if(b==="lumber2"||b==="lumber3")b="lumber";if(b==="goldmine")b="quarry";const key=b+"_"+v;if(BSPR[key])return BSPR[key];const big=b==="capital"||b==="village3",S=big?96:64;
+function bsprite(b,v){if(b==="lumber2"||b==="lumber3")b="lumber";b=baseOf(b);if(b==="goldmine")b="quarry";const key=b+"_"+v;if(BSPR[key])return BSPR[key];const big=b==="capital"||b==="village3",S=big?96:64;
   const c=document.createElement("canvas");c.width=S*BRES;c.height=S*BRES;const g=c.getContext("2d");g.scale(BRES,BRES);if(big)g.translate(16,16);paintBuilding(g,b,v);grain(c,v);BSPR[key]={c,S};return BSPR[key]}
 function grain(c,v){const g=c.getContext("2d"),img=g.getImageData(0,0,c.width,c.height),d=img.data;
   for(let i=0;i<d.length;i+=4){if(d[i+3]<40)continue;const n=(hash(i>>2,v,313)-.5)*18;d[i]=clamp(d[i]+n,0,255);d[i+1]=clamp(d[i+1]+n,0,255);d[i+2]=clamp(d[i+2]+n,0,255)}g.putImageData(img,0,0)}
@@ -981,7 +988,7 @@ function treeSprite(fir,v){const k=fir+"_"+v;if(TSPR[k])return TSPR[k];const c=d
     for(const [ox,oy,r] of [[0,-.2,1],[-.55,.1,.7],[.55,.15,.7],[0,-.75,.65]]){g.beginPath();g.arc(x+ox*s,y+oy*s,r*s,0,7);g.fill()}}
   return TSPR[k]=c}
 function drawBuildingTrees(g,b,i,cx,cy){if(b==="goldmine")return;if(!D3||g!==ctx||UPR)return drawBuildingTrees0(g,b,i,cx,cy);g.save();g.translate(...liftXY(cx,cy,LIFT[i]));uprM(g);UPR=true;try{return drawBuildingTrees0(g,b,i,0,0)}finally{UPR=false;g.restore()}}
-function drawBuildingTrees0(g,b,i,cx,cy){if(b==="wall"||b==="bridge"||b==="port"||b==="quarry"||b==="mine")return;const n=b==="capital"?2:hash(i,4,61)<.55?1:hash(i,5,61)<.4?2:0;
+function drawBuildingTrees0(g,b,i,cx,cy){b=baseOf(b);if(b==="wall"||b==="bridge"||b==="port"||b==="quarry"||b==="mine")return;const n=b==="capital"?2:hash(i,4,61)<.55?1:hash(i,5,61)<.4?2:0;
   for(let k=0;k<n;k++){const side=hash(i,k,62)<.5?-1:1,ox=side*(5+hash(i,k,63)*3),oy=3+hash(i,k,64)*4,fir=TER[i]===HILL||hash(i,k,65)<.25,sz=7+hash(i,k,66)*2.5;
     g.drawImage(treeSprite(fir?1:0,Math.floor(hash(i,k,67)*3)),cx+ox-sz,cy+oy-sz*1.2,sz*2,sz*2)}}
 /* fire: a blaze of flickering tongues with a hot core and a warm glow, sparks and embers flying up, a thick smoke
@@ -1238,6 +1245,9 @@ function house(B,x,y,z,s,seed,along){const w=(along?8.4:6.4)*s,d=(along?6:8)*s,h
   B.box(x,y,z-2,w,d,2+h,wl);B.box(x,y+d/2+.01,z+h*.15,1.2*s,.05,h*.55,PAL.timber);B.gable(x,y,z+h,w+1.2*s,d+1.2*s,3.6*s,rf,along);if(hash(seed,4,3)<.6)B.box(x+w*.25,y-d*.15,z+h+1.6*s,1.1*s,1.1*s,2.6*s,PAL.stone2)}
 function tileZ(i){return elevPx(tx(i)*TS+8,ty(i)*TS+8)}
 function buildModel(B,b,i,ownerCol){const cx=tx(i)*TS+8,cy=ty(i)*TS+8,z=tileZ(i),sd=i*7+3,oc=hexRGB(ownerCol);
+  if(BASE[b]&&!b.startsWith("lumber")){const lv=+b.slice(-1);buildModel(B,BASE[b],i,ownerCol);
+    // a bigger works: a storehouse, then a second one and a banner pole
+    house(B,cx-5.2,cy+4.6,z,.5+lv*.06,sd+11,true);if(lv>=3){house(B,cx+5.4,cy-4.6,z,.55,sd+12,false);B.box(cx-6.2,cy-5,z,.4,.4,10,PAL.timber);B.box(cx-5,cy-5,z+7.6,2.2,.2,1.6,oc)}return}
   const vil=(n,sc)=>{const spots=[[-3.6,-3],[3.4,-2.6],[-.4,3.4],[4,3.6],[-4.4,3.2],[.2,-5.4],[5.4,.4]];for(let k=0;k<n;k++){const [ox,oy]=spots[k];house(B,cx+ox,cy+oy,z,sc,sd+k,hash(sd,k,5)<.5)}};
   switch(b){
     case"house":house(B,cx,cy,z,1.05,sd,hash(sd,0,1)<.5);break;
