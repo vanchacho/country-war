@@ -1734,6 +1734,10 @@ function renderPane(force){
       ${(()=>{const bt=borderTiles(c),gs=guardSet(c),g=bt.filter(t=>gs.has(t)).length,pc=bt.length?Math.round(g/bt.length*100):100;return `<h3>საზღვარი</h3><p class="muted" style="margin:0 0 6px;font-size:12.5px">დაცულია <b style="display:inline;color:${pc>=80?"var(--ok)":pc>=40?"var(--brass2)":"var(--danger)"}">${pc}%</b> (${g}/${bt.length} უჯრა). რუკაზე მწვანე ხაზი დაცულია, წითელი წყვეტილი ხაზი არა. თითო საგუშაგო კოშკი ${TOWER_R} უჯრის რადიუსში აკონტროლებს. დაუცველ ადგილას შემოსულ მტერს ჯარის მხოლოდ ნაწილი დახვდება.</p>`})()}
       <h3>გალავანი</h3>${(()=>{const bw=borderWallTiles();return `<div class="list"><div class="row" style="flex-wrap:wrap"><button class="btn gold" id="wallMode">გალავნის ხატვა</button><button class="btn" id="wallRing" ${bw.length?"":"disabled"}>მთელი საზღვრის შემოზღუდვა · ${bw.length}</button></div>${bw.length?costHTML({stone:wallCostFor(c,bw.length)},c):""}</div>`})()}
       <h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,10).map(l=>`<div>${hhmm(l.t)} · ${esc(l.m)}</div>`).join("")}</div>
+      ${isOwnerViewer?`<h3>ადმინი: მიცემა</h3><p class="muted" style="margin:0 0 6px;font-size:12px">მიეცი ნებისმიერ მოთამაშეს (შენც) ჯარისკაცები ან რესურსი, მაგალითად შეცდომით დაკარგულის ასანაზღაურებლად.</p>
+        <div class="row" style="flex-wrap:wrap;gap:6px"><select id="agTo">${alive().map(o=>`<option value="${esc(o.uid)}">${esc(o.name)}</option>`).join("")}</select>
+        <select id="agWhat">${UK.filter(k=>!UNITS[k].hidden).map(k=>`<option value="u:${k}">${esc(UNITS[k].n)}</option>`).join("")}${RK.map(k=>`<option value="r:${k}">${esc(k==="gold"?"ოქრო":RES[k].n)}</option>`).join("")}</select>
+        <input id="agN" type="number" min="1" value="50" style="width:80px"><button class="btn sm gold" id="agGo">მიცემა</button></div>`:""}
       <div class="row" style="margin-top:20px;flex-wrap:wrap"><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>${isOwnerViewer?`<button class="btn sm red" id="resetWorld">სამყაროს წაშლა</button>${ISLANDS?"":`<button class="btn sm gold" id="newIsl">ახალი სამყარო კუნძულებით</button>`}`:""}</div>`;
   }
   if(tab==="army"){
@@ -1838,6 +1842,7 @@ $("#pane").addEventListener("click",e=>{
   if(t.id==="invCopyP")copyText(inviteLink(),$("#invInP"));
   if(t.id==="abandon"){if(t.dataset.sure)act(abandon);else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება"}}
   if(t.id==="newIsl"){if(t.dataset.sure){const id="i"+rid(9);try{localStorage.setItem("cw_host",id)}catch{}location.hash="#w-"+id}else{t.dataset.sure=1;t.textContent="შეიქმნება ახალი სამყარო ახალი ლინკით. ძველი ლინკით ძველი სამყარო დარჩება. გავაგრძელო?"}}
+  if(t.id==="agGo")act(()=>adminGive($("#agTo").value,$("#agWhat").value,Math.floor(+$("#agN").value)),"მიცემულია");
   if(t.id==="resetWorld"){if(t.dataset.sure)act(resetWorld,"სამყარო გასუფთავდა");else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
 });
 $("#pane").addEventListener("input",e=>{const u=e.target.dataset?.tq;if(u){TQ[u]=e.target.value;return}const k=e.target.dataset?.mq;if(!k)return;MQ[k]=e.target.value;const info=document.querySelector(`[data-mqinfo="${k}"]`);if(info)info.innerHTML=mqInfo(k,live(ME))});
@@ -2609,6 +2614,9 @@ async function collect(a){
     for(const k of RK)c.res[k]+=a.result.loot[k]||0;if(a.result.survivorsN)pushLog(c,`ჯარი დაბრუნდა (${a.result.survivorsN})`);c.applied=[key,...(c.applied||[])].slice(0,60)});
   await mutate("attacks/"+a.id,cur=>{if(!cur)return;cur.status="done";return cur});
 }
+async function adminGive(uid,what,n){if(!isOwnerViewer)throw new Error("მხოლოდ ადმინს შეუძლია");if(!(n>0))throw new Error("ჩაწერე რაოდენობა");
+  const [kind,k]=what.split(":");
+  await mutate("countries/"+uid,c=>{if(!c)throw new Error("ქვეყანა ვერ მოიძებნა");if(kind==="u"){c.army=c.army||{};c.army[k]=(c.army[k]||0)+n;pushLog(c,`ადმინმა მოგცა ${n} × ${UNITS[k].n}`)}else{c.res[k]=(c.res[k]||0)+n;pushLog(c,`ადმინმა მოგცა ${n} ${k==="gold"?"ოქრო":RES[k].n}`)}return c})}
 async function kickPlayer(uid){
   if(!isOwnerViewer)throw new Error("მხოლოდ ადმინს შეუძლია");if(uid===ME)throw new Error("საკუთარ თავს ვერ გააგდებ");const nm=countries[uid]?.name||"მოთამაშე";
   await mutate("meta/bans",cur=>{cur=cur||{ids:[]};if(!cur.ids.includes(uid))cur.ids=[...cur.ids,uid];return cur});
