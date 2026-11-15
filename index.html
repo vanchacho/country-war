@@ -153,6 +153,9 @@ canvas.icn.s{width:18px;height:18px}
   .card{padding:16px}
   .overlay{padding:8px}
 }
+#camctl{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);display:flex;gap:4px;padding:4px;z-index:4}
+#camctl .btn{padding:5px 10px;font-size:14px;min-width:34px}
+@media (max-width:760px){#camctl{bottom:calc(46% + 12px)}}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}}
 /* sharp corners everywhere: panels, buttons, fields, tags, the resource bar */
 *:not(.dot){border-radius:0!important}
@@ -446,7 +449,7 @@ const SKIN=["#e8c39e","#d9a77c","#c68b5f","#f0d2b0"],CLOTH=["#6b4f8a","#7a5a3a",
 const HAIR=["#2b1d14","#5a3a1e","#8a5a2b","#c9a050","#1b1712"];
 // a little walker: just a small rectangle that bobs as it moves (x,y = bottom centre, s = height)
 let UPR=false;
-function drawPerson(g,x,y,...r){if(!D3||g!==ctx||UPR)return drawPerson0(g,x,y,...r);g.save();g.translate(x,y);g.scale(1,1/CY3);UPR=true;try{return drawPerson0(g,0,0,...r)}finally{UPR=false;g.restore()}}
+function drawPerson(g,x,y,...r){if(!D3||g!==ctx||UPR)return drawPerson0(g,x,y,...r);g.save();g.translate(x,y);uprM(g);UPR=true;try{return drawPerson0(g,0,0,...r)}finally{UPR=false;g.restore()}}
 function drawPerson0(g,x,y,s,body,skin,ph,soldier){
   const w=s*.45,h=s*.75,bob=Math.abs(Math.sin(ph))*s*.12;
   g.fillStyle="rgba(0,0,0,.25)";g.fillRect(x-w/2,y-s*.06,w,s*.12);
@@ -481,7 +484,7 @@ function drawFlyer(g,u,x,y,s,ph,dir){
   g.fillStyle=C.wing;g.beginPath();g.moveTo(-s*.05,-s*.05);g.quadraticCurveTo(-s*.9,-s*(1.2*span+.1),-s*.2,-s*(1.7*span+.3));g.quadraticCurveTo(s*.3,-s*(.9*span+.2),s*.3,-s*.05);g.closePath();g.fill();
   g.strokeStyle=C.dark;g.lineWidth=s*.05;g.beginPath();g.moveTo(-s*.02,-s*.05);g.lineTo(-s*.2,-s*(1.7*span+.3));g.moveTo(s*.1,-s*.05);g.lineTo(-s*.45,-s*(1.25*span+.2));g.stroke();
   g.restore()}
-function drawUnitSprite(g,u,x,y,...r){if(!D3||g!==ctx||UPR)return drawUnitSprite0(g,u,x,y,...r);g.save();g.translate(x,y);g.scale(1,1/CY3);UPR=true;try{return drawUnitSprite0(g,u,0,0,...r)}finally{UPR=false;g.restore()}}
+function drawUnitSprite(g,u,x,y,...r){if(!D3||g!==ctx||UPR)return drawUnitSprite0(g,u,x,y,...r);g.save();g.translate(x,y);uprM(g);UPR=true;try{return drawUnitSprite0(g,u,0,0,...r)}finally{UPR=false;g.restore()}}
 function drawUnitSprite0(g,u,x,y,s,col,ph,skin,dir=0){
   const bob=Math.abs(Math.sin(ph))*s*.1;
   if(u==="torch"){drawHorse(g,x,y,s*1.3,"#5a3a24",ph);const rx=x+s*.05,ry=y-s-bob;g.fillStyle=col;g.fillRect(rx-s*.18,ry-s*.55,s*.36,s*.55);g.fillStyle=skin;g.fillRect(rx-s*.18,ry-s*.75,s*.36,s*.22);
@@ -562,7 +565,7 @@ function sceneFromAttack(a){
   let defU,defLost;if(ic){defLost=r.theirLost||{};defU={};for(const k of UK){const v=(r.theirSurv?.[k]||0)+(defLost[k]||0);if(v)defU[k]=v}}else{defU=r.defArmy||{};defLost=r.defLost||{}}
   if(!unitSum(defU))defU={spear:Math.max(3,Math.round(unitSum(atkU)/4))}; // town militia
   const loc=a.retFrom??a.target,from=(a.path&&a.path.length>1?a.path[a.path.length-2]:a.fromTile)??a.fromTile;
-  return{id:a.id,x:tx(loc)*TS+8,y:ty(loc)*TS+8-LIFT[loc],dir:Math.atan2(ty(loc)-ty(from),tx(loc)-tx(from))||0,t0:Date.now(),seed:strHash(a.id),
+  return{id:a.id,x:TC(loc)[0],y:TC(loc)[1],dir:Math.atan2(ty(loc)-ty(from),tx(loc)-tx(from))||0,t0:Date.now(),seed:strHash(a.id),
     A:{u:atkU,lost:atkLost,col:cOf(a.from)?.color||"#fff"},D:{u:defU,lost:defLost,col:countries[a.to]?.color||"#999"},win:ic?r.win:r.win}}
 function sideSlots(S,max){const slots=formationSlots(S.u,max),tot=unitSum(S.u)||1,lostFrac=unitSum(S.lost)/tot;return{slots,lostFrac}}
 function drawScene(sc,now,k){
@@ -949,19 +952,19 @@ function treeSprite(fir,v){const k=fir+"_"+v;if(TSPR[k])return TSPR[k];const c=d
   else{g.fillStyle="#4a3420";g.fillRect(x-.6,y,1.2,s*.8);const gr=g.createRadialGradient(x-s*.4,y-s*.6,.4,x,y-s*.2,s*1.1);gr.addColorStop(0,"#9cc664");gr.addColorStop(.55,"#4f8a36");gr.addColorStop(1,"#2a5222");g.fillStyle=gr;
     for(const [ox,oy,r] of [[0,-.2,1],[-.55,.1,.7],[.55,.15,.7],[0,-.75,.65]]){g.beginPath();g.arc(x+ox*s,y+oy*s,r*s,0,7);g.fill()}}
   return TSPR[k]=c}
-function drawBuildingTrees(g,b,i,cx,cy){if(!D3||g!==ctx||UPR)return drawBuildingTrees0(g,b,i,cx,cy);g.save();g.translate(cx,cy-LIFT[i]);g.scale(1,1/CY3);UPR=true;try{return drawBuildingTrees0(g,b,i,0,0)}finally{UPR=false;g.restore()}}
+function drawBuildingTrees(g,b,i,cx,cy){if(!D3||g!==ctx||UPR)return drawBuildingTrees0(g,b,i,cx,cy);g.save();g.translate(...liftXY(cx,cy,LIFT[i]));uprM(g);UPR=true;try{return drawBuildingTrees0(g,b,i,0,0)}finally{UPR=false;g.restore()}}
 function drawBuildingTrees0(g,b,i,cx,cy){if(b==="wall"||b==="bridge"||b==="port"||b==="quarry"||b==="mine")return;const n=b==="capital"?2:hash(i,4,61)<.55?1:hash(i,5,61)<.4?2:0;
   for(let k=0;k<n;k++){const side=hash(i,k,62)<.5?-1:1,ox=side*(5+hash(i,k,63)*3),oy=3+hash(i,k,64)*4,fir=TER[i]===HILL||hash(i,k,65)<.25,sz=7+hash(i,k,66)*2.5;
     g.drawImage(treeSprite(fir?1:0,Math.floor(hash(i,k,67)*3)),cx+ox-sz,cy+oy-sz*1.2,sz*2,sz*2)}}
 /* fire: a blaze of flickering tongues with a hot core and a warm glow, sparks and embers flying up, a thick smoke
    column drifting downwind; once it burns out, charred ruins smoulder on scorched ground */
-function flame(g,x,y,h,w,ph){const sway=Math.sin(ph)*w*.35,tip=Math.sin(ph*1.7)*w*.25;
+function flame(g,x,y,h,w,ph){if(D3&&g===ctx&&!UPR){g.save();g.translate(x,y);uprM(g);UPR=true;try{return flame(g,0,0,h,w,ph)}finally{UPR=false;g.restore()}}const sway=Math.sin(ph)*w*.35,tip=Math.sin(ph*1.7)*w*.25;
   const gr=g.createLinearGradient(0,y,0,y-h);gr.addColorStop(0,"rgba(255,90,20,.95)");gr.addColorStop(.35,"rgba(255,150,30,.9)");gr.addColorStop(.75,"rgba(255,210,80,.55)");gr.addColorStop(1,"rgba(255,240,170,0)");
   g.fillStyle=gr;g.beginPath();g.moveTo(x-w,y);g.bezierCurveTo(x-w*1.1,y-h*.45,x-w*.2+sway,y-h*.7,x+tip,y-h);g.bezierCurveTo(x+w*.25+sway,y-h*.65,x+w*1.1,y-h*.4,x+w,y);g.closePath();g.fill();
   const c2=g.createLinearGradient(0,y,0,y-h*.6);c2.addColorStop(0,"rgba(255,250,200,.95)");c2.addColorStop(1,"rgba(255,220,120,0)");g.fillStyle=c2;g.beginPath();g.moveTo(x-w*.45,y);g.quadraticCurveTo(x+sway*.5,y-h*.7,x+w*.45,y);g.fill()}
 function drawFires(now,vis){
   for(const c of ORDER){if(!c.burnt)continue;for(const k in c.burnt){const i=+k;if(!vis(i))continue;const age=(now-c.burnt[k])/60000;if(age>5)continue;
-    const x=tx(i)*TS+8,y=ty(i)*TS+9-LIFT[i],heat=age<1.5?1-age/1.5:0,seed=hash(i,1,77);
+    const [x,y]=liftXY(tx(i)*TS+8,ty(i)*TS+9,LIFT[i]),heat=age<1.5?1-age/1.5:0,seed=hash(i,1,77);
     // scorched ground and ruins
     const sg=ctx.createRadialGradient(x,y,1,x,y,11);sg.addColorStop(0,`rgba(20,14,8,${.75*(1-age/5)})`);sg.addColorStop(1,"rgba(20,14,8,0)");ctx.fillStyle=sg;ctx.beginPath();ctx.ellipse(x,y,11,8,0,0,7);ctx.fill();
     if(age>.8){ctx.fillStyle="#2a2420";for(let r=0;r<4;r++)ctx.fillRect(x-6+hash(i,r,8)*10,y-2+hash(i,r,9)*5,2.5+hash(i,r,10)*2,1.6);ctx.strokeStyle="#1a120c";ctx.lineWidth=1.1;ctx.beginPath();
@@ -985,7 +988,7 @@ function drawBridge(g,i,cx,cy){const flowH=TER[i-1]===RIVER||TER[i+1]===RIVER||T
   g.fillStyle="#8a6a44";g.fillRect(-Wd/2+1,-L/2,Wd-2,L);g.strokeStyle="rgba(0,0,0,.25)";g.lineWidth=.3;for(let q=-L/2+1;q<L/2;q+=1.3){g.beginPath();g.moveTo(-Wd/2+1,q);g.lineTo(Wd/2-1,q);g.stroke()}
   g.fillStyle="#b5ab97";g.fillRect(-Wd/2,-L/2,1.1,L);g.fillRect(Wd/2-1.1,-L/2,1.1,L);g.fillStyle="#7a7266";for(const y of [-L/2,L/2-1.4]){g.fillRect(-Wd/2-.4,y,1.9,1.4);g.fillRect(Wd/2-1.5,y,1.9,1.4)}
   g.restore()}
-function drawBuildingSprite(g,b,i,cx,cy,scale=1){if(!D3||g!==ctx||UPR)return drawBuildingSprite0(g,b,i,cx,cy,scale);g.save();g.translate(cx,cy-LIFT[i]);g.scale(1,1/CY3);UPR=true;try{return drawBuildingSprite0(g,b,i,0,0,scale)}finally{UPR=false;g.restore()}}
+function drawBuildingSprite(g,b,i,cx,cy,scale=1){if(!D3||g!==ctx||UPR)return drawBuildingSprite0(g,b,i,cx,cy,scale);g.save();g.translate(...liftXY(cx,cy,LIFT[i]));uprM(g);UPR=true;try{return drawBuildingSprite0(g,b,i,0,0,scale)}finally{UPR=false;g.restore()}}
 function drawBuildingSprite0(g,b,i,cx,cy,scale=1){if(b==="bridge")return drawBridge(g,i,cx,cy);const v=Math.floor(hash(i,0,5)*3),sp=bsprite(b,v),s=TS*(sp.S/64)*scale*(sp.S>64&&b!=="capital"?.72:1);g.drawImage(sp.c,cx-s/2,cy-s/2,s,s)}
 const ROOFS=[["#c0603f","#8e3f29","#6e2f1e"],["#a9653d","#7a4628","#5a331d"],["#7b7e88","#565961","#3f4147"],["#c97a46","#985530","#733f22"]];
 const WALLS=[["#efe2c4","#d6c39c"],["#e6d6b2","#c9b48a"],["#d9cdb8","#bcae94"]];
@@ -1252,9 +1255,9 @@ function glInit(){
   const gl=glc.getContext("webgl",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});if(!gl)return null;
   const sh=(t,src)=>{const o=gl.createShader(t);gl.shaderSource(o,src);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o};
   const pr=gl.createProgram();
-  gl.attachShader(pr,sh(gl.VERTEX_SHADER,`attribute vec4 a;uniform vec4 cam;uniform vec4 vw;varying vec2 uv;varying float sh;
-    void main(){float sx=(a.x-cam.x)*cam.z,sy=(a.y-cam.y)*cam.z*cam.w-a.z*cam.z;float d=(a.y*.626+a.z*1.25)/vw.w;
-      gl_Position=vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);uv=vec2(a.x/${PW}.,a.y/${PH}.);sh=a.w;}`));
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,`attribute vec4 a;uniform vec4 cam;uniform vec4 vw;uniform vec4 rot;varying vec2 uv;varying float sh;
+    void main(){float vx=a.x-cam.x,vy=a.y-cam.y,rx=rot.x*vx+rot.y*vy,ry=-rot.y*vx+rot.x*vy;float sx=rx*cam.z,sy=ry*cam.z*cam.w-a.z*cam.z*vw.z;
+      float d=(ry*rot.z+a.z/.626*rot.w+vw.w)/(2.*vw.w);gl_Position=vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);uv=vec2(a.x/${PW}.,a.y/${PH}.);sh=a.w;}`));
   gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`precision mediump float;uniform sampler2D t0,t1,w0,w1;uniform float wf;varying vec2 uv;varying float sh;
     void main(){vec3 c=texture2D(t0,uv).rgb;vec4 o=texture2D(t1,uv);c=mix(c,o.rgb,o.a);vec4 w=mix(texture2D(w0,uv),texture2D(w1,uv),wf);c=mix(c,w.rgb,w.a);gl_FragColor=vec4(c*sh,1.);}`));
   gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
@@ -1262,11 +1265,12 @@ function glInit(){
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));return t};
   const G={gl,pr,terr:mk(),own:mk(),w:[mk(),mk(),mk()],buf:gl.createBuffer(),ib:gl.createBuffer(),n:0,
-    u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),wf:gl.getUniformLocation(pr,"wf"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
+    u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),rot:gl.getUniformLocation(pr,"rot"),wf:gl.getUniformLocation(pr,"wf"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
   gl.uniform1i(G.u.t0,0);gl.uniform1i(G.u.t1,1);gl.uniform1i(G.u.w0,2);gl.uniform1i(G.u.w1,3);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   const prog=(vs,fs)=>{const q=gl.createProgram();gl.attachShader(q,sh(gl.VERTEX_SHADER,vs));gl.attachShader(q,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(q);if(!gl.getProgramParameter(q,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(q));return q};
-  const PROJ=`uniform vec4 cam;uniform vec4 vw;uniform vec3 L;uniform float shd;varying vec3 col;
-    vec4 proj(vec3 w){float sx=(w.x-cam.x)*cam.z,sy=(w.y-cam.y)*cam.z*cam.w-w.z*cam.z;float d=(w.y*.626+w.z*1.25)/vw.w;return vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);}`;
+  const PROJ=`uniform vec4 cam;uniform vec4 vw;uniform vec4 rot;uniform vec3 L;uniform float shd;varying vec3 col;
+    vec4 proj(vec3 w){float vx=w.x-cam.x,vy=w.y-cam.y,rx=rot.x*vx+rot.y*vy,ry=-rot.y*vx+rot.x*vy;float sx=rx*cam.z,sy=ry*cam.z*cam.w-w.z*cam.z*vw.z;
+      float d=(ry*rot.z+w.z/.626*rot.w+vw.w)/(2.*vw.w);return vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);}`;
   const FS=`precision mediump float;varying vec3 col;uniform float alpha;void main(){gl_FragColor=vec4(col,alpha);}`;
   G.obj=prog(`attribute vec3 p;attribute vec3 n;attribute vec3 c;${PROJ}
     void main(){gl_Position=proj(p);float dif=max(dot(n,L),0.);col=shd>.5?vec3(0.):c*(.5+.66*dif);}`,FS);
@@ -1275,7 +1279,7 @@ function glInit(){
     void main(){vec3 w=vec3(ip.x+p.x*ip.w,ip.y+p.y*ip.w,ip.z+p.z*ip.w);gl_Position=proj(w);float dif=max(dot(n,L),0.);
       vec3 cc=c*(.82+.36*it.x);cc=mix(cc,vec3(.9,.93,.97),it.y*step(.0,n.z-.25)*.55);col=shd>.5?vec3(0.):cc*(.5+.66*dif);}`,FS);
   for(const [k,q] of [["obj",G.obj],["tree",G.tree]]){if(!q)continue;G[k+"L"]={p:gl.getAttribLocation(q,"p"),n:gl.getAttribLocation(q,"n"),c:gl.getAttribLocation(q,"c"),ip:gl.getAttribLocation(q,"ip"),it:gl.getAttribLocation(q,"it"),
-    cam:gl.getUniformLocation(q,"cam"),vw:gl.getUniformLocation(q,"vw"),L:gl.getUniformLocation(q,"L"),shd:gl.getUniformLocation(q,"shd"),alpha:gl.getUniformLocation(q,"alpha")}}
+    cam:gl.getUniformLocation(q,"cam"),vw:gl.getUniformLocation(q,"vw"),rot:gl.getUniformLocation(q,"rot"),L:gl.getUniformLocation(q,"L"),shd:gl.getUniformLocation(q,"shd"),alpha:gl.getUniformLocation(q,"alpha")}}
   G.bb=gl.createBuffer();G.bs=gl.createBuffer();G.bn=0;G.sn=0;
   if(G.ext){G.tm={};for(const k of ["fir","leaf","shadow"]){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,TREE_MESH[k],gl.STATIC_DRAW);G.tm[k]={b,n:TREE_MESH[k].length/9}}
     G.ti={fir:{b:gl.createBuffer(),n:0},leaf:{b:gl.createBuffer(),n:0}}}
@@ -1292,7 +1296,7 @@ function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;gl.useProgr
   if(GLD.terr&&terrCv.width>1){up(GL.terr,terrCv);GLD.terr=false}if(GLD.own){up(GL.own,ownCv);GLD.own=false}
   if(GLD.wfx&&WFX.length===3){WFX.forEach((c,j)=>up(GL.w[j],c));GLD.wfx=false}
   gl.viewport(0,0,glc.width,glc.height);gl.clearColor(.114,.247,.341,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  gl.uniform4f(GL.u.cam,cam.x,cam.y,cam.z,CY3);gl.uniform4f(GL.u.vw,vw,vh,0,PH*.626+HS3*1.25+1);
+  const NRM=Math.hypot(PW,PH)+HS3*3;gl.uniform4f(GL.u.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(GL.u.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(GL.u.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);
   const t=now/1400,i=Math.floor(t)%3;gl.uniform1f(GL.u.wf,t%1);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.terr);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,GL.own);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,GL.w[i]);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,GL.w[(i+1)%3]);
@@ -1302,7 +1306,7 @@ function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;gl.useProgr
 function glObjects(){const G=GL,gl=G.gl;
   if(GLD.bld){const m=buildingMesh();gl.bindBuffer(gl.ARRAY_BUFFER,G.bb);gl.bufferData(gl.ARRAY_BUFFER,m.v,gl.STATIC_DRAW);G.bn=m.v.length/9;gl.bindBuffer(gl.ARRAY_BUFFER,G.bs);gl.bufferData(gl.ARRAY_BUFFER,m.s,gl.STATIC_DRAW);G.sn=m.s.length/9;GLD.bld=false}
   if(G.ext&&GLD.trees){const t=treeInstances();for(const k of ["fir","leaf"]){gl.bindBuffer(gl.ARRAY_BUFFER,G.ti[k].b);gl.bufferData(gl.ARRAY_BUFFER,t[k],gl.STATIC_DRAW);G.ti[k].n=t[k].length/6}GLD.trees=false}
-  const uni=(U)=>{gl.uniform4f(U.cam,cam.x,cam.y,cam.z,CY3);gl.uniform4f(U.vw,vw,vh,0,PH*.626+HS3*1.25+1);gl.uniform3f(U.L,...LDIR)};
+  const NRM=Math.hypot(PW,PH)+HS3*3;const uni=(U)=>{gl.uniform4f(U.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(U.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(U.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);gl.uniform3f(U.L,...LDIR)};
   const attrs=(U,stride)=>{gl.enableVertexAttribArray(U.p);gl.vertexAttribPointer(U.p,3,gl.FLOAT,false,36,0);
     if(U.n>=0){gl.enableVertexAttribArray(U.n);gl.vertexAttribPointer(U.n,3,gl.FLOAT,false,36,12)}if(U.c>=0){gl.enableVertexAttribArray(U.c);gl.vertexAttribPointer(U.c,3,gl.FLOAT,false,36,24)}};
   const off=U=>{for(const a of [U.p,U.n,U.c,U.ip,U.it])if(a>=0)gl.disableVertexAttribArray(a)};
@@ -1323,21 +1327,30 @@ function glObjects(){const G=GL,gl=G.gl;
     G.ext.vertexAttribDivisorANGLE(T.ip,0);G.ext.vertexAttribDivisorANGLE(T.it,0);off(T)}
   gl.useProgram(G.pr)}
 let LAST_TREES3D=null;const TREES3D=()=>!!(D3&&GL&&GL.ext);
-function set3D(on){if(on&&!GL){try{GL=glInit()}catch(e){console.warn(e);GL=null}}D3=!!(on&&GL);glc.style.display=D3?"block":"none";try{localStorage.setItem("cw_3d",D3?"1":"0")}catch{}
+function set3D(on){setTimeout(()=>{camctl.hidden=!D3},0);if(on&&!GL){try{GL=glInit()}catch(e){console.warn(e);GL=null}}D3=!!(on&&GL);glc.style.display=D3?"block":"none";try{localStorage.setItem("cw_3d",D3?"1":"0")}catch{}
   const hadTrees=TREES3D();if(D3){GLD.terr=GLD.own=GLD.wfx=GLD.bld=GLD.trees=true;if(GL)glMesh()}computeLift();if(HEIGHT&&hadTrees!==LAST_TREES3D)drawTerrain();GUARD_CACHE.key="";renderNet()}
-const s2g=(sx,sy)=>[(sx-vw/2)/cam.z+cam.x,(sy-vh/2)/(cam.z*CYc())+cam.y]; // onto flat ground
-const s2w=(sx,sy)=>{const [x,y0]=s2g(sx,sy);if(!D3)return[x,y0];let y=y0;for(let k=0;k<4;k++)y=y0+elevPx(x,y)/CY3;return[x,y]}; // onto the raised terrain
+const s2g=(sx,sy)=>{const dx=(sx-vw/2)/cam.z,dy=(sy-vh/2)/(cam.z*VIEW.cy);return[cam.x+VIEW.ca*dx-VIEW.sa*dy,cam.y+VIEW.sa*dx+VIEW.ca*dy]}; // onto flat ground
+const s2w=(sx,sy)=>{let w=s2g(sx,sy);if(!D3)return w;for(let k=0;k<4;k++)w=s2g(sx,sy+elevPx(w[0],w[1])*cam.z*VIEW.hs);return w}; // onto the raised terrain
 function clampCam(){cam.z=clamp(cam.z,.3,3.5);cam.x=clamp(cam.x,0,W*TS);cam.y=clamp(cam.y,0,H*TS)}
 let hoverTile=-1,selectedArmy=null;const FX=[];
 function pathOf(a){return a.path&&a.path.length>1?a.path:[a.fromTile,a.target]}
 /* ===== 3D: the ground is a raised, lit height field drawn with WebGL beneath the 2D layer; the camera looks down at a tilt.
    Everything standing on the map is lifted by the height of its tile and drawn upright. ===== */
-let D3=false;const CY3=.78,HS3=60,LIFT=new Float32Array(W*H);const CYc=()=>D3?CY3:1;
+let D3=false;const CY3=.78,HS3=60,TILT0=Math.acos(.78),LIFT=new Float32Array(W*H);
+// VIEW is recomputed whenever the camera changes: ca/sa turn the map, cy squashes it by the tilt, hs scales heights, (lx,ly) is "up" on screen in map units per unit of height
+const VIEW={ca:1,sa:0,cy:1,hs:0,st:0,ct:1,lx:0,ly:0};
+function updView(){const yaw=D3?(cam.yaw||0):0,t=D3?(cam.tilt??TILT0):0;VIEW.ca=Math.cos(yaw);VIEW.sa=Math.sin(yaw);VIEW.cy=Math.cos(t);VIEW.st=Math.sin(t);VIEW.ct=Math.cos(t);VIEW.hs=VIEW.st/.626;
+  VIEW.lx=VIEW.sa*VIEW.hs/VIEW.cy;VIEW.ly=-VIEW.ca*VIEW.hs/VIEW.cy}
+const CYc=()=>VIEW.cy;
+const liftXY=(x,y,h)=>[x+VIEW.lx*h,y+VIEW.ly*h];
+// draw something standing upright (a person, a flag, a label) at x,y whatever way the map is turned
+function uprM(g){g.transform(VIEW.ca,VIEW.sa,-VIEW.sa/VIEW.cy,VIEW.ca/VIEW.cy,0,0)}
+const w2s=(x,y)=>{const vx=x-cam.x,vy=y-cam.y;return[cam.z*(VIEW.ca*vx+VIEW.sa*vy)+vw/2,cam.z*VIEW.cy*(-VIEW.sa*vx+VIEW.ca*vy)+vh/2]};
 function elevPx(wx,wy){if(!HEIGHT)return 0;const fx=clamp(wx/TS*TR-.5,0,TW-1.001),fy=clamp(wy/TS*TR-.5,0,THh-1.001),xi=fx|0,yi=fy|0,u=fx-xi,v=fy-yi,o=xi+yi*TW;
   const h=HEIGHT[o]*(1-u)*(1-v)+HEIGHT[o+1]*u*(1-v)+HEIGHT[o+TW]*(1-u)*v+HEIGHT[o+TW+1]*u*v;return HS3*Math.pow(clamp((h-.37)/.63,0,1),2.1)}
-function computeLift(){for(let i=0;i<W*H;i++)LIFT[i]=D3?elevPx(tx(i)*TS+8,ty(i)*TS+8)/CY3:0}
-const TY=i=>ty(i)*TS-LIFT[i];
-const TC=i=>[tx(i)*TS+8,ty(i)*TS+8-LIFT[i]];
+function computeLift(){for(let i=0;i<W*H;i++)LIFT[i]=D3?elevPx(tx(i)*TS+8,ty(i)*TS+8):0}
+const TX=i=>tx(i)*TS+VIEW.lx*LIFT[i],TY=i=>ty(i)*TS+VIEW.ly*LIFT[i];
+const TC=i=>[tx(i)*TS+8+VIEW.lx*LIFT[i],ty(i)*TS+8+VIEW.ly*LIFT[i]];
 function along(path,p){const pts=path.map(TC);let L=0;const seg=[];for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}
   if(!seg.length){const l=pts[0];return{x:l[0],y:l[1],nx:l[0],ny:l[1],seg:0}}
   let t=clamp(p,0,1)*L;for(let i=0;i<seg.length;i++){if(t<=seg[i]||i===seg.length-1){const f=seg[i]?clamp(t/seg[i],0,1):1,[ax,ay]=pts[i],[bx,by]=pts[i+1];return{x:ax+(bx-ax)*f,y:ay+(by-ay)*f,nx:bx,ny:by,seg:i}}t-=seg[i]}}
@@ -1356,17 +1369,18 @@ function armyPos(a,now){
 function heading(a,now){const P1=armyPos(a,now),P2=armyPos(a,now+700);if(!P1||!P2)return 0;const dx=P2.x-P1.x,dy=P2.y-P1.y;return Math.hypot(dx,dy)<.01?Math.atan2(P1.ny-P1.y,P1.nx-P1.x)||0:Math.atan2(dy,dx)}
 function heel(a,now){let d=heading(a,now+900)-heading(a,now);while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return clamp(d*.5,-.22,.22)}
 function armyAt(sx,sy){const now=Date.now();let best=null,bd=18;for(const a of Object.values(attacks)){const P=armyPos(a,now);if(!P)continue;
-  const X=(P.x-cam.x)*cam.z+vw/2,Y=(P.y-cam.y)*cam.z*CYc()+vh/2,d=Math.hypot(X-sx,Y-sy);if(d<bd){bd=d;best=a}}return best}
+  const [X,Y]=w2s(P.x,P.y),d=Math.hypot(X-sx,Y-sy);if(d<bd){bd=d;best=a}}return best}
 function frame(){
   const now=Date.now();
-  ctx.setTransform(dpr,0,0,dpr,0,0);const z=cam.z,cyc=CYc();
-  if(D3&&GL){ctx.clearRect(0,0,vw,vh);glDraw(now);ctx.setTransform(dpr*z,0,0,dpr*z*cyc,dpr*(vw/2-cam.x*z),dpr*(vh/2-cam.y*z*cyc))}
+  updView();ctx.setTransform(dpr,0,0,dpr,0,0);const z=cam.z;
+  if(D3&&GL){ctx.clearRect(0,0,vw,vh);glDraw(now);const a=z*VIEW.ca,c=z*VIEW.sa,b=-z*VIEW.cy*VIEW.sa,d=z*VIEW.cy*VIEW.ca;
+    ctx.setTransform(dpr*a,dpr*b,dpr*c,dpr*d,dpr*(vw/2-(a*cam.x+c*cam.y)),dpr*(vh/2-(b*cam.x+d*cam.y)))}
   else{ctx.fillStyle="#1d3f57";ctx.fillRect(0,0,vw,vh);
   ctx.setTransform(dpr*z,0,0,dpr*z,dpr*(vw/2-cam.x*z),dpr*(vh/2-cam.y*z));
   ctx.imageSmoothingEnabled=true;ctx.drawImage(terrCv,0,0,PW,PH);drawWaterFX(now);ctx.imageSmoothingEnabled=z<1;ctx.drawImage(ownCv,0,0)}
   ctx.imageSmoothingEnabled=true;
-  const [ax,ay]=s2w(0,0),[bx,by]=s2w(vw,vh);
-  const x0=clamp(Math.floor(ax/TS)-1,0,W-1),x1=clamp(Math.ceil(bx/TS)+1,0,W-1),y0=clamp(Math.floor(ay/TS)-1,0,H-1),y1=clamp(Math.ceil(by/TS)+1+(D3?4:0),0,H-1);
+  const cs=[s2g(0,0),s2g(vw,0),s2g(0,vh),s2g(vw,vh)],mg=D3?6:1,ax=Math.min(...cs.map(q=>q[0])),bx=Math.max(...cs.map(q=>q[0])),ay=Math.min(...cs.map(q=>q[1])),by=Math.max(...cs.map(q=>q[1]));
+  const x0=clamp(Math.floor(ax/TS)-mg,0,W-1),x1=clamp(Math.ceil(bx/TS)+mg,0,W-1),y0=clamp(Math.floor(ay/TS)-mg,0,H-1),y1=clamp(Math.ceil(by/TS)+mg,0,H-1);
   const vis=i=>{const x=tx(i),y=ty(i);return x>=x0&&x<=x1&&y>=y0&&y<=y1};
   // walls
   ctx.lineCap="round";
@@ -1397,19 +1411,20 @@ function frame(){
   // capitals with flags
   for(const c of ORDER){const i=c.capital;if(i==null||!vis(i))continue;const x=tx(i)*TS,y=ty(i)*TS;
     if(!D3)drawBuildingSprite(ctx,"capital",i,x+8,y+2,2.3);
-    const L=LIFT[i],Lf=L+(D3?24/CY3:10);ctx.fillStyle="#2a241b";ctx.fillRect(x+8,y-22-Lf,1.3,16);drawFlag(ctx,c.flag,x+9.3,y-22-Lf,15,10);
-    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+26-L+(D3?6:0),w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+31.5-L+(D3?6:0))}}
+    {const [fx,fy]=liftXY(x+8,y+8,LIFT[i]+(D3?34:0));ctx.save();ctx.translate(fx,fy-(D3?0:20));if(D3)uprM(ctx);ctx.fillStyle="#2a241b";ctx.fillRect(0,-16,1.3,16);drawFlag(ctx,c.flag,1.3,-16,15,10);ctx.restore()}
+    const [lx0,ly0]=liftXY(x+8,y+8,LIFT[i]);ctx.save();ctx.translate(lx0,ly0);if(D3)uprM(ctx);
+    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(-w/2,18+(D3?6:0),w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,0,23.5+(D3?6:0))}ctx.restore()}
   // villagers: little people walking between buildings and nearby land
   if(z>.7){let cnt=0;const tt=now/1000;
     for(const c of ORDER){for(const key in c.tiles){const b=c.tiles[key];if(!b||b==="wall")continue;const i=+key;if(!vis(i))continue;
       const many=b==="capital"?4:b.startsWith("village")?3:1;
       for(let m=0;m<many&&cnt<260;m++){const sd=hash(i,m,77),nb=N4(i).filter(n=>n in c.tiles);const j=nb.length?nb[Math.floor(sd*nb.length)]:i;
         const ph=tt*(.25+sd*.25)+sd*20,f=(Math.sin(ph)+1)/2,ox=(hash(i,m,5)-.5)*8,oy=(hash(i,m,6)-.5)*6;
-        const x=tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,y=ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy-(LIFT[i]*(1-f)+LIFT[j]*f);
+        const [x,y]=liftXY(tx(i)*TS+8+(tx(j)-tx(i))*TS*f+ox,ty(i)*TS+11+(ty(j)-ty(i))*TS*f+oy,LIFT[i]*(1-f)+LIFT[j]*f);
         drawPerson(ctx,x,y+3,clamp(5/z,3,4.5),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
   drawFires(now,vis);
   // forest fires: tiles ignite as the riders pass, burn a few minutes, then stay scorched and slowly green over
-  for(const k in FOREST_FIRE){const i=+k;if(!vis(i))continue;const age=(now-FOREST_FIRE[k])/60000;if(age<0)continue;const x=tx(i)*TS+8,y=ty(i)*TS+8-LIFT[i],seed=hash(i,2,88);
+  for(const k in FOREST_FIRE){const i=+k;if(!vis(i))continue;const age=(now-FOREST_FIRE[k])/60000;if(age<0)continue;const [x,y]=liftXY(tx(i)*TS+8,ty(i)*TS+8,LIFT[i]),seed=hash(i,2,88);
     const dark=age<1?.9:Math.max(0,.9*(1-(age-1)/2));
     if(dark>0){const sc=ctx.createRadialGradient(x,y,1,x,y,12);sc.addColorStop(0,`rgba(34,28,20,${dark})`);sc.addColorStop(.55,`rgba(34,28,20,${dark*.8})`);sc.addColorStop(1,"rgba(34,28,20,0)");ctx.fillStyle=sc;ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.fill()}
     if(age<1){const heat=1-age;ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-2,1,x,y-2,20);gl.addColorStop(0,`rgba(255,130,40,${.5*heat})`);gl.addColorStop(1,"rgba(255,90,20,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-2,20,0,7);ctx.fill();ctx.restore();
@@ -1418,7 +1433,7 @@ function frame(){
       const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,r);sg.addColorStop(0,`rgba(70,66,62,${a})`);sg.addColorStop(1,"rgba(70,66,62,0)");ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sx,sy,r,0,7);ctx.fill()}}}
   // creatures at home: dragons and griffins circle over the capital, golems patrol around it
   if(z>.35){const tt=now/1000,kk=clamp(1.5/z,.8,3);
-    for(const c of ORDER){const cap=c.capital;if(cap==null)continue;const cx=tx(cap)*TS+8,cy=ty(cap)*TS+8-LIFT[cap];if(!vis(cap)&&Math.abs(tx(cap)-(x0+x1)/2)>(x1-x0)/2+6)continue;const A=c.army||{};
+    for(const c of ORDER){const cap=c.capital;if(cap==null)continue;const [cx,cy]=liftXY(tx(cap)*TS+8,ty(cap)*TS+8,LIFT[cap]);if(!vis(cap)&&Math.abs(tx(cap)-(x0+x1)/2)>(x1-x0)/2+6)continue;const A=c.army||{};
       for(const [u,max,R,sp] of [["dragon",3,46,.32],["griffin",3,30,.5]]){const n=Math.min(A[u]||0,max);for(let m=0;m<n;m++){const an=tt*sp+m*Math.PI*2/n+hash(cap,m,9)*.6,r=R+m*7,x=cx+Math.cos(an)*r,y=cy+Math.sin(an)*r*.6;
         drawFlyer(ctx,u,x,y,(u==="dragon"?6.8:5)*kk,tt*4+m*1.7,an+Math.PI/2)}}
       const gn=Math.min(A.golem||0,3);for(let m=0;m<gn;m++){const an=tt*.12+m*2.1,r=20+m*4,x=cx+Math.cos(an)*r,y=cy+12+Math.sin(an)*r*.45;drawUnitSprite(ctx,"golem",x,y,4.5*kk,c.color,tt*3+m,SKIN[0])}}}
@@ -1439,9 +1454,9 @@ function frame(){
     if(P.stat==="fighting"){const D=countries[a.to],dfU=(a.defend||D?.autoDefend)&&unitSum(D?.army||{})?D.army:{spear:Math.max(3,Math.round(N/4))};
       const sc={id:a.id,x:P.x,y:P.y,dir:Math.atan2(ty(a.target)-ty(P.from),tx(a.target)-tx(P.from))||0,t0:now-SCENE_MS*(.45+.1*Math.sin(now/1700)),seed:strHash(a.id),A:{u:units,lost:{},col},D:{u:dfU,lost:{},col:D?.color||"#999"},win:null};
       drawScene(sc,now,k);const left=Math.max(0,a.fightEnd-now),tot=Math.max(1,a.fightEnd-a.fightStart),pr=1-left/tot;
-      const bw=44*k,bx=P.x-bw/2,by=P.y-34*k;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(bx-2*k,by-9*k,bw+4*k,15*k);
+      ctx.save();ctx.translate(P.x,P.y);uprM(ctx);const bw=44*k,bx=-bw/2,by=-34*k;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(bx-2*k,by-9*k,bw+4*k,15*k);
       ctx.fillStyle=col;ctx.fillRect(bx,by,bw*.5,3*k);ctx.fillStyle=D?.color||"#999";ctx.fillRect(bx+bw*.5,by,bw*.5,3*k);ctx.fillStyle="rgba(255,255,255,.85)";ctx.fillRect(bx+bw*pr-.6*k,by-1*k,1.2*k,5*k);
-      ctx.font=`600 ${6*k}px 'Noto Sans Georgian',sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#fff";ctx.fillText("ბრძოლა "+mmss(left),P.x,by-4*k);continue}
+      ctx.font=`600 ${6*k}px 'Noto Sans Georgian',sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#fff";ctx.fillText("ბრძოლა "+mmss(left),0,by-4*k);ctx.restore();continue}
     if(P.stat==="besieging"){ // troops spread along the drawn siege line; catapults lob stones at the city
       const [cx0,cy0]=TC(a.target),line=a.siegeLine?.length>1?a.siegeLine:null,slots=formationSlots(units,16);
       if(line){const pts=line.map(TC);ctx.strokeStyle="rgba(227,98,79,.45)";ctx.lineWidth=1.4*k;ctx.setLineDash([3*k,3*k]);ctx.beginPath();pts.forEach((q,j)=>j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.setLineDash([])}
@@ -1480,6 +1495,7 @@ function frame(){
           slots=walking}}
       slots.forEach((u,m)=>{const row=Math.floor(m/3)+1,colI=m%3-1,sx=P.x+bx*row*9*k+px*colI*8*k,sy=P.y+by*row*9*k+py*colI*8*k;drawUnitSprite(ctx,u,sx,sy+4*k,4.5*k,col,now/90+m*1.7,SKIN[m%SKIN.length],dir)})}
     // banner: flag, main unit, head-count, composition strip
+    {ctx.save();ctx.translate(X,Y);uprM(ctx);const X=0,Y=0;
     const main=UK.filter(u=>units[u]).sort((p,q)=>units[q]*UNITS[q].atk-units[p]*UNITS[p].atk)[0];
     if(!atSea){ctx.fillStyle="#2a241b";ctx.fillRect(X+6*k,Y-20*k,1.6*k,20*k);drawFlag(ctx,C?.flag,X+7.6*k,Y-20*k,14*k,9*k);
     ctx.fillStyle=col;ctx.strokeStyle=ic?"#f2c771":"#fff";ctx.lineWidth=2*k;ctx.beginPath();ctx.arc(X,Y,9*k,0,7);ctx.fill();ctx.stroke();
@@ -1490,6 +1506,7 @@ function frame(){
       const cells=kinds.map(u=>({u,t:String(units[u]),w:9*k+ctx.measureText(String(units[u])).width+3*k})),tw=cells.reduce((t,c)=>t+c.w,0)+3*k;
       let cx=X-tw/2;const cy=Y+20*k;ctx.fillStyle="rgba(18,24,33,.88)";ctx.fillRect(cx,cy,tw,10*k);ctx.strokeStyle=col;ctx.lineWidth=.8*k;ctx.strokeRect(cx,cy,tw,10*k);cx+=2*k;
       ctx.textAlign="left";for(const c of cells){drawIcon(ctx,c.u,cx+4*k,cy+5*k,8.5*k);ctx.fillStyle="#fff";ctx.fillText(c.t,cx+9*k,cy+5.4*k);cx+=c.w}ctx.textAlign="center"}
+    ctx.restore()}
     if(selectedArmy===a.id){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.5*k;ctx.beginPath();ctx.arc(X,Y,13*k,0,7);ctx.stroke()}
   }
   for(let n=SCENES.length-1;n>=0;n--)if(!drawScene(SCENES[n],now,k))SCENES.splice(n,1);
@@ -1502,27 +1519,36 @@ function frame(){
   drawTowerArrows(now);
   drawGuard();
   drawRoutePreview(now);
-  for(const i of upQ){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6;ctx.strokeRect(tx(i)*TS+1.5,TY(i)+1.5,TS-3,TS-3)}
-  for(const i of wallQ){if(paintB==="wall"){ctx.fillStyle="rgba(200,192,175,.75)";ctx.fillRect(tx(i)*TS+3,TY(i)+3,TS-6,TS-6)}else{ctx.globalAlpha=.6;drawBuildingSprite(ctx,paintB,i,tx(i)*TS+8,ty(i)*TS+8,1);ctx.globalAlpha=1}}
-  for(const i of claimQ){ctx.fillStyle="rgba(242,199,113,.45)";ctx.fillRect(tx(i)*TS+1,TY(i)+1,TS-2,TS-2)}
-  if(AREA.size&&(placing==="area"||placing==="route")){ctx.fillStyle=routeDraw?.areaFoe==="__forest"?"rgba(255,140,40,.35)":"rgba(227,98,79,.32)";for(const i of AREA)ctx.fillRect(tx(i)*TS,TY(i),TS,TS)}
+  for(const i of upQ){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6;ctx.strokeRect(TX(i)+1.5,TY(i)+1.5,TS-3,TS-3)}
+  for(const i of wallQ){if(paintB==="wall"){ctx.fillStyle="rgba(200,192,175,.75)";ctx.fillRect(TX(i)+3,TY(i)+3,TS-6,TS-6)}else{ctx.globalAlpha=.6;drawBuildingSprite(ctx,paintB,i,tx(i)*TS+8,ty(i)*TS+8,1);ctx.globalAlpha=1}}
+  for(const i of claimQ){ctx.fillStyle="rgba(242,199,113,.45)";ctx.fillRect(TX(i)+1,TY(i)+1,TS-2,TS-2)}
+  if(AREA.size&&(placing==="area"||placing==="route")){ctx.fillStyle=routeDraw?.areaFoe==="__forest"?"rgba(255,140,40,.35)":"rgba(227,98,79,.32)";for(const i of AREA)ctx.fillRect(TX(i),TY(i),TS,TS)}
   if(placing&&placing!=="route"&&placing!=="area"&&hoverTile>=0){const ok=placing==="claim"?canClaimTile(hoverTile):placing==="upgrade"?!!UPG[countries[ME]?.tiles[hoverTile]]:canWall(hoverTile);
-    ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(tx(hoverTile)*TS+1,TY(hoverTile)+1,TS-2,TS-2)}
-  if(selected>=0){ctx.strokeStyle="#f2c771";ctx.lineWidth=2;ctx.strokeRect(tx(selected)*TS,TY(selected),TS,TS);ctx.strokeStyle="rgba(0,0,0,.5)";ctx.lineWidth=1;ctx.strokeRect(tx(selected)*TS-1.5,TY(selected)-1.5,TS+3,TS+3)}
+    ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(TX(hoverTile)+1,TY(hoverTile)+1,TS-2,TS-2)}
+  if(selected>=0){ctx.strokeStyle="#f2c771";ctx.lineWidth=2;ctx.strokeRect(TX(selected),TY(selected),TS,TS);ctx.strokeStyle="rgba(0,0,0,.5)";ctx.lineWidth=1;ctx.strokeRect(TX(selected)-1.5,TY(selected)-1.5,TS+3,TS+3)}
+  drawClouds(now);
   requestAnimationFrame(frame);
 }
-/* input: drag, wheel, pinch, tap */
+/* input: drag, wheel, pinch, tap; in 3D right-drag (or two fingers) turns and tilts the view */
+const camctl=document.createElement("div");camctl.id="camctl";camctl.className="plate";camctl.hidden=true;
+camctl.innerHTML='<button class="btn" data-cam="l" title="მარცხნივ შემობრუნება (Q)">↺</button><button class="btn" data-cam="r" title="მარჯვნივ შემობრუნება (E)">↻</button><button class="btn" data-cam="u" title="ზემოდან ყურება (R)">▲</button><button class="btn" data-cam="d" title="გვერდიდან ყურება (F)">▼</button><button class="btn" data-cam="n" title="ჩრდილოეთით, საწყისი ხედი">N</button>';
+document.addEventListener("DOMContentLoaded",()=>{});setTimeout(()=>$("#app").appendChild(camctl),0);
+camctl.addEventListener("click",e=>{const b=e.target.closest("[data-cam]");if(!b)return;const k=b.dataset.cam;if(k==="l")turnCam(-Math.PI/8);if(k==="r")turnCam(Math.PI/8);if(k==="u")tiltCam(-.15);if(k==="d")tiltCam(.15);if(k==="n"){cam.yaw=0;cam.tilt=TILT0;updView()}});
+function turnCam(d){cam.yaw=(cam.yaw||0)+d;updView()}function tiltCam(d){cam.tilt=clamp((cam.tilt??TILT0)+d,.2,1.1);updView()}
 const ptrs=new Map();let dragStart=null,moved=false,pinch=null;
 cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);{const r=cv.getBoundingClientRect(),[wx,wy]=s2w(e.clientX-r.left,e.clientY-r.top),X=Math.floor(wx/TS),Y=Math.floor(wy/TS);hoverTile=X>=0&&X<W&&Y>=0&&Y<H?idx(X,Y):-1}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(ptrs.size===1){dragStart={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};moved=false;lastPaint=-1;if(placing&&placing!=="route"&&hoverTile>=0)placeAt(hoverTile)}
-  if(ptrs.size===2){const [p,q]=[...ptrs.values()];pinch={d:Math.hypot(p.x-q.x,p.y-q.y),z:cam.z};moved=true}});
+  const turn=D3&&(e.button===2||e.button===1||(e.button===0&&(e.altKey||e.ctrlKey)));
+  if(ptrs.size===1){dragStart={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,turn,yaw:cam.yaw||0,tilt:cam.tilt??TILT0};moved=false;lastPaint=-1;if(!turn&&placing&&placing!=="route"&&hoverTile>=0)placeAt(hoverTile)}
+  if(ptrs.size===2){const [p,q]=[...ptrs.values()];pinch={d:Math.hypot(p.x-q.x,p.y-q.y),z:cam.z,ang:Math.atan2(q.y-p.y,q.x-p.x),yaw:cam.yaw||0,my:(p.y+q.y)/2,tilt:cam.tilt??TILT0};moved=true}});
+cv.addEventListener("contextmenu",e=>e.preventDefault());
 cv.addEventListener("pointermove",e=>{const r=cv.getBoundingClientRect();const [wx,wy]=s2w(e.clientX-r.left,e.clientY-r.top);
   const tX=Math.floor(wx/TS),tY=Math.floor(wy/TS);hoverTile=tX>=0&&tX<W&&tY>=0&&tY<H?idx(tX,tY):-1;
   if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(ptrs.size===2&&pinch){const [p,q]=[...ptrs.values()];cam.z=pinch.z*Math.hypot(p.x-q.x,p.y-q.y)/pinch.d;clampCam();return}
+  if(ptrs.size===2&&pinch){const [p,q]=[...ptrs.values()];cam.z=pinch.z*Math.hypot(p.x-q.x,p.y-q.y)/pinch.d;
+    if(D3){cam.yaw=pinch.yaw+(Math.atan2(q.y-p.y,q.x-p.x)-pinch.ang);cam.tilt=clamp(pinch.tilt-((p.y+q.y)/2-pinch.my)*.005,.2,1.1);updView()}clampCam();return}
   if(dragStart){const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;if(Math.hypot(dx,dy)>6){moved=true;cv.classList.add("drag")}
-    if(moved&&!placing){cam.x=dragStart.cx-dx/cam.z;cam.y=dragStart.cy-dy/(cam.z*CYc());clampCam()}
-    if(placing&&ptrs.size===1)placeAt(hoverTile)}});
+    if(moved&&!placing){if(dragStart.turn){cam.yaw=dragStart.yaw+dx*.008;cam.tilt=clamp(dragStart.tilt-dy*.005,.2,1.1);updView()}else{const ex=dx/cam.z,ey=dy/(cam.z*VIEW.cy);cam.x=dragStart.cx-(VIEW.ca*ex-VIEW.sa*ey);cam.y=dragStart.cy-(VIEW.sa*ex+VIEW.ca*ey);clampCam()}}
+    if(placing&&ptrs.size===1&&!dragStart.turn)placeAt(hoverTile)}});
 const endPtr=e=>{ptrs.delete(e.pointerId);cv.classList.remove("drag");
   if(ptrs.size===0&&placing==="route"){if(hoverTile>=0)addRoutePoint(hoverTile);dragStart=null;pinch=null;finishRoute();return}
   if(ptrs.size===0)lastPaint=-1;
@@ -1530,8 +1556,8 @@ const endPtr=e=>{ptrs.delete(e.pointerId);cv.classList.remove("drag");
   else if(ptrs.size===1){const [p]=[...ptrs.values()];dragStart={x:p.x,y:p.y,cx:cam.x,cy:cam.y};pinch=null}};
 cv.addEventListener("pointerup",endPtr);cv.addEventListener("pointercancel",endPtr);
 cv.addEventListener("wheel",e=>{e.preventDefault();const r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;const [wx,wy]=s2g(sx,sy);
-  cam.z*=Math.exp(-e.deltaY*.0015);clampCam();cam.x=wx-(sx-vw/2)/cam.z;cam.y=wy-(sy-vh/2)/(cam.z*CYc());clampCam()},{passive:false});
-addEventListener("keydown",e=>{if(e.key==="Escape"){if(placing){routeDraw=null;AREA.clear();stopPlacing()}else{selected=-1;renderTile()}}});
+  cam.z*=Math.exp(-e.deltaY*.0015);clampCam();const ex=(sx-vw/2)/cam.z,ey=(sy-vh/2)/(cam.z*VIEW.cy);cam.x=wx-(VIEW.ca*ex-VIEW.sa*ey);cam.y=wy-(VIEW.sa*ex+VIEW.ca*ey);clampCam()},{passive:false});
+addEventListener("keydown",e=>{if(D3&&!e.target.closest?.("input,textarea,select")){const k=e.key.toLowerCase();if(k==="q")turnCam(-Math.PI/12);if(k==="e")turnCam(Math.PI/12);if(k==="r")tiltCam(-.12);if(k==="f")tiltCam(.12)}if(e.key==="Escape"){if(placing){routeDraw=null;AREA.clear();stopPlacing()}else{selected=-1;renderTile()}}});
 addEventListener("resize",resize);
 
 /* ================= UI ================= */
@@ -1940,7 +1966,7 @@ function drawRoutePreview(now){
   ctx.strokeStyle=col;ctx.lineWidth=3.5*k;ctx.setLineDash([7*k,4*k]);ctx.lineDashOffset=-now/40;ctx.stroke();ctx.setLineDash([]);ctx.lineDashOffset=0;
   const a=pts[pts.length-1],b=pts[Math.max(0,pts.length-3)];if(pts.length>1){const ang=Math.atan2(a[1]-b[1],a[0]-b[0]);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(a[0]+Math.cos(ang)*6*k,a[1]+Math.sin(ang)*6*k);ctx.lineTo(a[0]+Math.cos(ang+2.4)*7*k,a[1]+Math.sin(ang+2.4)*7*k);ctx.lineTo(a[0]+Math.cos(ang-2.4)*7*k,a[1]+Math.sin(ang-2.4)*7*k);ctx.fill()}
   const an=analyzeRoute();if(an&&an.ok){const [x,y]=TC(an.target),p=(now%1000)/1000;ctx.strokeStyle=an.err?"#e3624f":an.mode==="siege"?"#e3624f":an.mode==="camp"?"#fff":"#f2c771";ctx.lineWidth=2.5*k;ctx.beginPath();ctx.arc(x,y,(an.mode==="siege"?20:8+p*6)*k,0,7);ctx.stroke();
-    ctx.font=`700 ${9*k}px 'Noto Sans Georgian',sans-serif`;ctx.textAlign="center";const lbl=an.err?an.err:`${ROUTE_NAME[an.mode]}${an.naval?" · ზღვით":""} · ${mmss(an.time)}`,w=ctx.measureText(lbl).width+8*k;ctx.fillStyle="rgba(18,24,33,.9)";ctx.fillRect(x-w/2,y-34*k,w,13*k);ctx.fillStyle="#fff";ctx.fillText(lbl,x,y-27*k)}
+    {ctx.save();ctx.translate(x,y);uprM(ctx);const x=0,y=0;ctx.font=`700 ${9*k}px 'Noto Sans Georgian',sans-serif`;ctx.textAlign="center";const lbl=an.err?an.err:`${ROUTE_NAME[an.mode]}${an.naval?" · ზღვით":""} · ${mmss(an.time)}`,w=ctx.measureText(lbl).width+8*k;ctx.fillStyle="rgba(18,24,33,.9)";ctx.fillRect(x-w/2,y-34*k,w,13*k);ctx.fillStyle="#fff";ctx.fillText(lbl,x,y-27*k);ctx.restore()}}
 }
 
 /* send dialog: pick who goes and from where, then draw the route */
@@ -1983,7 +2009,7 @@ let GUARD_CACHE={key:"",gs:null,bt:null};
 function drawGuard(){const c=countries[ME];if(!c?.tiles)return;const key=Object.keys(c.tiles).length+":"+Object.entries(c.tiles).filter(e=>e[1]==="tower").map(e=>e[0]).join(",");
   if(GUARD_CACHE.key!==key)GUARD_CACHE={key,gs:guardSet(c),bt:borderTiles(c)};const {gs,bt}=GUARD_CACHE;const lw=Math.max(1.2,2.2/cam.z);
   // edges facing outward: green where a tower watches, red dashes where nobody does
-  for(const pass of [true,false]){ctx.beginPath();for(const i of bt){if(gs.has(i)!==pass)continue;const X=tx(i)*TS,Y=TY(i),ins=3.2;
+  for(const pass of [true,false]){ctx.beginPath();for(const i of bt){if(gs.has(i)!==pass)continue;const X=TX(i),Y=TY(i),ins=3.2;
       for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){const x=tx(i)+dx,y=ty(i)+dy;if(x<0||y<0||x>=W||y>=H)continue;const n=idx(x,y);if(n in c.tiles||TER[n]===WATER)continue;
         if(dy===-1){ctx.moveTo(X,Y+ins);ctx.lineTo(X+TS,Y+ins)}else if(dy===1){ctx.moveTo(X,Y+TS-ins);ctx.lineTo(X+TS,Y+TS-ins)}else if(dx===-1){ctx.moveTo(X+ins,Y);ctx.lineTo(X+ins,Y+TS)}else{ctx.moveTo(X+TS-ins,Y);ctx.lineTo(X+TS-ins,Y+TS)}}}
     ctx.strokeStyle=pass?"rgba(110,235,120,1)":"rgba(245,85,65,.95)";ctx.lineWidth=lw;ctx.setLineDash(pass?[]:[4,3]);ctx.stroke()}
@@ -1995,11 +2021,22 @@ function drawGuard(){const c=countries[ME];if(!c?.tiles)return;const key=Object.
 function towersAlong(path,D){const out=new Set();if(!D?.tiles||!path?.length)return out;const tw=Object.keys(D.tiles).filter(k=>D.tiles[k]==="tower").map(Number);if(!tw.length)return out;
   for(let j=0;j<path.length;j++){const a=path[Math.max(0,j-1)],b=path[j],n=Math.max(Math.abs(tx(b)-tx(a)),Math.abs(ty(b)-ty(a)))||1;
     for(let q=0;q<=n;q++){const x=tx(a)+(tx(b)-tx(a))*q/n,y=ty(a)+(ty(b)-ty(a))*q/n;for(const t of tw)if(Math.hypot(tx(t)-x,ty(t)-y)<=TOWER_R)out.add(t)}}return out}
+const CLOUD_IMG=[0,1,2,3].map(v=>{const c=document.createElement("canvas");c.width=256;c.height=150;const g=c.getContext("2d");
+  for(let k=0;k<9;k++){const x=50+hash(v,k,201)*156,y=60+hash(v,k,202)*40-(k%3)*8,r=26+hash(v,k,203)*34;
+    const gr=g.createRadialGradient(x,y-r*.2,r*.1,x,y,r);gr.addColorStop(0,"rgba(255,255,255,.95)");gr.addColorStop(.6,"rgba(244,246,250,.7)");gr.addColorStop(1,"rgba(230,234,240,0)");g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill()}
+  return c});
+const CLOUD_SH=CLOUD_IMG.map(src=>{const c=document.createElement("canvas");c.width=src.width;c.height=src.height;const g=c.getContext("2d");g.drawImage(src,0,0);g.globalCompositeOperation="source-in";g.fillStyle="#0b1a12";g.fillRect(0,0,c.width,c.height);return c});
+const CLOUDS=Array.from({length:16},(_,k)=>({x:hash(k,1,301)*PW,y:hash(k,2,301)*PH,s:.9+hash(k,3,301)*1.4,v:k%4,sp:4+hash(k,4,301)*5}));
+function drawClouds(now){const a=clamp((1.2-cam.z)/.65,0,1);if(a<.02)return;const t=now/1000,span=PW+700;
+  for(const c of CLOUDS){const x=((c.x+t*c.sp)%span+span)%span-350,y=c.y+Math.sin(t*.05+c.x)*20,w=256*c.s*1.6,h=150*c.s*1.6;
+    // shadow on the ground, then the cloud itself high above it
+    ctx.globalAlpha=a*.16;ctx.drawImage(CLOUD_SH[c.v],x-w/2+30,y-h/2+20,w,h);
+    const [cx,cy]=liftXY(x,y,D3?110:0);ctx.globalAlpha=a*.78;ctx.drawImage(CLOUD_IMG[c.v],cx-w/2,cy-h/2-(D3?0:40),w,h)}
+  ctx.globalAlpha=1}
 function drawTowerArrows(now){const k=clamp(1.5/cam.z,.8,2.2);
   for(const a of Object.values(attacks)){if(a.kind||!["marching","fighting","breaching","besieging"].includes(a.status))continue;const D=countries[a.to];if(!D?.tiles)continue;
     const P=armyPos(a,now);if(!P)continue;
-    for(const kk in D.tiles){if(D.tiles[kk]!=="tower")continue;const t=+kk,x0=tx(t)*TS+8,y0=ty(t)*TS+8;if(Math.hypot(x0-P.x,(y0-LIFT[t])-P.y)>TOWER_R*TS)continue;
-      const top=y0-LIFT[t]-(D3?21/CY3:14);
+    for(const kk in D.tiles){if(D.tiles[kk]!=="tower")continue;const t=+kk;if(Math.hypot(tx(t)*TS+8-P.x,ty(t)*TS+8-P.y)>TOWER_R*TS+30)continue;const [x0,top]=liftXY(tx(t)*TS+8,ty(t)*TS+8-(D3?0:14),LIFT[t]+(D3?21:0));
       for(let m=0;m<3;m++){const ph=((now/700)+hash(t,m,41))%1,tx2=P.x+(hash(t,m,42)-.5)*10,ty2=P.y+(hash(t,m,43)-.5)*6,arc=Math.sin(ph*Math.PI)*18;
         const x=x0+(tx2-x0)*ph,y=top+(ty2-top)*ph-arc,dx=tx2-x0,dy=(ty2-top)-Math.cos(ph*Math.PI)*18*Math.PI,ang=Math.atan2(dy,dx),L=8*k,bx=x-Math.cos(ang)*L,by=y-Math.sin(ang)*L;
         ctx.strokeStyle="rgba(255,250,230,.35)";ctx.lineWidth=2.4*k;ctx.beginPath();ctx.moveTo(bx-Math.cos(ang)*6*k,by-Math.sin(ang)*6*k);ctx.lineTo(x,y);ctx.stroke();
