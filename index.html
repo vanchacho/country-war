@@ -80,7 +80,11 @@ canvas.icn.s{width:18px;height:18px}
 .kv span:nth-child(even){font-variant-numeric:tabular-nums;text-align:right}
 .invite{display:flex;gap:6px}
 .invite input{flex:1;font-size:12px}
-#collapse{display:none}
+#collapse{display:block;position:absolute;right:6px;top:4px;z-index:2;background:none;border:0;font-size:18px;color:var(--muted);padding:6px 10px;cursor:pointer}
+#collapse:hover{color:var(--brass2)}
+#tabs{padding-right:40px}
+#side.min{bottom:auto;height:44px}
+#side.min #pane{display:none}
 /* tile card */
 #tile{position:absolute;left:8px;bottom:8px;width:340px;padding:12px 14px;max-height:52%;overflow:auto}
 #tile h4{margin:0 26px 2px 0;font-family:var(--display);font-size:15px}
