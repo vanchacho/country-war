@@ -136,6 +136,23 @@ canvas.icn.s{width:18px;height:18px}
   .flagEd{grid-template-columns:1fr}
   #place{top:120px}
 }
+/* phone held sideways: compact top bar, slim panel on the right, the map in the middle */
+@media (max-height:520px) and (orientation:landscape){
+  #hud{top:4px;left:4px;right:4px;gap:4px;flex-wrap:nowrap}
+  #who{padding:3px 8px 3px 3px;gap:6px}#who canvas{width:27px;height:18px}#who .nm{font-size:12.5px}#who .rl{display:none}
+  #res{padding:2px;gap:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .r{padding:1px 5px;gap:3px}.r b{font-size:12px}.r small{font-size:9px}canvas.icn.s{width:14px;height:14px}
+  #net{padding:3px 6px;font-size:11px;gap:5px}#net .btn{padding:4px 8px;font-size:11px}
+  #side{top:44px;right:4px;bottom:4px;width:min(300px,38vw)}
+  #side.min{bottom:auto;height:40px}
+  #collapse{display:block;position:absolute;right:4px;top:2px;z-index:2;background:none;border:0;font-size:16px;color:var(--muted);padding:6px 8px}
+  #tabs{padding-right:34px}#tabs button{padding:8px 4px;font-size:11.5px}
+  #pane{padding:10px}
+  #tile{left:4px;bottom:4px;width:min(290px,40vw);max-height:calc(100% - 52px);padding:10px 12px}
+  #place{top:44px;font-size:11px;max-width:calc(100% - min(300px,38vw) - 16px);left:calc((100% - min(300px,38vw)) / 2)}
+  .card{padding:16px}
+  .overlay{padding:8px}
+}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}}
 </style>
 </head>
@@ -670,7 +687,7 @@ function bakeBurnt(){if(!terrCv.width)return;const now=Date.now(),g=terrCv.getCo
     for(let q=0;q<26;q++){const v=hash(i,q,3);g.fillStyle=`rgba(${70+v*50|0},${118+v*48|0},${46+v*20|0},.55)`;const rx=(hash(i,q,4)-.5)*15*k2,ry=(hash(i,q,5)-.5)*15*k2;if(rx*rx+ry*ry<r*r*.6)g.fillRect(x+rx,y+ry,1.4*k2,1.4*k2)}}}
 function applyForestFires(){bakeBurnt();const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS}}}const BRIDGES=new Set();
 let selected=-1,placing=null,tab="land",lastChatSeen=0;
-const NET={role:null,wid:null,status:"",peers:0};
+const NET={role:null,wid:null,status:"",peers:0},TOUCH=matchMedia("(pointer:coarse)").matches;
 
 /* ================= shared storage: host browser keeps the world, friends connect peer-to-peer ================= */
 function makeStore(wid,init,shared){
@@ -738,7 +755,7 @@ function joinWorld(wid,onFirst,fresh){
   cl.on("offline",()=>{NET.status="offline";renderNet()});
   cl.on("error",()=>{NET.status="offline";renderNet()});
   cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}if(!m)return;
-    if(tp.endsWith("/state")){if(hosting)return;lastState=m;mirror=m.d||{};overlay();if(m.ts&&Math.abs(Date.now()-m.ts)<20000){lastHb=Math.max(lastHb,Date.now());NET.status="online"}if(m.n)NET.peers=m.n;
+    if(tp.endsWith("/state")){if(hosting)return;lastState=m;mirror=m.d||{};overlay();if(m.n)NET.peers=m.n;
       if(hostUp())ready();else for(const f of listeners)f();return}
     if(tp.endsWith("/hb")){if(m.h===me_c)return;
       if(hosting){if((m.since||0)<hosting.since||((m.since||0)===hosting.since&&m.h<me_c))location.reload();return} // another keeper started first: step back and join it
@@ -760,10 +777,13 @@ function inviteLink(){return location.origin+location.pathname+"#w-"+NET.wid}
 function renderNet(){
   const el=$("#net");if(!NET.role){el.hidden=true;return}el.hidden=!me();
   const st={online:["on","ონლაინ"],offline:["off","კავშირი არ არის"],hostoff:["off","მასპინძელი არ არის ონლაინ"],wait:["","უკავშირდება…"],dup:["off",""]}[NET.status]||["","უკავშირდება…"];
-  el.innerHTML=`<span class="dot ${st[0]}"></span><span>${st[1]}${NET.status==="online"?` · ${NET.peers}`:""}</span><button class="btn sm" id="invBtn">მოწვევა</button>`;
+  el.innerHTML=`<span class="dot ${st[0]}"></span><span>${st[1]}${NET.status==="online"?` · ${NET.peers}`:""}</span><button class="btn sm" id="invBtn">მოწვევა</button>${TOUCH&&document.fullscreenEnabled&&!document.fullscreenElement?'<button class="btn sm" id="fsBtn">სრული ეკრანი</button>':""}`;
 }
 $("#res").addEventListener("click",e=>{if(e.target.closest("[data-goarmy]")){tab="army";$("#side").classList.remove("min");renderAll(true)}});
-$("#net").addEventListener("click",e=>{if(e.target.id==="invBtn")showInvite()});
+$("#net").addEventListener("click",e=>{if(e.target.id==="invBtn")showInvite();if(e.target.id==="fsBtn")document.documentElement.requestFullscreen?.({navigationUI:"hide"}).then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>{}).finally(()=>setTimeout(()=>{resize();renderNet()},300))});
+document.addEventListener("fullscreenchange",()=>{resize();renderNet()});
+addEventListener("orientationchange",()=>setTimeout(resize,250));
+if(TOUCH&&matchMedia("(orientation:portrait)").matches)setTimeout(()=>toast("უკეთ სათამაშოდ ტელეფონი გადმოატრიალე"),2500);
 function copyText(t,inp){(navigator.clipboard?.writeText(t)||Promise.reject()).then(()=>toast("ლინკი დაკოპირდა","good")).catch(()=>{if(inp){inp.select();toast("მონიშნულია, დააკოპირე")}})}
 function showInvite(){
   const ov=document.createElement("div");ov.className="overlay";
