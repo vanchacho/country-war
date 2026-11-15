@@ -434,7 +434,7 @@ const B={
   lumber3:{n:"ხე-ტყის ქარხანა",cost:{wood:90,stone:80,iron:10,gold:160},prod:{wood:22},on:[FOREST],noBuild:true},
   lumber:{n:"სახერხი",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"ხე. მხოლოდ ტყეში"},
   quarry:{n:"ქვის სამტეხლო",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"ქვა. ბორცვზე ან მთაზე"},
-  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:ISLANDS?"რკინა. ბევრს მხოლოდ ზამთრის მთები იძლევა":"რკინა. მთაზე მეტი"},
+  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:ISLANDS?"რკინა. ზამთრის მთებზე ყველაზე მეტი":"რკინა. მთაზე მეტი"},
   market:{n:"ბაზარი",cost:{wood:80,stone:50,gold:60},prod:{gold:10},on:LAND,d:"ოქრო და ვაჭრობა"},
   barracks:{n:"ყაზარმა",cost:{wood:90,stone:40,gold:50},on:LAND,d:"ქვეითი ჯარი"},
   range:{n:"სასროლეთი",cost:{wood:110,gold:60},on:LAND,d:"მშვილდოსნები"},
@@ -447,6 +447,15 @@ const B={
   wall:{n:"გალავანი",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა ახლოს"},
 };
 const UPG={village:"village2",village2:"village3",lumber:"lumber2",lumber2:"lumber3"};
+// how much of its normal output a building gives on this tile: river farms do better, hill mines worse, and on island worlds each region favours its own goods
+function tileMult(b,i){let m=1;const t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b.startsWith("lumber")&&t!==FOREST)m=0;
+  if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=cl===1?1.6:.6;else if(b==="magetower")m*=cl===2?1.6:.6;else if(b==="farm"&&cl===1)m*=.4;else if(b.startsWith("lumber")&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}return m}
+// what a building would give if built on tile i (its real number, with a note when the place is poor or rich for it)
+function prodAtHTML(b,i){const d=B[b];if(!d.prod)return"";const m=tileMult(b,i);const parts=Object.keys(d.prod).map(r=>`<span>${icn(r,1)}+${+(d.prod[r]*m*ECO_SPEED).toFixed(1)}/წთ</span>`);
+  const note=m<.95?` <span style="color:var(--danger)">აქ ${Math.round(m*100)}%</span>`:m>1.05?` <span style="color:var(--ok)">აქ ${Math.round(m*100)}%</span>`:"";return `<div class="cost">${parts.join("")}${note}</div>`}
+// what all my buildings of one kind give together
+function prodTotalHTML(c,b){const d=B[b];if(!d.prod)return prodHTML(b);let m=0;for(const k in c.tiles)if(c.tiles[k]===b)m+=tileMult(b,+k);
+  return `<div class="cost">${Object.keys(d.prod).map(r=>`<span>${icn(r,1)}+${+(d.prod[r]*m*ECO_SPEED).toFixed(1)}/წთ ჯამში</span>`).join("")}</div>`}
 function prodHTML(b){const d=B[b];const parts=[];if(d.prod)for(const r in d.prod)parts.push(`<span>${icn(r,1)}+${+(d.prod[r]*ECO_SPEED).toFixed(1)}/წთ</span>`);
   if(d.pop)parts.push(`<span>${icn("pop",1)}+${d.pop}</span>`);return parts.length?`<div class="cost" style="color:var(--ok)">${parts.join("")}</div>`:""}
 const SKIN=["#e8c39e","#d9a77c","#c68b5f","#f0d2b0"],CLOTH=["#6b4f8a","#7a5a3a","#4f6b3a","#3a5a7a","#8a3a3a","#8a7a4a"];
@@ -661,8 +670,7 @@ const ECO_SPEED=1,TRAIN_SPEED=1.2,MARCH_SPEED=1.6; // pace of the game
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
   for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
-    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b.startsWith("lumber")&&t!==FOREST)m=0;
-      if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=cl===1?1.8:.2;else if(b==="magetower")m*=cl===2?1.8:.2;else if(b==="farm"&&cl===1)m*=.4;else if(b.startsWith("lumber")&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}for(const r in d.prod)prod[r]+=d.prod[r]*m}}
+    if(d.prod){const m=tileMult(b,+k);for(const r in d.prod)prod[r]+=d.prod[r]*m}}
   let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
   const civ=Math.max(0,pop-army);
@@ -1291,19 +1299,22 @@ float vn(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(h2(i)
 uniform float zm;uniform float qn;
 // the ocean: ten wave trains of falling length from a westerly wind, each tilting the surface; the deep water is dark,
 // the tilted faces mirror the sky, and the sun glitters on the facets that face it. Waves shorter than a few screen pixels fade out.
-vec3 seaCol(vec2 wp,float time){float px=1./max(zm,.05);vec2 g=vec2(0.);float h=0.,hs=0.;
+vec3 seaCol(vec2 wp,float time,float dep){float px=1./max(zm,.05);vec2 g=vec2(0.);float h=0.,hs=0.;
   for(int i=0;i<10;i++){float fi=float(i);if(fi>=qn)break;float lam=280.*pow(.69,fi),ang=.25+(h2(vec2(fi,3.))-.5)*2.4;vec2 d=vec2(cos(ang),sin(ang));
-    float k=6.2832/lam,w=sqrt(k*9.8*40.)*.5,a=.21/k,fade=smoothstep(2.,6.,lam/px),ph=dot(d,wp)*k+w*time+fi*1.7;
+    float k=6.2832/lam,w=sqrt(k*9.8*40.)*.5,a=(.21-fi*.012)/k,fade=smoothstep(2.,6.,lam/px),ph=dot(d,wp)*k+w*time+fi*1.7;
     h+=a*sin(ph)*fade;hs+=a*fade;g+=a*k*cos(ph)*d*fade;}
   vec3 n=normalize(vec3(-g.x,-g.y,1.)),V=normalize(vec3(0.,.62,.78)),L=normalize(vec3(-.45,.25,.85)),R=reflect(-V,n);
   float big=vn(wp/520.+vec2(time*.003,0.))*.65+vn(wp/190.+vec2(5.3,1.1))*.35;
   vec3 body=mix(vec3(.035,.15,.27),vec3(.06,.23,.36),big);
+  // shallow water shows the light sandy bottom through it: turquoise near the shore, fading into the deep blue
+  body=mix(mix(vec3(.16,.55,.58),vec3(.07,.33,.45),smoothstep(.05,.5,dep)),body,smoothstep(.35,.95,dep));
   float fres=.03+.97*pow(1.-max(dot(n,V),0.),5.);
   vec3 sky=mix(vec3(.34,.5,.66),vec3(.68,.78,.88),clamp(1.-R.z,0.,1.));
   vec3 c=mix(body,sky,clamp(fres*2.,0.,.85));c*=.9+.25*clamp(dot(n,L),0.,1.);
-  float sun=pow(max(dot(R,L),0.),180.)*2.4*smoothstep(.3,1.,zm)+pow(max(dot(R,L),0.),18.)*.08;c+=vec3(1.,.95,.84)*sun;
-  // a few whitecaps on the highest crests
-  float crest=h/max(hs,.001);c=mix(c,vec3(.86,.9,.93),smoothstep(.66,.85,crest)*step(.87,vn(wp/9.+vec2(time*.4,time*.25)))*.38*smoothstep(.5,1.2,zm));
+  float sun=pow(max(dot(R,L),0.),36.)*.28*smoothstep(.3,1.,zm)+pow(max(dot(R,L),0.),8.)*.07;c+=vec3(1.,.95,.84)*sun;
+  // a soft band of foam where the waves reach the beach, breathing in and out
+  float sf=smoothstep(.16,.02,dep)*(.55+.45*sin(time*1.3+dot(wp,vec2(.03,.02))+vn(wp/14.)*4.));sf*=smoothstep(.35,.75,vn(wp/6.+vec2(time*.2,0.))+.25);
+  c=mix(c,vec3(.9,.94,.95),clamp(sf,0.,1.)*.75);
   return c;}
 `;
 function glInit(){
@@ -1314,12 +1325,13 @@ function glInit(){
     void main(){float vx=a.x-cam.x,vy=a.y-cam.y,rx=rot.x*vx+rot.y*vy,ry=-rot.y*vx+rot.x*vy;float sx=rx*cam.z,sy=ry*cam.z*cam.w-a.z*cam.z*vw.z;
       float d=(ry*rot.z+a.z/.626*rot.w+vw.w)/(2.*vw.w);gl_Position=vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);uv=vec2(a.x/${PW}.,a.y/${PH}.);sh=a.w;wp=a.xy;}`));
   gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`${SEA_GLSL}uniform sampler2D t0,t1,w0,w1;uniform float wf,time;varying vec2 uv;varying float sh;varying vec2 wp;
-    void main(){vec3 base=texture2D(t0,uv).rgb;vec4 w=mix(texture2D(w0,uv),texture2D(w1,uv),wf);vec3 c=mix(base,w.rgb,w.a*.45)*sh;
+    void main(){vec3 base=texture2D(t0,uv).rgb;vec3 c=base*sh;
       // deep water is drawn as the very same sea that lies around the map, so open water is one sea everywhere
-      float deep=1.-smoothstep(.035,.13,distance(base,vec3(.086,.239,.408)));
-      float bd=min(min(uv.x,1.-uv.x)*${PW}.,min(uv.y,1.-uv.y)*${PH}.);float isW=step(base.r+.06,base.b)*step(base.g,base.b);deep=max(deep,(1.-smoothstep(10.,200.,bd))*isW);
-      vec4 o=texture2D(t1,uv);if(deep>.985&&o.a<.01)discard;
-      if(deep>.01)c=mix(c,seaCol(wp,time),deep);c=mix(c,o.rgb,o.a);gl_FragColor=vec4(c,1.);}`));
+      // water on the map is blue-dominant; how green it is tells how shallow (the painter lightens water toward the coast)
+      float isW=step(base.r+.18,base.b)*step(base.g-.02,base.b);float dep=clamp(1.-(base.g-.235)/(.57-.235),0.,1.);
+      float bd=min(min(uv.x,1.-uv.x)*${PW}.,min(uv.y,1.-uv.y)*${PH}.);dep=max(dep,1.-smoothstep(10.,200.,bd));
+      vec4 o=texture2D(t1,uv);if(isW>.5&&dep>.985&&o.a<.01)discard;float deep=isW;
+      if(deep>.01)c=mix(c,seaCol(wp,time,dep),deep);c=mix(c,o.rgb,o.a);gl_FragColor=vec4(c,1.);}`));
   gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
   const mk=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -1336,7 +1348,7 @@ function glInit(){
     void main(){gl_Position=proj(p);float dif=max(dot(n,L),0.);col=shd>.5?vec3(0.):c*(.5+.66*dif);}`,FS);
   G.sea=prog(`attribute vec2 p;${PROJ}varying vec2 wp;void main(){wp=p;gl_Position=proj(vec3(p,-.6));col=vec3(0.);}`,
     `${SEA_GLSL}varying vec2 wp;uniform float time;uniform vec2 msz;
-    void main(){vec3 c=seaCol(wp,time);
+    void main(){vec3 c=seaCol(wp,time,1.);
       vec2 dd=max(max(-wp,wp-msz),0.);float far=clamp((length(dd)-150.)/1600.,0.,1.);c*=1.-far*.25;
       gl_FragColor=vec4(c,1.);}`);
   G.seaL={p:gl.getAttribLocation(G.sea,"p"),cam:gl.getUniformLocation(G.sea,"cam"),vw:gl.getUniformLocation(G.sea,"vw"),rot:gl.getUniformLocation(G.sea,"rot"),time:gl.getUniformLocation(G.sea,"time"),zm:gl.getUniformLocation(G.sea,"zm"),qn:gl.getUniformLocation(G.sea,"qn"),msz:gl.getUniformLocation(G.sea,"msz")};
@@ -1680,7 +1692,7 @@ function renderPane(force){
       <h3>შემოსავალი</h3><div class="list">${RK.map(k=>`<div class="item" style="padding:6px 10px">${icn(k)}<span class="tx"><b>${esc(resName(k,c))} <span class="${s.prod[k]<0?"":"muted"}" style="display:inline;${s.prod[k]<0?"color:var(--danger)":""}">${fmtR(s.prod[k])}/წთ</span></b><span>${INCOME_HINT[k]}</span></span></div>`).join("")}</div>
       <h3>შენობები</h3><div class="list">`;
     const bs=Object.keys(B).filter(b=>b!=="wall"&&s.cnt[b]);
-    h+=bs.length?bs.map(b=>`<div class="item">${icn(b)}<span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b>${prodHTML(b)}</span></div>`).join(""):`<p class="muted">დააჭირე შენს მიწას რუკაზე და ააშენე.</p>`;
+    h+=bs.length?bs.map(b=>`<div class="item">${icn(b)}<span class="tx"><b>${B[b].n} × ${s.cnt[b]}</b>${prodTotalHTML(c,b)}</span></div>`).join(""):`<p class="muted">დააჭირე შენს მიწას რუკაზე და ააშენე.</p>`;
     const ring=borderRing(),rc=ringCost(c,ring);
     h+=`</div><h3>მიწა</h3><div class="list"><div class="row" style="flex-wrap:wrap"><button class="btn gold" id="claimMode">მონიშვნით შემოერთება</button>
       <button class="btn" id="claimRing" ${ring.length?"":"disabled"}>საზღვრის გაფართოება · ${ring.length} უჯრა</button></div>${ring.length?costHTML({gold:rc},c):""}</div>
@@ -1816,7 +1828,7 @@ function renderTile(){
   let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${b?B[b].n:neutral?"ნეიტრალური სოფელი":TNAME[t]}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span> · `:""}${TNAME[t]}${ISLANDS&&t!==WATER?` · ${CLIM_NAME[CLIMATE[i]]}`:""}</div>${ISLANDS&&t!==WATER?`<div class="muted" style="font-size:11.5px">ეს რეგიონი მდიდარია: ${CLIM_RICH[CLIMATE[i]]}</div>`:""}`;
   if(o&&o.uid===ME){
     if(!b){const opts=castleGround(i)?[]:BUILD_ORDER.filter(k=>B[k].on.includes(t)&&(!B[k].coast||N4(i).some(n=>TER[n]===WATER)));
-      h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodHTML(k)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button><button class="btn sm" data-paint="${k}">ბევრი</button></span></div>`}).join("")+`</div>`
+      h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodAtHTML(k,i)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button><button class="btn sm" data-paint="${k}">ბევრი</button></span></div>`}).join("")+`</div>`
         :`<p class="muted">${castleGround(i)?"ეს სასახლის ეზოა, აქ ვერაფერს ააშენებ.":"აქ ვერაფერს ააშენებ."}</p>`}
     else if(UPG[b]){const nx=UPG[b];h+=`<div class="item" style="margin-top:10px">${icn(nx)}<span class="tx"><b>${B[nx].n}</b><span>${Object.entries(B[nx].prod||{}).map(([r,v])=>`+${+(v*ECO_SPEED).toFixed(1)} ${r==="gold"?"ოქრო":RES[r].n}/წთ`).join(", ")}${B[nx].pop?`, +${B[nx].pop} მოსახლე`:""}</span>${costHTML(B[nx].cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,B[nx].cost)?"gold":""}" data-upg="1">გაუმჯობესება</button><button class="btn sm" data-upgpaint="1">ბევრი</button><button class="btn sm" data-upgall="${b}">ყველა · ${Object.values(c.tiles).filter(x=>x===b).length}</button></span></div>
       <div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`}
@@ -2411,6 +2423,8 @@ async function barbarianTick(){
   await ref.set({id:ref.id,from:"barbarians",to:T.uid,units,target,fromTile:sp,path:bpath,...(bc?.rest?{rest:bc.rest}:{}),launch:now,arrive:now+pathTravel(bpath,units)*1.2,status:"marching",mode:"raid",burn:true});
   postChat(`უცხო ტომელები მოდიან: ${T.name}!`,true)}
 const busyA=new Set();
+// nobody is defending: the defender has no army at home or never chose to defend
+const noDefenders=a=>{const D=countries[a.to];return !D||!(a.defend||D.autoDefend)||!unitSum(D.army||{})};
 async function resolveAttacks(){
   if(!db||!ME||!booted)return;const now=Date.now();
   for(const a of Object.values(attacks).sort((p,q)=>p.arrive-q.arrive)){
@@ -2452,7 +2466,7 @@ async function resolveAttacks(){
         busyA.add(a.id);const F=Object.values(attacks).find(F=>F.id!==a.id&&F.status==="fighting"&&F.from===a.from&&F.to===a.to&&Math.max(Math.abs(tx(F.target)-tx(a.target)),Math.abs(ty(F.target)-ty(a.target)))<=2);
         let joined=false;await mutate("attacks/"+F.id,cur=>{if(!cur||cur.status!=="fighting")return;for(const k in a.units)cur.units[k]=(cur.units[k]||0)+a.units[k];cur.fightEnd=Math.max(cur.fightEnd,Date.now()+15000);joined=true;return cur});
         if(joined){await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="done";cur.merged=F.id;cur.returnAt=Date.now();return cur});postChat(`${cOf(a.from)?.name||"მტერს"} ბრძოლაში დამხმარე ჯარი მიუვიდა!`,true)}}
-      else if((a.status==="marching"&&a.arrive<=now&&!a.rest||a.status==="besieging"&&a.siegeEnd<=now||a.status==="breaching"&&!a.gate&&a.breachEnd<=now||a.status==="fighting"&&a.fightEnd<=now)&&(involved||now-(a.fightEnd||a.breachEnd||a.siegeEnd||a.arrive)>15000)){busyA.add(a.id);
+      else if((a.status==="marching"&&a.arrive<=now&&!a.rest||a.status==="besieging"&&a.siegeEnd<=now||a.status==="breaching"&&!a.gate&&a.breachEnd<=now||a.status==="fighting"&&(a.fightEnd<=now||noDefenders(a)))&&(involved||now-(a.fightEnd||a.breachEnd||a.siegeEnd||a.arrive)>15000||a.status==="fighting"&&noDefenders(a))){busyA.add(a.id);
         let res=null;
         let breachStart=false,fightStart=false;
         await mutate("attacks/"+a.id,async cur=>{if(!cur||!(cur.status==="marching"||cur.status==="besieging"||cur.status==="breaching"||cur.status==="fighting"))return;const ds=await db.doc("countries/"+cur.to).get();
@@ -2464,8 +2478,9 @@ async function resolveAttacks(){
             const sp=Math.floor(siegePower(cur.units,cur.mode)),need=walls.length&&!(cur.mode==="flank"&&walls.length<4)&&sp<walls.length;
             if(need){const secs=clamp((8+walls.length*10)/(1+siegePower(cur.units,cur.mode)*1.5+unitSum(cur.units)/40),6,120);
               cur.status="breaching";cur.breachEnd=Date.now()+secs*1000;cur.breachWalls=walls;breachStart=true;return cur}}
-          if(cur.status!=="fighting"){ // the clash takes time: longer for bigger armies; meanwhile the defender can answer and both sides can send help
-            const defN=(cur.defend||def.autoDefend)?unitSum(def.army||{}):0,secs=clamp(30+(unitSum(cur.units)+defN)*.45,45,180)*(cur.mode==="raid"?.6:1);
+          // the clash takes time only when there is an army to meet them; an undefended place falls at once
+          const defN=(cur.defend||def.autoDefend)?unitSum(def.army||{}):0;
+          if(cur.status!=="fighting"&&defN>0){const secs=clamp(30+(unitSum(cur.units)+defN)*.45,45,180)*(cur.mode==="raid"?.6:1);
             cur.status="fighting";cur.fightStart=Date.now();cur.fightEnd=cur.fightStart+secs*1000;fightStart=true;return cur}
           const back=cur.arrive-cur.launch;res=battle(cur,def);cur.result=res;cur.status="returning";cur.arrive=Date.now();cur.returnAt=cur.arrive+Math.max(back*.8,8000);return cur});
         if(breachStart)postChat(`${cOf(a.from)?.name} ანგრევს ${countries[a.to]?.name}-ის გალავანს!`,true);
