@@ -203,7 +203,9 @@ const ISLANDS=!WID0||WID0[0]==="i";
 // every island server gets its own map, made from its code: the same code always gives the same map
 // a server keeps the map it was born with: its seed is saved in the world and remembered here
 const MAP_OVERRIDE=(()=>{try{return WID0?localStorage.getItem("cw_map_"+WID0):null}catch{return null}})();
-const W=150,H=96,TS=16,SEED=MAP_OVERRIDE?+MAP_OVERRIDE:ISLANDS&&WID0?(strHash("map:"+WID0)%2000000000)+1:20261108;
+// MAPGEN 1: the first island maps (many small islands); MAPGEN 2: fewer islands, bigger land
+const MAPGEN_NOW=2,MAPGEN=MAP_OVERRIDE?(+String(MAP_OVERRIDE).split(":")[1]||1):MAPGEN_NOW;
+const W=150,H=96,TS=16,SEED=MAP_OVERRIDE?+String(MAP_OVERRIDE).split(":")[0]:ISLANDS&&WID0?(strHash("map:"+WID0)%2000000000)+1:20261108;
 const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7,SNOW=8;
 const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო","თოვლიანი ველი"];
 // climate of every tile: 0 temperate, 1 winter, 2 hot desert (only on island worlds; older worlds are all temperate)
@@ -228,9 +230,9 @@ function genWorld(){
     const clear=(x,y,r,grp,gap)=>blobs.every(b=>b.g===grp&&grp<0||Math.hypot(b.x-x,(b.y-y)*1.2)>b.r+r+(b.g===grp?gap:6));
     const inside=(x,y,r)=>x-r>2&&x+r<W-3&&y-r*.85>2&&y+r*.85<H-3;
     for(let k=0;k<2;k++)for(let t=0;t<500;t++){const x=22+rnd()*(W-44),y=18+rnd()*(H-36);if(!clear(x,y,30,-1-k,0)||!inside(x,y,16))continue;
-      const lobes=[];for(let m=0;m<5;m++){const r=13+rnd()*7,an=rnd()*Math.PI*2,d=m?9+rnd()*10:0,lx=x+Math.cos(an)*d,ly=y+Math.sin(an)*d*.75;if(inside(lx,ly,r))lobes.push({x:lx,y:ly,r,g:-1-k})}
+      const lobes=[];for(let m=0;m<(MAPGEN>=2?6:5);m++){const r=(MAPGEN>=2?15:13)+rnd()*7,an=rnd()*Math.PI*2,d=m?9+rnd()*10:0,lx=x+Math.cos(an)*d,ly=y+Math.sin(an)*d*.75;if(inside(lx,ly,r))lobes.push({x:lx,y:ly,r,g:-1-k})}
       if(lobes.length>=3&&lobes.every(l=>clear(l.x,l.y,l.r,-1-k,0))){blobs.push(...lobes);break}}
-    for(let g=0;g<8;g++){const n=rnd()<.4?2:3;
+    for(let g=0;g<(MAPGEN>=2?3:8);g++){const n=rnd()<.4?2:3;
       for(let t=0;t<300;t++){const r0=6+rnd()*4,cx=8+rnd()*(W-16),cy=8+rnd()*(H-16);if(!inside(cx,cy,r0)||!clear(cx,cy,r0+10,g,0))continue;
         const isl=[{x:cx,y:cy,r:r0,g}];
         for(let m=1;m<n;m++)for(let t2=0;t2<60;t2++){const r=5+rnd()*3.5,base=isl[Math.floor(rnd()*isl.length)],an=rnd()*Math.PI*2,d=base.r+r+2.6+rnd()*2.5,x=base.x+Math.cos(an)*d,y=base.y+Math.sin(an)*d/1.2;
@@ -685,7 +687,16 @@ function materialize(c,now){
 }
 const buildCost=(c,b)=>{const n=(stats(c).cnt[b]||0),m=b==="wall"?1+n*.01:1+n*.15,o={};for(const k in B[b].cost)o[k]=Math.ceil(B[b].cost[k]*m);return o};
 const LAND_PRICE=25;
-const claimCost=(c,i)=>({gold:LAND_PRICE+(NEUTRAL.has(i)?60:0)});
+// land gets dearer as the country grows
+const claimCost=(c,i)=>({gold:Math.round(LAND_PRICE*(1+Object.keys(c?.tiles||{}).length/110))+(NEUTRAL.has(i)?60:0)});
+// troops get dearer the bigger the army already is (counting those in training)
+const armySize=c=>UK.reduce((t,k)=>t+(c.army?.[k]||0),0)+(c.queue||[]).reduce((t,q)=>t+q.n,0);
+const unitMult=(c,n=1)=>1+(armySize(c)+(n-1)/2)*.002;
+// the market: each purchase raises that good's price for you, each sale lowers what it fetches; both drift back over about half an hour
+const MKT_HALF=20*60e3;
+function mktVol(c,k,side){const m=c.mkt?.[k];if(!m)return 0;const v=side==="b"?m.b||0:m.s||0;return v*Math.pow(.5,(Date.now()-(m.t||0))/MKT_HALF)}
+function buyCost(c,k,n){const v=mktVol(c,k,"b");return PRICE[k]*1.6*(n+(v*n+n*n/2)/1500)}
+function sellGain(c,k,n){const v=mktVol(c,k,"s");let g=0;for(let j=0;j<n;j+=Math.max(1,n/50|0)){const st=Math.min(Math.max(1,n/50|0),n-j);g+=st*PRICE[k]*Math.max(.35,1-(v+j)/3000)}return g}
 const canPay=(c,cost)=>Object.keys(cost).every(k=>(c.res[k]||0)>=cost[k]);
 const resName=(k,c)=>k==="gold"?(c?.currency||"ოქრო"):RES[k].n;
 function pay(c,cost,mult=1){for(const k in cost){if((c.res[k]||0)<cost[k]*mult)throw new Error("არ გყოფნის: "+resName(k,c))}for(const k in cost)c.res[k]-=cost[k]*mult}
@@ -1586,12 +1597,12 @@ function renderTabs(){
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;tab=b.dataset.tab;$("#side").classList.remove("min");renderAll(true)});
 $("#collapse").addEventListener("click",()=>{$("#side").classList.toggle("min");$("#collapse").textContent=$("#side").classList.contains("min")?"▴":"▾"});
 const TQ={};
-function maxTrain(c,u){const d=UNITS[u],s=stats(c);let n=Math.floor((s.pop-s.army-s.queued)/(d.pop||1));for(const k in d.cost)if(d.cost[k]>0)n=Math.min(n,Math.floor((c.res[k]||0)/d.cost[k]));return Math.max(0,n)}
+function maxTrain(c,u){const d=UNITS[u],s=stats(c);let n=Math.floor((s.pop-s.army-s.queued)/(d.pop||1));for(const k in d.cost)if(d.cost[k]>0)n=Math.min(n,Math.floor((c.res[k]||0)/(d.cost[k]*unitMult(c,n))));return Math.max(0,n)}
 function unitRow(c,s,u){
   const d=UNITS[u],n=c.army[u]||0,hasReq=d.req.every(r=>s.cnt[r]),mOk=!d.summon||(c.army.mage||0)>=d.mages;
   const need=!hasReq?"საჭიროა: "+d.req.map(r=>B[r].n).join(", "):!mOk?`საჭიროა ${d.mages} ჯადოქარი`:"";
   return `<div class="item" style="flex-wrap:wrap">${icn(u)}<span class="tx" style="flex:1;min-width:0"><b>${d.n} <span class="muted" style="display:inline">× ${n}</span></b><span>შეტევა ${d.atk} · დაცვა ${d.def} · ${+trainSecs(u,s.cnt).toFixed(1)} წმ${trainFactor(u,s.cnt)>1?` <b style="display:inline;color:var(--ok)">×${trainFactor(u,s.cnt)} სწრაფად</b>`:""}</span>
-    ${need?`<div class="cost"><span class="no">${need}</span></div>`:costHTML(d.cost,c)}</span>
+    ${need?`<div class="cost"><span class="no">${need}</span></div>`:costHTML(d.cost,c,unitMult(c))}</span>
     <span class="btns">${d.summon?`<button class="btn sm magic" data-train="${u}" data-n="1" ${need?"disabled":""}>მოხმობა</button>`:
       `<button class="btn sm" data-train="${u}" data-n="1" ${need?"disabled":""}>+1</button><button class="btn sm" data-train="${u}" data-n="5" ${need?"disabled":""}>+5</button>`}</span>
     ${d.summon||need?"":`<div class="row" style="width:100%;margin-top:6px;gap:6px;justify-content:flex-end"><input type="number" min="1" step="1" id="tq-${u}" data-tq="${u}" value="${TQ[u]||10}" style="width:72px"><button class="btn sm gold" data-train="${u}" data-tqn="1">ყიდვა</button><button class="btn sm" data-tmax="${u}">მაქს. ${maxTrain(c,u)}</button></div>`}</div>`;
@@ -2068,7 +2079,7 @@ async function claim(i){
 async function trainUnits(u,n){
   await mutateMe(c=>{const s=stats(c),d=UNITS[u];if(!d.req.every(r=>s.cnt[r]))throw new Error("საჭიროა: "+d.req.map(r=>B[r].n).join(", "));
     if(d.summon&&(c.army.mage||0)<d.mages)throw new Error(`საჭიროა ${d.mages} ჯადოქარი`);
-    if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები ან სოფლები");pay(c,d.cost,n);
+    if(s.army+s.queued+d.pop*n>s.pop)throw new Error("ადგილი არ არის. ააშენე სახლები ან სოფლები");pay(c,d.cost,n*unitMult(c,n));
     const last=Math.max(Date.now(),...(c.queue||[]).filter(q=>lineOf(q.u)===lineOf(u)).map(q=>q.done));c.queue=[...(c.queue||[]),{u,n,done:last+trainSecs(u,s.cnt)*n*1000}];if(d.summon)pushLog(c,d.n+" მოიხმე")});
 }
 async function declareWar(t){
@@ -2084,9 +2095,11 @@ async function acceptPeace(t){
   postChat(`მშვიდობა: ${countries[ME].name} და ${countries[t].name}`,true);
 }
 const MQ={};
-function mqInfo(k,c){const n=Math.floor(+MQ[k]||100),buy=n*PRICE[k]*1.6,sell=n*PRICE[k];return `ყიდვა: <b style="display:inline">${fmt(buy)}</b> ${esc(resName("gold",c))}${buy>(c.res.gold||0)?' <span style="color:var(--danger)">არ გყოფნის</span>':""} · გაყიდვა: +${fmt(sell)}${n>(c.res[k]||0)?' <span style="color:var(--danger)">არ გაქვს</span>':""}`}
+function mqInfo(k,c){const n=Math.floor(+MQ[k]||100),buy=buyCost(c,k,n),sell=sellGain(c,k,n),rise=Math.round((buyCost(c,k,1)/(PRICE[k]*1.6)-1)*100);return `ყიდვა: <b style="display:inline">${fmt(buy)}</b> ${esc(resName("gold",c))}${buy>(c.res.gold||0)?' <span style="color:var(--danger)">არ გყოფნის</span>':""} · გაყიდვა: +${fmt(sell)}${n>(c.res[k]||0)?' <span style="color:var(--danger)">არ გაქვს</span>':""}${rise>0?`<br>ფასი გაზრდილია ${rise}%-ით შენი ბოლო ყიდვების გამო, ნელ-ნელა დაიწევს`:""}`}
 async function market(k,n,sell){if(!(n>0))throw new Error("ჩაწერე რაოდენობა");await mutateMe(c=>{if(!stats(c).cnt.market)throw new Error("ააშენე ბაზარი");
-  if(sell){pay(c,{[k]:n});c.res.gold+=n*PRICE[k]}else{pay(c,{gold:n*PRICE[k]*1.6});c.res[k]+=n}})}
+  const vb=mktVol(c,k,"b"),vs=mktVol(c,k,"s");
+  if(sell){const g=sellGain(c,k,n);pay(c,{[k]:n});c.res.gold+=g;c.mkt={...(c.mkt||{}),[k]:{b:vb,s:vs+n,t:Date.now()}}}
+  else{const g=buyCost(c,k,n);pay(c,{gold:g});c.res[k]+=n;c.mkt={...(c.mkt||{}),[k]:{b:vb+n,s:vs,t:Date.now()}}}})}
 async function sendGift(t,k,n){n=Math.floor(n);if(!(n>0))throw new Error("მიუთითე რაოდენობა");const o=countries[t];if(!o)throw new Error("ქვეყანა ვერ მოიძებნა");
   await mutateMe(c=>{pay(c,{[k]:n});pushLog(c,`საჩუქარი → ${o.name}: ${n} ${resName(k,c)}`)});
   await mutate("countries/"+t,cur=>{if(!cur)return;cur.res[k]=(cur.res[k]||0)+n;pushLog(cur,`საჩუქარი (${countries[ME].name}): ${n} ${k==="gold"?"ოქრო":RES[k].n}`);return cur});
@@ -2480,7 +2493,16 @@ function showOnboarding(){
     if(b.id==="oWatch")ov.remove();
     if(b.id==="oGo"){b.disabled=true;foundCountry().then(()=>{ov.remove();renderAll(true);if(NET.role==="host"&&alive().length<=1)showInvite()}).catch(err=>{toast(err.message||String(err),"err");b.disabled=false})}});
 }
+let COMP_SIZE=null;function compSize(i){if(!COMP_SIZE){COMP_SIZE=new Int32Array(W*H);const lab=new Int32Array(W*H).fill(-1);let n=0;
+    for(let s0=0;s0<W*H;s0++){if(TER[s0]===WATER||lab[s0]>=0)continue;const q=[s0];lab[s0]=n;for(let h=0;h<q.length;h++)for(const m of N4(q[h]))if(TER[m]!==WATER&&lab[m]<0){lab[m]=n;q.push(m)}for(const t of q)COMP_SIZE[t]=q.length;n++}}return COMP_SIZE[i]}
+function spawnScore(i){const X=tx(i),Y=ty(i);let F=0,M=0,G=0;for(let dy=-6;dy<=6;dy++)for(let dx=-6;dx<=6;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H||dx*dx+dy*dy>40)continue;const t=TER[idx(x,y)];
+    if(t===FOREST)F++;else if(t===HILL||t===MOUNTAIN)M++;else if(t===GRASS||t===DESERT||t===SNOW||t===SAND)G++}return{F,M,G}}
 function randomSpawn(){const owned=[];for(const c of alive())for(const k in c.tiles)owned.push(+k);
+  // first look for a well-provided spot: forest for wood, hills or mountains for stone and iron, open land for farms, on a big island
+  for(let tryN=0;tryN<4000;tryN++){const minD=tryN<1500?16:tryN<3000?12:9,x=5+Math.floor(Math.random()*(W-10)),y=5+Math.floor(Math.random()*(H-10)),i=idx(x,y);
+    if(TER[i]!==GRASS&&TER[i]!==FOREST&&TER[i]!==DESERT&&TER[i]!==SNOW)continue;if(NEUTRAL.has(i)||compSize(i)<160)continue;
+    const sc=spawnScore(i);if(sc.F<6||sc.M<4||sc.G<22)continue;
+    if(owned.some(o=>Math.hypot(tx(o)-x,ty(o)-y)<minD))continue;return i}
   for(let tryN=0;tryN<1500;tryN++){const minD=tryN<600?16:tryN<1100?11:7,x=4+Math.floor(Math.random()*(W-8)),y=4+Math.floor(Math.random()*(H-8)),i=idx(x,y);
     if(TER[i]!==GRASS&&TER[i]!==FOREST&&TER[i]!==DESERT)continue;if(NEUTRAL.has(i))continue;
     let land=0;for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const t=TER[idx(x+dx,y+dy)];if(t!==WATER&&t!==RIVER&&t!==MOUNTAIN)land++}if(land<36)continue;
@@ -2519,11 +2541,11 @@ const recent=()=>{try{return JSON.parse(localStorage.getItem(RECENT_KEY)||"[]")}
 function rememberWorld(wid,name){try{const l=recent().filter(r=>r.wid!==wid);const old=recent().find(r=>r.wid===wid);l.unshift({wid,name:name||old?.name||"",t:Date.now()});localStorage.setItem(RECENT_KEY,JSON.stringify(l.slice(0,8)))}catch{}}
 // servers made before every server got its own map keep the shared one they started on
 const UNIQUE_MAPS_SINCE=1794771370000;
-async function checkMapSeed(){if(!NET.wid)return;const snap=await db.doc("meta/map").get();let want;
-  if(snap.exists&&snap.data()?.seed)want=+snap.data().seed;
-  else{const first=Math.min(Infinity,...Object.values(countries).map(c=>c.created||Infinity));want=first<UNIQUE_MAPS_SINCE?20261108:SEED;await db.doc("meta/map").set({seed:want,at:Date.now()})}
-  try{localStorage.setItem("cw_map_"+NET.wid,String(want))}catch{}
-  if(want!==SEED){try{sessionStorage.setItem("cw_go",NET.wid)}catch{}location.reload()}}
+async function checkMapSeed(){if(!NET.wid)return;const snap=await db.doc("meta/map").get();let want,gen;
+  if(snap.exists&&snap.data()?.seed){want=+snap.data().seed;gen=+snap.data().gen||1;if(!snap.data().gen)await db.doc("meta/map").set({...snap.data(),gen})}
+  else{const cs=Object.values(countries),first=Math.min(Infinity,...cs.map(c=>c.created||Infinity));want=first<UNIQUE_MAPS_SINCE?20261108:SEED;gen=cs.length?1:MAPGEN_NOW;await db.doc("meta/map").set({seed:want,gen,at:Date.now()})}
+  try{localStorage.setItem("cw_map_"+NET.wid,want+":"+gen)}catch{}
+  if(want!==SEED||gen!==MAPGEN){try{sessionStorage.setItem("cw_go",NET.wid)}catch{}location.reload()}}
 function goWorld(wid){try{sessionStorage.setItem("cw_go",wid)}catch{}if(location.hash==="#w-"+wid)location.reload();else location.hash="#w-"+wid}
 // shown every time the game opens: continue, a new server, join one by code or link, your servers, settings, how to play
 function startMenu(linkWid){return new Promise(res=>{
