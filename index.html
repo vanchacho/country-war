@@ -195,7 +195,10 @@ function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u
 function fbm(x,y,s){let t=0,a=1,f=1,n=0;for(let o=0;o<5;o++){t+=vnoise(x*f,y*f,s+o*17)*a;n+=a;a*=.5;f*=2}return t/n}
 
 /* ================= world ================= */
-const W=150,H=96,TS=16,SEED=20261108;
+const WID0=((location.hash.match(/^#w-([a-z0-9]+)$/)||[])[1])||(()=>{try{return localStorage.getItem("cw_host")||""}catch{return ""}})();
+const ISLANDS=!WID0||WID0[0]==="i";
+// every island server gets its own map, made from its code: the same code always gives the same map
+const W=150,H=96,TS=16,SEED=ISLANDS&&WID0?(strHash("map:"+WID0)%2000000000)+1:20261108;
 const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7,SNOW=8;
 const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო","თოვლიანი ველი"];
 // climate of every tile: 0 temperate, 1 winter, 2 hot desert (only on island worlds; older worlds are all temperate)
@@ -204,8 +207,7 @@ const TER=new Uint8Array(W*H), ELEV=new Float32Array(W*H);
 const idx=(x,y)=>y*W+x, tx=i=>i%W, ty=i=>(i/W)|0;
 const N4=i=>{const x=tx(i),y=ty(i),r=[];if(x>0)r.push(i-1);if(x<W-1)r.push(i+1);if(y>0)r.push(i-W);if(y<H-1)r.push(i+W);return r};
 const RIVER_EDGES=[],RIVER_PATHS=[];
-const WID0=((location.hash.match(/^#w-([a-z0-9]+)$/)||[])[1])||(()=>{try{return localStorage.getItem("cw_host")||""}catch{return ""}})();
-const ISLANDS=!WID0||WID0[0]==="i";
+
 function genWorld(){
   let tW,tS,tH,tM;
   if(!ISLANDS){
