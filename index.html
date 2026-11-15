@@ -1269,24 +1269,35 @@ function treeInstances(){const fir=[],leaf=[],taken=new Set();for(const c of ORD
     for(let k=0;k<n;k++){const x=tx(i)*TS+1.5+hash(i,k,72)*13,y=ty(i)*TS+1.5+hash(i,k,73)*13,r=hash(i,k,75),isF=hash(i,k,74)<f,snow=CLIMATE[i]===1?1:0;
       (isF?fir:leaf).push(x,y,elevPx(x,y),(t===FOREST?1:.85)*(.8+r*.5),r,snow)}}
   return{fir:new Float32Array(fir),leaf:new Float32Array(leaf)}}
+const SEA_GLSL=`#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+float h2(vec2 q){return fract(sin(dot(q,vec2(127.1,311.7)))*43758.5453);}
+float vn(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(h2(i),h2(i+vec2(1,0)),f.x),mix(h2(i+vec2(0,1)),h2(i+vec2(1,1)),f.x),f.y);}
+vec3 seaCol(vec2 wp,float time){vec2 q=wp/90.;float n=vn(q+vec2(time*.02,time*.013))*.6+vn(q*2.3-vec2(time*.03,0.))*.3+vn(q*5.)*.1;
+  vec3 c=vec3(.086,.239,.408)*(.95+n*.1);float wv=sin(wp.x*.16+wp.y*.07+n*9.+time*1.2);float gt=smoothstep(.94,1.,wv)*.2*(.6+.4*vn(q*3.+time*.05));return mix(c,vec3(.94,.97,1.),gt);}
+`;
 function glInit(){
   const gl=glc.getContext("webgl",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});if(!gl)return null;
   const sh=(t,src)=>{const o=gl.createShader(t);gl.shaderSource(o,src);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o};
   const pr=gl.createProgram();
-  gl.attachShader(pr,sh(gl.VERTEX_SHADER,`attribute vec4 a;uniform vec4 cam;uniform vec4 vw;uniform vec4 rot;varying vec2 uv;varying float sh;
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,`attribute vec4 a;uniform vec4 cam;uniform vec4 vw;uniform vec4 rot;varying vec2 uv;varying float sh;varying vec2 wp;
     void main(){float vx=a.x-cam.x,vy=a.y-cam.y,rx=rot.x*vx+rot.y*vy,ry=-rot.y*vx+rot.x*vy;float sx=rx*cam.z,sy=ry*cam.z*cam.w-a.z*cam.z*vw.z;
-      float d=(ry*rot.z+a.z/.626*rot.w+vw.w)/(2.*vw.w);gl_Position=vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);uv=vec2(a.x/${PW}.,a.y/${PH}.);sh=a.w;}`));
-  gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`precision mediump float;uniform sampler2D t0,t1,w0,w1;uniform float wf;varying vec2 uv;varying float sh;
-    void main(){vec3 c=texture2D(t0,uv).rgb;vec4 o=texture2D(t1,uv);c=mix(c,o.rgb,o.a);vec4 w=mix(texture2D(w0,uv),texture2D(w1,uv),wf);c=mix(c,w.rgb,w.a);c*=sh;
-      // near the edge of the map, water melts into the open sea's deep blue so there is no seam
-      float bd=min(min(uv.x,1.-uv.x)*${PW}.,min(uv.y,1.-uv.y)*${PH}.);float isW=step(c.r+.06,c.b)*step(c.g,c.b);float f=(1.-smoothstep(10.,230.,bd))*isW;
-      c=mix(c,vec3(.086,.239,.408),f);gl_FragColor=vec4(c,1.);}`));
+      float d=(ry*rot.z+a.z/.626*rot.w+vw.w)/(2.*vw.w);gl_Position=vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);uv=vec2(a.x/${PW}.,a.y/${PH}.);sh=a.w;wp=a.xy;}`));
+  gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`${SEA_GLSL}uniform sampler2D t0,t1,w0,w1;uniform float wf,time;varying vec2 uv;varying float sh;varying vec2 wp;
+    void main(){vec3 base=texture2D(t0,uv).rgb;vec4 w=mix(texture2D(w0,uv),texture2D(w1,uv),wf);vec3 c=mix(base,w.rgb,w.a)*sh;
+      // deep water is drawn as the very same sea that lies around the map, so open water is one sea everywhere
+      float deep=1.-smoothstep(.035,.13,distance(base,vec3(.086,.239,.408)));
+      float bd=min(min(uv.x,1.-uv.x)*${PW}.,min(uv.y,1.-uv.y)*${PH}.);float isW=step(base.r+.06,base.b)*step(base.g,base.b);deep=max(deep,(1.-smoothstep(10.,200.,bd))*isW);
+      c=mix(c,seaCol(wp,time),deep);vec4 o=texture2D(t1,uv);c=mix(c,o.rgb,o.a);gl_FragColor=vec4(c,1.);}`));
   gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
   const mk=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));return t};
   const G={gl,pr,terr:mk(),own:mk(),w:[mk(),mk(),mk()],buf:gl.createBuffer(),ib:gl.createBuffer(),n:0,
-    u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),rot:gl.getUniformLocation(pr,"rot"),wf:gl.getUniformLocation(pr,"wf"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
+    u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),rot:gl.getUniformLocation(pr,"rot"),wf:gl.getUniformLocation(pr,"wf"),time:gl.getUniformLocation(pr,"time"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
   gl.uniform1i(G.u.t0,0);gl.uniform1i(G.u.t1,1);gl.uniform1i(G.u.w0,2);gl.uniform1i(G.u.w1,3);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   const prog=(vs,fs)=>{const q=gl.createProgram();gl.attachShader(q,sh(gl.VERTEX_SHADER,vs));gl.attachShader(q,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(q);if(!gl.getProgramParameter(q,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(q));return q};
   const PROJ=`uniform vec4 cam;uniform vec4 vw;uniform vec4 rot;uniform vec3 L;uniform float shd;varying vec3 col;
@@ -1296,13 +1307,8 @@ function glInit(){
   G.obj=prog(`attribute vec3 p;attribute vec3 n;attribute vec3 c;${PROJ}
     void main(){gl_Position=proj(p);float dif=max(dot(n,L),0.);col=shd>.5?vec3(0.):c*(.5+.66*dif);}`,FS);
   G.sea=prog(`attribute vec2 p;${PROJ}varying vec2 wp;void main(){wp=p;gl_Position=proj(vec3(p,-1.5));col=vec3(0.);}`,
-    `precision mediump float;varying vec2 wp;uniform float time;uniform vec2 msz;
-    float h2(vec2 q){return fract(sin(dot(q,vec2(127.1,311.7)))*43758.5453);}
-    float vn(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(h2(i),h2(i+vec2(1,0)),f.x),mix(h2(i+vec2(0,1)),h2(i+vec2(1,1)),f.x),f.y);}
-    void main(){vec2 q=wp/90.;float n=vn(q+vec2(time*.02,time*.013))*.6+vn(q*2.3-vec2(time*.03,0.))*.3+vn(q*5.)*.1;
-      // the same deep blue as the map's open water, with the same kind of glinting crests, darkening far out
-      vec3 c=vec3(.086,.239,.408)*(.95+n*.1);
-      float wv=sin(wp.x*.16+wp.y*.07+n*9.+time*1.2);float gt=smoothstep(.94,1.,wv)*.2*(.6+.4*vn(q*3.+time*.05));c=mix(c,vec3(.94,.97,1.),gt);
+    `${SEA_GLSL}varying vec2 wp;uniform float time;uniform vec2 msz;
+    void main(){vec3 c=seaCol(wp,time);
       vec2 dd=max(max(-wp,wp-msz),0.);float far=clamp((length(dd)-150.)/1600.,0.,1.);c*=1.-far*.25;
       gl_FragColor=vec4(c,1.);}`);
   G.seaL={p:gl.getAttribLocation(G.sea,"p"),cam:gl.getUniformLocation(G.sea,"cam"),vw:gl.getUniformLocation(G.sea,"vw"),rot:gl.getUniformLocation(G.sea,"rot"),time:gl.getUniformLocation(G.sea,"time"),msz:gl.getUniformLocation(G.sea,"msz")};
@@ -1333,7 +1339,7 @@ function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;gl.useProgr
     gl.uniform1f(L.time,(now%600000)/1000);gl.uniform2f(L.msz,PW,PH);gl.bindBuffer(gl.ARRAY_BUFFER,GL.seaB);gl.enableVertexAttribArray(L.p);gl.vertexAttribPointer(L.p,2,gl.FLOAT,false,0,0);
     gl.depthMask(false);gl.drawArrays(gl.TRIANGLES,0,6);gl.depthMask(true);gl.disableVertexAttribArray(L.p);gl.useProgram(GL.pr)}
   const NRM=Math.hypot(PW,PH)+HS3*3;gl.uniform4f(GL.u.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(GL.u.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(GL.u.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);
-  const t=now/1400,i=Math.floor(t)%3;gl.uniform1f(GL.u.wf,t%1);
+  const t=now/1400,i=Math.floor(t)%3;gl.uniform1f(GL.u.wf,t%1);gl.uniform1f(GL.u.time,(now%600000)/1000);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.terr);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,GL.own);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,GL.w[i]);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,GL.w[(i+1)%3]);
   gl.bindBuffer(gl.ARRAY_BUFFER,GL.buf);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,GL.ib);gl.enableVertexAttribArray(GL.a);gl.vertexAttribPointer(GL.a,4,gl.FLOAT,false,0,0);
