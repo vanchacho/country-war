@@ -665,7 +665,7 @@ const SIEGE_MS=150e3,SHIP_CAP=10,SHIP_COST={wood:80,gold:40};
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
 const PRICE={food:.5,wood:.6,stone:.9,iron:2};
 const OFFLINE_CAP=24*3600e3,PRESENCE_GRACE=90e3;
-const ECO_SPEED=1,TRAIN_SPEED=1.2,MARCH_SPEED=1.6; // pace of the game
+const ECO_SPEED=1,TRAIN_SPEED=2.6,MARCH_SPEED=1.6; // pace of the game
 
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
@@ -1599,7 +1599,7 @@ function frame1(){
     ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6*k;ctx.beginPath();for(let j=0;j<10;j++){const an=j*Math.PI/5+t*2,r1=(4+t*10)*k,r2=(10+t*24)*k;ctx.moveTo(e.x+Math.cos(an)*r1,e.y+Math.sin(an)*r1);ctx.lineTo(e.x+Math.cos(an)*r2,e.y+Math.sin(an)*r2)}ctx.stroke();
     ctx.fillStyle="rgba(255,240,200,"+(1-t)*.8+")";ctx.beginPath();ctx.arc(e.x,e.y,(7*(1-t)+2)*k,0,7);ctx.fill();
     drawIcon(ctx,"sword",e.x,e.y,(14+t*6)*k);ctx.globalAlpha=1}
-  drawTowerArrows(now);
+  drawTowerArrows(now);drawHits(now);
   drawGuard();
   drawRoutePreview(now);
   for(const i of upQ){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6;ctx.strokeRect(TX(i)+1.5,TY(i)+1.5,TS-3,TS-3)}
@@ -2129,6 +2129,10 @@ function drawClouds(now){const a=clamp((1.15-cam.z)/.6,0,1);if(a<.02)return;cons
     ctx.globalAlpha=a*.2;ctx.drawImage(CLOUD_SH[c.v],x-w/2+34,y-h*.3+26,w,h*.55);
     const [cx,cy]=liftXY(x,y,D3?c.alt:0);ctx.save();ctx.translate(cx,cy-(D3?0:50));uprM(ctx);ctx.globalAlpha=a*.88;ctx.drawImage(CLOUD_IMG[c.v],-w*.64,-h*.85,w*1.28,h*1.28);ctx.restore()}
   ctx.globalAlpha=1}
+const HITS=[];
+function drawHits(now){for(let j=HITS.length-1;j>=0;j--){const h=HITS[j],t=(now-h.t0)/1600;if(t>1){HITS.splice(j,1);continue}
+  ctx.save();ctx.translate(h.x,h.y);uprM(ctx);ctx.globalAlpha=1-t;ctx.font="700 9px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.lineWidth=2.5;ctx.strokeStyle="rgba(20,10,8,.8)";ctx.strokeText("-"+h.n,0,-30-t*18);ctx.fillStyle="#ff6a50";ctx.fillText("-"+h.n,0,-30-t*18);ctx.restore()}}
 function drawTowerArrows(now){const k=clamp(1.5/cam.z,.8,2.2);
   for(const a of Object.values(attacks)){if(a.kind||!["marching","fighting","breaching","besieging"].includes(a.status))continue;const D=countries[a.to];if(!D?.tiles)continue;
     const P=armyPos(a,now);if(!P)continue;
@@ -2289,7 +2293,7 @@ function battle(a,def){
   if(mode==="raid"){atkLoss*=.7;defLoss*=.6}
   if(!defending)defLoss=0;else if(!guarded)defLoss*=guardF;
   if(a.breached&&wallList.length)atkLoss=Math.min(.95,atkLoss+Math.min(.25,wallList.length*.015));
-  const arrowT=isAir(u)?0:towersAlong(pathOf(a),def).size,arrowLoss=Math.min(.22,arrowT*.035);atkLoss=Math.min(.95,atkLoss+arrowLoss);
+  const arrowT=a.arrowKills?1:0,arrowLoss=0;
   if(win&&a.area?.length)atkLoss=Math.min(.95,atkLoss+Math.min(.3,a.area.length*.004));
   const survivors={};let survivorsN=0,atkLostN=0;for(const k in u){survivors[k]=Math.floor(u[k]*(1-atkLoss));survivorsN+=survivors[k];atkLostN+=u[k]-survivors[k]}
   let defLostN=0;const defLost={};for(const k of UK){const l=(def.army?.[k]||0)-Math.floor((def.army?.[k]||0)*(1-defLoss));if(l)defLost[k]=l;defLostN+=l}
@@ -2398,7 +2402,7 @@ function showReport(a){
     <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">${side(A,pA,lostA,ic?"დამხვედრი":"თავდამსხმელი")}${side(D,pD,lostD,ic?"ლაშქარი":"დამცველი")}</div>
     ${r.sea&&r.win?`<p style="margin:12px 0 0">ჩაიძირა ${r.shipsSunk||0} სატრანსპორტო გემი${r.ravaged?.length?`, დაინგრა ${r.ravaged.length} სანაპირო შენობა`:""}.</p>`:""}
     ${!ic?`<p class="muted" style="margin:12px 0 0;font-size:12px">${MODES[r.mode||"direct"].n}${a.naval?" · ზღვით":""}${r.wallsDestroyed?.length?` · დაინგრა ${r.wallsDestroyed.length} გალავანი`:""}${r.starving?" · დამცველები შიმშილობდნენ":""}</p>`:""}
-    ${!ic&&r.arrowT?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">${r.arrowT} საგუშაგო კოშკი ისრებს ესროდა თავდამსხმელებს (დანაკარგი +${Math.round(r.arrowLoss*100)}%).</p>`:""}
+    ${!ic&&r.arrowT?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">საგუშაგო კოშკების ისრებმა გზაში ${a.arrowKills||0} თავდამსხმელი მოკლა.</p>`:""}
     ${!ic&&r.undefended?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">დამცველს ჯარი არ გამოუყვანია, მტერს მხოლოდ ქალაქის მცველები და ნაგებობები დახვდნენ.</p>`:""}
     ${!ic&&r.unguarded?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">საზღვრის ეს მონაკვეთი საგუშაგოს არ ეკავა, ამიტომ მტერს ჯარის მხოლოდ ნაწილი დახვდა.</p>`:""}
     ${!ic&&r.win&&r.burned&&!r.blocked?`<p style="margin:10px 0 0;color:#f08a2c">დაიწვა ${r.ravaged?.length||0} შენობა.</p>`:""}
@@ -2422,11 +2426,25 @@ async function barbarianTick(){
   const bc=wallCut(path,wallsFor("barbarians")),bpath=bc?bc.head:path;if(bc&&!bc.rest)delete bc.rest;
   await ref.set({id:ref.id,from:"barbarians",to:T.uid,units,target,fromTile:sp,path:bpath,...(bc?.rest?{rest:bc.rest}:{}),launch:now,arrive:now+pathTravel(bpath,units)*1.2,status:"marching",mode:"raid",burn:true});
   postChat(`უცხო ტომელები მოდიან: ${T.name}!`,true)}
-const busyA=new Set();
+const busyA=new Set(),ARROW_ACC={};let lastArrowTick=0;
+function towersNear(D,x,y){let n=0;for(const k in D.tiles||{}){if(D.tiles[k]!=="tower")continue;const t=+k;if(Math.hypot(tx(t)*TS+8-x,ty(t)*TS+8-y)<=TOWER_R*TS)n++}return n}
+async function towerVolleys(now){if(NET.role!=="host")return;const dt=Math.min(10,(now-(lastArrowTick||now))/1000);lastArrowTick=now;if(dt<=0)return;
+  for(const a of Object.values(attacks)){if(a.kind||!["marching","fighting","breaching","besieging"].includes(a.status))continue;const D=countries[a.to];if(!D?.tiles)continue;
+    const P=armyPos(a,now);if(!P)continue;const ground=UK.filter(k=>a.units[k]>0&&!FLYERS.includes(k));if(!ground.length)continue;
+    const n=towersNear(D,P.x,P.y);if(!n){continue}
+    const N=ground.reduce((t,k)=>t+a.units[k],0);ARROW_ACC[a.id]=(ARROW_ACC[a.id]||0)+n*dt*(.35+N*.002);
+    const kill=Math.floor(ARROW_ACC[a.id]);if(kill<1)continue;ARROW_ACC[a.id]-=kill;
+    await mutate("attacks/"+a.id,cur=>{if(!cur||!["marching","fighting","breaching","besieging"].includes(cur.status))return;let left=kill;
+      // arrows fall on the foot soldiers and riders, most often on the most numerous
+      while(left>0){const ks=UK.filter(k=>cur.units[k]>0&&!FLYERS.includes(k));if(!ks.length)break;const k=ks.reduce((b,q)=>cur.units[q]>cur.units[b]?q:b,ks[0]);cur.units[k]--;left--}
+      cur.arrowKills=(cur.arrowKills||0)+kill-left;
+      if(!unitSum(cur.units)){const n2=Date.now();cur.result={survivors:{},survivorsN:0,routed:1,loot:{},at:n2};cur.status="returning";cur.arrive=n2;cur.returnAt=n2;
+        postChat(`საგუშაგოების ისრებმა ჯარი გაანადგურეს: ${cOf(cur.from)?.name||"მტერი"}`,true)}
+      return cur}).catch(()=>{})}}
 // nobody is defending: the defender has no army at home or never chose to defend
 const noDefenders=a=>{const D=countries[a.to];return !D||!(a.defend||D.autoDefend)||!unitSum(D.army||{})};
 async function resolveAttacks(){
-  if(!db||!ME||!booted)return;const now=Date.now();
+  if(!db||!ME||!booted)return;const now=Date.now();await towerVolleys(now).catch(()=>{});
   for(const a of Object.values(attacks).sort((p,q)=>p.arrive-q.arrive)){
     if(busyA.has(a.id))continue;
     const involved=a.from===ME||a.to===ME;
@@ -2701,6 +2719,7 @@ async function boot(){
     else if(me()&&$("#onb"))$("#onb").remove();
     renderAll()},e=>toast("მონაცემები ვერ ჩაიტვირთა","err"));
   db.collection("attacks").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,id:d.id}}
+    for(const id in next){const a=next[id],pr=attacks[id];if(pr&&a.status===pr.status&&a.arrowKills>(pr.arrowKills||0)){const P=armyPos(a,Date.now());if(P)HITS.push({x:P.x,y:P.y,n:a.arrowKills-(pr.arrowKills||0),t0:Date.now()})}}
     for(const id in next){const a=next[id],pr=attacks[id];if(a.to===ME&&a.status==="marching"&&a.kind!=="intercept"&&!pr&&booted)toast(`${cOf(a.from)?.name||"მტერი"} გიტევს!`,"err");
       if(a.status==="returning"&&a.result&&!a.result.missed&&!a.result.camp&&((pr&&(pr.status==="marching"||pr.status==="besieging"))||(!pr&&Date.now()-(a.result.at||0)<6000))){const loc=a.retFrom??a.target;FX.push({x:tx(loc)*TS+8,y:ty(loc)*TS+8,t0:Date.now(),col:cOf(a.from)?.color||"#fff"});const sc=sceneFromAttack(a);if(sc)SCENES.push(sc)}}
     attacks=next;renderAll()},()=>{});
