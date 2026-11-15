@@ -177,8 +177,10 @@ function fbm(x,y,s){let t=0,a=1,f=1,n=0;for(let o=0;o<5;o++){t+=vnoise(x*f,y*f,s
 
 /* ================= world ================= */
 const W=150,H=96,TS=16,SEED=20261108;
-const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7;
-const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო"];
+const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7,SNOW=8;
+const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო","თოვლიანი ველი"];
+// climate of every tile: 0 temperate, 1 winter, 2 hot desert (only on island worlds; older worlds are all temperate)
+const CLIMATE=new Uint8Array(W*H),CLIM_NAME=["ზომიერი","ზამთარი","უდაბნო"],CLIM_RICH=["საკვები და ცხენები (თავლა მხოლოდ აქ)","რკინა და ხე","მანა და ოქრო"];
 const TER=new Uint8Array(W*H), ELEV=new Float32Array(W*H);
 const idx=(x,y)=>y*W+x, tx=i=>i%W, ty=i=>(i/W)|0;
 const N4=i=>{const x=tx(i),y=ty(i),r=[];if(x>0)r.push(i-1);if(x<W-1)r.push(i+1);if(y>0)r.push(i-W);if(y<H-1)r.push(i+W);return r};
@@ -219,6 +221,23 @@ function genWorld(){
     if(e<tW)t=WATER;else if(e<tS)t=SAND;else if(e>tM)t=MOUNTAIN;else if(e>tH)t=HILL;
     else if(m>.56)t=FOREST;else if(m<.40)t=DESERT;else t=GRASS;
     TER[i]=t;ELEV[i]=(e-tW)/(tM-tW)*.45+.33;
+  }
+  if(ISLANDS){
+    const lab=new Int32Array(W*H).fill(-1),cs=[];
+    for(let i=0;i<W*H;i++){if(TER[i]===WATER||lab[i]>=0)continue;const q=[i];lab[i]=cs.length;for(let h=0;h<q.length;h++)for(const n of N4(q[h]))if(TER[n]!==WATER&&lab[n]<0){lab[n]=cs.length;q.push(n)}cs.push(q)}
+    const order=cs.map((t,ci)=>ci).sort((a,b)=>cs[b].length-cs[a].length);
+    order.forEach((ci,rank)=>{const tl=cs[ci],cy=tl.reduce((a,t)=>a+ty(t),0)/tl.length/H,big=rank<2;
+      let cl=cy<.36?1:cy>.64?2:0;const pk=hash(ci,3,SEED+77);if(!big&&pk<.55)cl=Math.floor(hash(ci,4,SEED+78)*3);
+      for(const t of tl){let c=cl;if(big){const n=fbm(tx(t)/24,ty(t)/24,SEED+88)+(ty(t)/H-.5)*.7+(rank?.08:-.08);c=n<.4?1:n>.6?2:0}CLIMATE[t]=c}});
+    // every climate must exist somewhere: hand the missing ones to mid-sized islands
+    const landN=cs.reduce((a,t)=>a+t.length,0);
+    for(const want of [1,2,0]){let have=0;for(let i=0;i<W*H;i++)if(TER[i]!==WATER&&CLIMATE[i]===want)have++;
+      for(const ci of order.slice(2)){if(have>=landN*.1)break;const tl=cs[ci];if(tl.some(t=>CLIMATE[t]!==CLIMATE[tl[0]]))continue;const was=CLIMATE[tl[0]];
+        let wasN=0;for(let i=0;i<W*H;i++)if(TER[i]!==WATER&&CLIMATE[i]===was)wasN++;if(wasN-tl.length<landN*.1)continue;for(const t of tl)CLIMATE[t]=want;have+=tl.length}}
+    for(let i=0;i<W*H;i++){const t=TER[i],c=CLIMATE[i];if(t===WATER)continue;
+      if(c===1){if(t===GRASS||t===DESERT)TER[i]=SNOW}
+      else if(c===2){if(t===GRASS||(t===FOREST&&hash(i,5,SEED)<.8))TER[i]=hash(i,6,SEED)<.08?GRASS:DESERT}
+      else if(t===DESERT)TER[i]=GRASS}
   }
   // rivers run coast to coast: each starts at the sea on one side, crosses the land along the low ground and reaches the sea on the other side
   const ocean=new Uint8Array(W*H),oq=[];
@@ -371,23 +390,23 @@ const icn=(k,small)=>`<canvas class="icn${small?" s":""}" data-icon="${k}" aria-
 /* ================= rules ================= */
 const RES={gold:{n:"ოქრო"},food:{n:"საკვები"},wood:{n:"ხე"},stone:{n:"ქვა"},iron:{n:"რკინა"},mana:{n:"მანა"}};
 const RK=["gold","food","wood","stone","iron","mana"];
-const LAND=[SAND,GRASS,FOREST,HILL,DESERT];
+const LAND=[SAND,GRASS,FOREST,HILL,DESERT,SNOW];
 const B={
   capital:{n:"დედაქალაქი",prod:{gold:6,food:8,wood:3,stone:2},pop:30,noBuild:true},
-  village:{n:"სოფელი",cost:{wood:60,gold:40},prod:{gold:12,food:7,wood:2},pop:25,on:[GRASS,SAND,DESERT,FOREST],d:"შემოსავალი და მოსახლეობა. შეიძლება გაუმჯობესება"},
+  village:{n:"სოფელი",cost:{wood:60,gold:40},prod:{gold:12,food:7,wood:2},pop:25,on:[GRASS,SAND,DESERT,FOREST,SNOW],d:"შემოსავალი და მოსახლეობა. შეიძლება გაუმჯობესება"},
   village2:{n:"დიდი სოფელი",cost:{wood:120,stone:60,gold:120},prod:{gold:24,food:11,wood:3,stone:1},pop:45,noBuild:true},
   village3:{n:"ქალაქი",cost:{wood:150,stone:200,iron:20,gold:300},prod:{gold:40,food:15,wood:4,stone:2,iron:1},pop:70,noBuild:true},
   house:{n:"სახლი",cost:{wood:30,gold:15},pop:8,on:LAND,d:"+8 მოსახლე"},
-  farm:{n:"ფერმა",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT],d:"საკვები. მდინარესთან მეტი"},
+  farm:{n:"ფერმა",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT,SNOW],d:"საკვები. მდინარესთან მეტი, ზომიერ რეგიონში ყველაზე მეტი"},
   lumber:{n:"სახერხი",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"ხე. მხოლოდ ტყეში"},
   quarry:{n:"ქვის სამტეხლო",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"ქვა. ბორცვზე ან მთაზე"},
-  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:"რკინა. მთაზე მეტი"},
+  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:ISLANDS?"რკინა. ბევრს მხოლოდ ზამთრის მთები იძლევა":"რკინა. მთაზე მეტი"},
   market:{n:"ბაზარი",cost:{wood:80,stone:50,gold:60},prod:{gold:10},on:LAND,d:"ოქრო და ვაჭრობა"},
   barracks:{n:"ყაზარმა",cost:{wood:90,stone:40,gold:50},on:LAND,d:"ქვეითი ჯარი"},
   range:{n:"სასროლეთი",cost:{wood:110,gold:60},on:LAND,d:"მშვილდოსნები"},
-  stable:{n:"თავლა",cost:{wood:120,stone:60,gold:100},on:LAND,d:"ცხენოსნები"},
+  stable:{n:"თავლა",cost:{wood:120,stone:60,gold:100},on:ISLANDS?[GRASS]:LAND,d:ISLANDS?"ცხენოსნები. მხოლოდ ზომიერი რეგიონის მინდორზე":"ცხენოსნები"},
   workshop:{n:"სახელოსნო",cost:{wood:160,stone:120,iron:30,gold:120},on:LAND,d:"კატაპულტები"},
-  magetower:{n:"ჯადოქრის კოშკი",cost:{stone:120,iron:20,gold:150},prod:{mana:3},on:[...LAND,MOUNTAIN],d:"მანა, ჯადოქრები და მოხმობა"},
+  magetower:{n:"ჯადოქრის კოშკი",cost:{stone:120,iron:20,gold:150},prod:{mana:3},on:[...LAND,MOUNTAIN],d:ISLANDS?"ჯადოქრები და მოხმობა. მანას ბევრს მხოლოდ უდაბნოში იძლევა":"მანა, ჯადოქრები და მოხმობა"},
   bridge:{n:"ხიდი",cost:{wood:40,stone:30,gold:20},on:[RIVER],d:"მდინარეზე გადასასვლელი: ჯარი აქ არ ყოვნდება"},
   port:{n:"ნავსადგური",cost:{wood:120,stone:40,gold:80},on:LAND,coast:1,d:"გემები და ჯარის ზღვით გადაყვანა"},
   tower:{n:"საგუშაგო კოშკი",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"აკონტროლებს საზღვარს 6 უჯრის რადიუსში. დაუცველ საზღვარზე შემოსულ მტერს ჯარის მხოლოდ ნაწილი დახვდება"},
@@ -605,7 +624,8 @@ const ECO_SPEED=1,TRAIN_SPEED=1.2,MARCH_SPEED=1.6; // pace of the game
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
   for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
-    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b==="lumber"&&t!==FOREST)m=0;for(const r in d.prod)prod[r]+=d.prod[r]*m}}
+    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b==="lumber"&&t!==FOREST)m=0;
+      if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=cl===1?1.8:.2;else if(b==="magetower")m*=cl===2?1.8:.2;else if(b==="farm"&&cl===1)m*=.4;else if(b==="lumber"&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}for(const r in d.prod)prod[r]+=d.prod[r]*m}}
   let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
   const civ=Math.max(0,pop-army);
@@ -823,9 +843,9 @@ const NT=256,NOISE=new Float32Array(NT*NT),NOISE2=new Float32Array(NT*NT);
   for(let y=0;y<NT;y++)for(let x=0;x<NT;x++){let t=0,a=1,n=0;for(let o=0;o<5;o++){const f=1<<o;t+=per(x/32*f,y/32*f,SEED+300+o,8*f)*a;n+=a;a*=.5}NOISE[x+y*NT]=t/n;
     let r=0;a=1;n=0;for(let o=0;o<4;o++){const f=1<<o,q=1-Math.abs(per(x/24*f,y/24*f,SEED+400+o,Math.round(256/24*f)||1)*2-1);r+=q*q*a;n+=a;a*=.55}NOISE2[x+y*NT]=r/n}})();
 const nz=(x,y)=>NOISE[(x&255)+((y&255)<<8)],nz2=(x,y)=>NOISE2[(x&255)+((y&255)<<8)];
-const BIOME={[SAND]:[226,208,150],[GRASS]:[104,160,70],[FOREST]:[46,96,40],[HILL]:[134,140,86],[MOUNTAIN]:[122,110,98],[DESERT]:[224,188,110],[RIVER]:[104,160,70],[WATER]:[60,120,150]};
+const BIOME={[SNOW]:[212,222,230],[SAND]:[226,208,150],[GRASS]:[104,160,70],[FOREST]:[46,96,40],[HILL]:[134,140,86],[MOUNTAIN]:[122,110,98],[DESERT]:[224,188,110],[RIVER]:[104,160,70],[WATER]:[60,120,150]};
 const PW=W*TS,PH=H*TS;let TR=8,TW=W*TR,THh=H*TR,HEIGHT=null,terrainHi=false;
-const MT=new Float32Array(W*H),FO=new Float32Array(W*H);for(let i=0;i<W*H;i++){MT[i]=TER[i]===MOUNTAIN?1:TER[i]===HILL?.35:0;FO[i]=TER[i]===FOREST?1:0}
+const MT=new Float32Array(W*H),FO=new Float32Array(W*H),COLD=new Float32Array(W*H);for(let i=0;i<W*H;i++){MT[i]=TER[i]===MOUNTAIN?1:TER[i]===HILL?.35:0;FO[i]=TER[i]===FOREST?1:0;COLD[i]=CLIMATE[i]===1&&TER[i]!==WATER?1:0}
 const samp=(arr,fx,fy)=>{const x=fx<0?0:fx>W-1.001?W-1.001:fx,y=fy<0?0:fy>H-1.001?H-1.001:fy,xi=x|0,yi=y|0,u=x-xi,v=y-yi,i=xi+yi*W;return arr[i]*(1-u)*(1-v)+arr[i+1]*u*(1-v)+arr[i+W]*(1-u)*v+arr[i+W+1]*u*v};
 function terrainJob(tr,budget,done){
   const tw=W*tr,th=H*tr,fs=TS/tr,cvs=document.createElement("canvas");cvs.width=tw;cvs.height=th;
@@ -846,7 +866,8 @@ function terrainJob(tr,budget,done){
     const des=(t0===DESERT?w0:0)+(t1===DESERT?w1:0)+(t2===DESERT?w2:0)+(t3===DESERT?w3:0);if(des>.2){const dune=.93+Math.sin(X*.22+Y*.09+nz(X,Y)*9)*.07;r*=dune;gg*=dune;b*=dune}
     if(h<.345){const a=clamp((.345-h)/.015,0,1);r=r*(1-a)+232*a;gg=gg*(1-a)+216*a;b=b*(1-a)+160*a}
     if(m>.5){const rock=.88+n1*.28;r=r*.45+120*rock*.55;gg=gg*.45+110*rock*.55;b=b*.45+100*rock*.55}
-    const snow=m>.6?clamp((h-.965-(nz(X*2,Y*2)-.5)*.04)/.025,0,1):0;if(snow>0){r=r*(1-snow)+246*snow;gg=gg*(1-snow)+248*snow;b=b*(1-snow)+250*snow}
+    const cold=samp(COLD,fx,fy);if(cold>.05){const a=cold*(f>.25?.32:m>.3?.5:.15);r=r*(1-a)+226*a;gg=gg*(1-a)+233*a;b=b*(1-a)+242*a}
+    const snow=m>.6?clamp((h-.965+cold*.09-(nz(X*2,Y*2)-.5)*.04)/.025,0,1):0;if(snow>0){r=r*(1-snow)+246*snow;gg=gg*(1-snow)+248*snow;b=b*(1-snow)+250*snow}
     const hx=HT[(px>0?px-1:px)+py*tw]-HT[(px<tw-1?px+1:px)+py*tw],hy=HT[px+(py>0?py-1:py)*tw]-HT[px+(py<th-1?py+1:py)*tw];
     const sh=clamp(1+(hx+hy)*(k1+m*k2),.55,1.45);
     // a touch more contrast and saturation so the map reads crisply
@@ -863,7 +884,7 @@ function terrainJob(tr,budget,done){
 function drawTrees(g){
   const trees=[];
   for(let i=0;i<W*H;i++){const t=TER[i];let n=0,fir=0;
-    if(t===FOREST){n=7;fir=hash(i,1,71)<.25?1:0}else if(t===HILL){n=hash(i,2,71)<.35?2:0;fir=1}else if(t===GRASS){n=hash(i,3,71)<.12?1:0}
+    if(t===FOREST){n=7;fir=CLIMATE[i]===1||hash(i,1,71)<.25?1:0}else if(t===SNOW){n=hash(i,7,71)<.1?1:0;fir=1}else if(t===HILL){n=hash(i,2,71)<.35?2:0;fir=1}else if(t===GRASS){n=hash(i,3,71)<.12?1:0}
     for(let k=0;k<n;k++){const x=tx(i)*TS+1+hash(i,k,72)*14,y=ty(i)*TS+1+hash(i,k,73)*14,hh=HEIGHT&&0;trees.push([x,y,fir||(t===FOREST&&hash(i,k,74)<.15)?1:0,hash(i,k,75)])}}
   trees.sort((a,b)=>a[1]-b[1]);
   for(const [x,y,fir,r] of trees){const s=2.6+r*1.8,dark=.75+r*.3;
@@ -1445,7 +1466,7 @@ function renderTile(){
     selectedArmy=null}
   if(selected<0||!me()){el.hidden=true;return}el.hidden=false;
   const i=selected,o=ownerOf(i),c=live(ME),t=TER[i],b=o?o.tiles[i]:"",neutral=!o&&NEUTRAL.has(i);
-  let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${b?B[b].n:neutral?"ნეიტრალური სოფელი":TNAME[t]}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span> · `:""}${TNAME[t]}</div>`;
+  let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${b?B[b].n:neutral?"ნეიტრალური სოფელი":TNAME[t]}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span> · `:""}${TNAME[t]}${ISLANDS&&t!==WATER?` · ${CLIM_NAME[CLIMATE[i]]}`:""}</div>${ISLANDS&&t!==WATER?`<div class="muted" style="font-size:11.5px">ეს რეგიონი მდიდარია: ${CLIM_RICH[CLIMATE[i]]}</div>`:""}`;
   if(o&&o.uid===ME){
     if(!b){const opts=BUILD_ORDER.filter(k=>B[k].on.includes(t)&&(!B[k].coast||N4(i).some(n=>TER[n]===WATER)));
       h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodHTML(k)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button><button class="btn sm" data-paint="${k}">ბევრი</button></span></div>`}).join("")+`</div>`
