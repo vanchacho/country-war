@@ -282,7 +282,11 @@ function genWorld(){
     let s=-1,e=-1,bs=-1e9,be=-1e9;
     for(const i of coastAll){const px=tx(i)-cx,py=(ty(i)-cy)*1.5,pr=px*dx+py*dy,perp=Math.abs(-px*dy+py*dx-off);
       const a=pr-perp*.8+hash(i,r,9)*4,b=-pr-perp*.8+hash(i,r,11)*4;if(a>bs){bs=a;s=i}if(b>be){be=b;e=i}}
-    RS=r;const p=route(s,e);if(!p||p.length<12)continue;
+    if(comps){const cp=comps[r%comps.length],srcs=RIVER_PATHS.map(pp=>pp.find(t=>TER[t]!==WATER));let bv=-1e9;s=-1;
+      for(const t of cp.tiles){if(TER[t]===WATER||TER[t]===MOUNTAIN||TER[t]===RIVER||nearSea(t))continue;const far=srcs.length?Math.min(...srcs.map(q=>Math.hypot(tx(q)-tx(t),ty(q)-ty(t)))):30;if(far<14)continue;
+        const v=ELEV[t]+Math.min(far,30)*.004+hash(t,r,13)*.03;if(v>bv){bv=v;s=t}}
+      if(s<0)continue;let be2=-1e9;e=-1;for(const t of coastAll){const d=Math.hypot(tx(t)-tx(s),ty(t)-ty(s));if(d<12)continue;const v=-Math.abs(d-26)+hash(t,r,17)*8;if(v>be2){be2=v;e=t}}if(e<0)continue}
+    RS=r;const p=route(s,e);if(!p||p.length<(comps?10:12))continue;
     for(const t of p)TER[t]=RIVER;
     for(let j=1;j<p.length;j++)RIVER_EDGES.push([p[j-1],p[j]]);
     const ws=N4(s).find(n=>ocean[n]),we=N4(e).find(n=>ocean[n]);for(const [end,w] of [[s,ws],[e,we]])if(w!=null)RIVER_EDGES.push([end,w]);
@@ -690,7 +694,7 @@ function bakeBurnt(){if(!terrCv.width)return;GLD.terr=true;const now=Date.now(),
   for(const k in FOREST_FIRE){if(BAKED.has(k)||now-FOREST_FIRE[k]<60000)continue;BAKED.add(k);const i=+k,x=(tx(i)*TS+8)*k2,y=(ty(i)*TS+8)*k2,r=12*k2;
     const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,"rgba(104,152,68,1)");gr.addColorStop(.65,"rgba(104,152,68,.92)");gr.addColorStop(1,"rgba(104,152,68,0)");g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();
     for(let q=0;q<26;q++){const v=hash(i,q,3);g.fillStyle=`rgba(${70+v*50|0},${118+v*48|0},${46+v*20|0},.55)`;const rx=(hash(i,q,4)-.5)*15*k2,ry=(hash(i,q,5)-.5)*15*k2;if(rx*rx+ry*ry<r*r*.6)g.fillRect(x+rx,y+ry,1.4*k2,1.4*k2)}}}
-function applyForestFires(){bakeBurnt();const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS}}}const BRIDGES=new Set();
+function applyForestFires(){bakeBurnt();const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS;GLD.trees=true}}}const BRIDGES=new Set();
 let selected=-1,placing=null,tab="land",lastChatSeen=0;
 const NET={role:null,wid:null,status:"",peers:0},TOUCH=matchMedia("(pointer:coarse)").matches;
 
@@ -782,10 +786,10 @@ function inviteLink(){return location.origin+location.pathname+"#w-"+NET.wid}
 function renderNet(){
   const el=$("#net");if(!NET.role){el.hidden=true;return}el.hidden=!me();
   const st={online:["on","ონლაინ"],offline:["off","კავშირი არ არის"],hostoff:["off","მასპინძელი არ არის ონლაინ"],wait:["","უკავშირდება…"],dup:["off",""]}[NET.status]||["","უკავშირდება…"];
-  el.innerHTML=`<span class="dot ${st[0]}"></span><span>${st[1]}${NET.status==="online"?` · ${NET.peers}`:""}</span><button class="btn sm" id="invBtn">მოწვევა</button><button class="btn sm" id="d3Btn">${D3?"2D":"3D"}</button>${TOUCH&&document.fullscreenEnabled&&!document.fullscreenElement?'<button class="btn sm" id="fsBtn">სრული ეკრანი</button>':""}`;
+  el.innerHTML=`<span class="dot ${st[0]}"></span><span>${st[1]}${NET.status==="online"?` · ${NET.peers}`:""}</span><button class="btn sm" id="invBtn">მოწვევა</button><button class="btn sm" id="d3Btn">${D3?"2D":"3D"}</button><button class="btn sm" id="menuBtn">მენიუ</button>${TOUCH&&document.fullscreenEnabled&&!document.fullscreenElement?'<button class="btn sm" id="fsBtn">სრული ეკრანი</button>':""}`;
 }
 $("#res").addEventListener("click",e=>{if(e.target.closest("[data-goarmy]")){tab="army";$("#side").classList.remove("min");renderAll(true)}});
-$("#net").addEventListener("click",e=>{if(e.target.id==="invBtn")showInvite();if(e.target.id==="d3Btn")set3D(!D3);if(e.target.id==="fsBtn")document.documentElement.requestFullscreen?.({navigationUI:"hide"}).then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>{}).finally(()=>setTimeout(()=>{resize();renderNet()},300))});
+$("#net").addEventListener("click",e=>{if(e.target.id==="invBtn")showInvite();if(e.target.id==="d3Btn")set3D(!D3);if(e.target.id==="menuBtn")location.reload();if(e.target.id==="fsBtn")document.documentElement.requestFullscreen?.({navigationUI:"hide"}).then(()=>screen.orientation?.lock?.("landscape").catch(()=>{})).catch(()=>{}).finally(()=>setTimeout(()=>{resize();renderNet()},300))});
 document.addEventListener("fullscreenchange",()=>{resize();renderNet()});
 addEventListener("orientationchange",()=>setTimeout(resize,250));
 if(TOUCH&&matchMedia("(orientation:portrait)").matches)setTimeout(()=>toast("უკეთ სათამაშოდ ტელეფონი გადმოატრიალე"),2500);
@@ -824,7 +828,7 @@ const live=uid=>{const c=countries[uid];return c?materialize(JSON.parse(JSON.str
 const atWar=(a,b)=>{const A=countries[a],Bc=countries[b];return !!(A&&Bc&&((A.wars||[]).includes(b)||(Bc.wars||[]).includes(a)))};
 function rebuildOwners(){
   OWNER.fill(-1);ORDER=alive().sort((a,b)=>(a.created||0)-(b.created||0));
-  BRIDGES.clear();ORDER.forEach((c,n)=>{for(const k in c.tiles||{}){const i=+k;if(OWNER[i]<0)OWNER[i]=n;if(c.tiles[k]==="bridge")BRIDGES.add(i)}});
+  GLD.bld=GLD.trees=true;BRIDGES.clear();ORDER.forEach((c,n)=>{for(const k in c.tiles||{}){const i=+k;if(OWNER[i]<0)OWNER[i]=n;if(c.tiles[k]==="bridge")BRIDGES.add(i)}});
   drawTerritory();
 }
 const ownerOf=i=>OWNER[i]>=0?ORDER[OWNER[i]]:null;
@@ -899,7 +903,7 @@ function terrainJob(tr,budget,done){
     r*=sh;gg*=sh;b*=sh;const l=(r+gg+b)/3;r=l+(r-l)*1.12;gg=l+(gg-l)*1.12;b=l+(b-l)*1.12;r=(r-128)*1.06+128;gg=(gg-128)*1.06+128;b=(b-128)*1.06+128;
     D[k]=r;D[k+1]=gg;D[k+2]=b;D[k+3]=255}};
   let phase=0,row=0;
-  const finish=()=>{g.putImageData(img,0,0);g.save();g.scale(1/fs,1/fs);drawTrees(g);drawRivers(g);g.restore();done(cvs,HT,tw,th)};
+  const finish=()=>{g.putImageData(img,0,0);g.save();g.scale(1/fs,1/fs);LAST_TREES3D=TREES3D();if(!LAST_TREES3D)drawTrees(g);drawRivers(g);g.restore();done(cvs,HT,tw,th)};
   const step=()=>{const t0=performance.now();
     while(budget===0||performance.now()-t0<budget){if(phase===0){heightRow(row++);if(row>=th){phase=1;row=0}}else{colorRow(row++);if(row>=th){finish();return}}}
     setTimeout(step,0)};
@@ -1088,16 +1092,33 @@ function paintBuilding(g,b,v){
 }
 
 function drawRivers(g){
-  g.lineCap="round";g.lineJoin="round";
-  const curves=RIVER_PATHS.map((path,r)=>{let pts=path.map(i=>[tx(i)*TS+8,ty(i)*TS+8]);
+  for(const [r,path] of RIVER_PATHS.entries()){
+    const wet=i=>TER[i]===WATER,head=wet(path[0]),tail=wet(path[path.length-1]);
+    // the land part of the river; the ends that touch the sea become the shoreline points
+    const land=path.filter(i=>!wet(i));if(land.length<2)continue;
+    let pts=land.map(i=>[tx(i)*TS+8,ty(i)*TS+8]);
+    const shore=(li,wi)=>[(tx(li)+tx(wi))/2*TS+8,(ty(li)+ty(wi))/2*TS+8];
+    if(head)pts.unshift(shore(land[0],path[0]));if(tail)pts.push(shore(land[land.length-1],path[path.length-1]));
     for(let it=0;it<3;it++){const out=[pts[0]];for(let j=0;j<pts.length-1;j++){const a=pts[j],b=pts[j+1];out.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}out.push(pts[pts.length-1]);pts=out}
-    let dist=0;return pts.map((pt,j)=>{if(j)dist+=Math.hypot(pt[0]-pts[j-1][0],pt[1]-pts[j-1][1]);const a=pts[Math.max(0,j-1)],b=pts[Math.min(pts.length-1,j+1)],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,
-      end=Math.min(j,pts.length-1-j)<6?Math.min(j,pts.length-1-j)/6:1,off=(Math.sin(dist/22+r*2)*2.2+Math.sin(dist/9+r)*.8)*end;return[pt[0]-dy/L*off,pt[1]+dx/L*off]})});
-  const line=pts=>{g.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<pts.length;j++)g.lineTo(pts[j][0],pts[j][1])};
-  for(const pass of [[8,"rgba(110,100,60,.3)"],[6,"rgb(38,96,134)"],[3.8,"rgb(66,140,182)"],[1.2,"rgba(190,228,245,.55)"]]){
-    g.strokeStyle=pass[1];g.lineWidth=pass[0];g.beginPath();for(const c of curves)if(c.length>1)line(c);g.stroke()}}
+    const n=pts.length;let dist=0;const P=[];
+    for(let j=0;j<n;j++){if(j)dist+=Math.hypot(pts[j][0]-pts[j-1][0],pts[j][1]-pts[j-1][1]);const a=pts[Math.max(0,j-1)],b=pts[Math.min(n-1,j+1)],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;
+      const t=j/(n-1),end=Math.min(j,n-1-j)<6?Math.min(j,n-1-j)/6:1,off=(Math.sin(dist/22+r*2)*1.8+Math.sin(dist/9+r)*.6)*end;
+      // width: a trickle at the source growing to a broad lower course; a river touching the sea at its start widens there too
+      let w=1.4+5.2*Math.pow(t,.8);if(head)w=Math.max(w,1.4+5.2*Math.pow(1-t,.8));if(tail&&t>.94)w*=1+(t-.94)/.06*.9;if(head&&t<.06)w*=1+(.06-t)/.06*.9;
+      P.push({x:pts[j][0]-dy/L*off,y:pts[j][1]+dx/L*off,nx:-dy/L,ny:dx/L,w})}
+    const ribbon=(k,add,col)=>{g.fillStyle=col;g.beginPath();P.forEach((q,j)=>{const h=q.w*k/2+add;j?g.lineTo(q.x+q.nx*h,q.y+q.ny*h):g.moveTo(q.x+q.nx*h,q.y+q.ny*h)});
+      for(let j=P.length-1;j>=0;j--){const q=P[j],h=q.w*k/2+add;g.lineTo(q.x-q.nx*h,q.y-q.ny*h)}g.closePath();g.fill()};
+    ribbon(1,2.2,"rgba(96,88,52,.28)");ribbon(1,.9,"rgba(150,138,92,.35)");ribbon(1,0,"rgb(40,98,136)");ribbon(.62,0,"rgb(62,134,176)");
+    g.strokeStyle="rgba(196,230,246,.45)";g.lineWidth=.7;g.beginPath();P.forEach((q,j)=>{const x=q.x+q.nx*q.w*.18,y=q.y+q.ny*q.w*.18;j?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();
+    // the mouth: fresh water spreads into the sea and fades, with a pale silt plume and sandbars
+    const mouth=(q,o)=>{const ox=q.x+(q.x-o.x)*.6,oy=q.y+(q.y-o.y)*.6,R=q.w*2.6;
+      const gr=g.createRadialGradient(ox,oy,0,ox,oy,R);gr.addColorStop(0,"rgba(58,128,168,.85)");gr.addColorStop(.55,"rgba(70,140,170,.4)");gr.addColorStop(1,"rgba(70,140,170,0)");g.fillStyle=gr;g.beginPath();g.arc(ox,oy,R,0,7);g.fill();
+      const gp=g.createRadialGradient(ox,oy,0,ox,oy,R*1.6);gp.addColorStop(0,"rgba(160,190,170,.22)");gp.addColorStop(1,"rgba(160,190,170,0)");g.fillStyle=gp;g.beginPath();g.arc(ox,oy,R*1.6,0,7);g.fill();
+      g.fillStyle="rgba(222,206,150,.55)";for(let k=0;k<3;k++){const a=hash(r,k,91)*Math.PI*2,d=R*(.5+hash(r,k,92)*.4);g.beginPath();g.ellipse(ox+Math.cos(a)*d,oy+Math.sin(a)*d,1.6+hash(r,k,93)*1.4,.8,a,0,7);g.fill()}};
+    if(tail)mouth(P[P.length-1],P[Math.max(0,P.length-6)]);if(head)mouth(P[0],P[Math.min(P.length-1,5)]);
+  }}
 function drawTerrain(){
-  terrainJob(8,0,(cvs,HT,tw,th)=>{terrCv.width=tw;terrCv.height=th;terrCv.getContext("2d").drawImage(cvs,0,0);HEIGHT=HT;TR=8;TW=tw;THh=th;buildWaterFX();BAKED.clear();bakeBurnt();computeLift();glMesh();GLD.terr=GLD.wfx=true});
+  terrainJob(8,0,(cvs,HT,tw,th)=>{terrCv.width=tw;terrCv.height=th;terrCv.getContext("2d").drawImage(cvs,0,0);HEIGHT=HT;TR=8;TW=tw;THh=th;buildWaterFX();BAKED.clear();bakeBurnt();computeLift();glMesh();GLD.terr=GLD.wfx=GLD.bld=GLD.trees=true});
   setTimeout(()=>terrainJob(16,10,(cvs)=>{terrCv.width=cvs.width;terrCv.height=cvs.height;terrCv.getContext("2d").drawImage(cvs,0,0);terrainHi=true;BAKED.clear();bakeBurnt();GLD.terr=true}),300);
 }
 /* moving water: three pre-rendered frames of wave glints and shore foam, cross-faded over time */
@@ -1121,7 +1142,101 @@ function drawTerritory(){GLD.own=true;
 }
 function resize(){dpr=Math.min(2,window.devicePixelRatio||1);vw=cv.clientWidth;vh=cv.clientHeight;cv.width=vw*dpr|0;cv.height=vh*dpr|0;if(glc){glc.width=cv.width;glc.height=cv.height}}
 const glc=document.createElement("canvas");glc.id="gl";glc.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;background:#1d3f57";cv.parentNode.insertBefore(glc,cv);
-const GLD={terr:true,own:true,wfx:true};let GL=null;
+const GLD={terr:true,own:true,wfx:true,bld:true,trees:true};let GL=null;
+
+/* ===== 3D models: trees (one shared mesh per kind, drawn many times) and buildings built from simple lit solids ===== */
+const LDIR=(()=>{const v=[-.55,.18,.82],l=Math.hypot(...v);return v.map(a=>a/l)})();
+const hexRGB=h=>{const n=parseInt((h||"#888").slice(1),16);return[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255]};
+function MB(){const a=[];const B={a,
+  tri(p1,p2,p3,c){const ux=p2[0]-p1[0],uy=p2[1]-p1[1],uz=p2[2]-p1[2],vx=p3[0]-p1[0],vy=p3[1]-p1[1],vz=p3[2]-p1[2];let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const l=Math.hypot(nx,ny,nz)||1;nx/=l;ny/=l;nz/=l;
+    if(nz<0||(nz===0&&ny<0&&false)){nx=-nx;ny=-ny;nz=-nz}for(const q of [p1,p2,p3])a.push(q[0],q[1],q[2],nx,ny,nz,c[0],c[1],c[2])},
+  triN(p1,p2,p3,c,n){for(const q of [p1,p2,p3])a.push(q[0],q[1],q[2],n[0],n[1],n[2],c[0],c[1],c[2])},
+  quadN(p1,p2,p3,p4,c,n){B.triN(p1,p2,p3,c,n);B.triN(p1,p3,p4,c,n)},
+  // a box: top, south, east and west faces (the camera never sees north or bottom)
+  box(x,y,z,w,d,h,c,top){const x0=x-w/2,x1=x+w/2,y0=y-d/2,y1=y+d/2,z1=z+h,tc=top||c;
+    B.quadN([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],tc,[0,0,1]);B.quadN([x0,y1,z],[x1,y1,z],[x1,y1,z1],[x0,y1,z1],c,[0,1,0]);
+    B.quadN([x1,y0,z],[x1,y1,z],[x1,y1,z1],[x1,y0,z1],c,[1,0,0]);B.quadN([x0,y0,z],[x0,y1,z],[x0,y1,z1],[x0,y0,z1],c,[-1,0,0])},
+  // a pitched roof; the ridge runs along x or along y
+  gable(x,y,z,w,d,rh,c,alongX){const x0=x-w/2,x1=x+w/2,y0=y-d/2,y1=y+d/2,zt=z+rh;
+    if(alongX){const nS=(()=>{const l=Math.hypot(d/2,rh);return[0,rh/l,(d/2)/l]})(),nN=[0,-nS[1],nS[2]];
+      B.quadN([x0,y,zt],[x1,y,zt],[x1,y1,z],[x0,y1,z],c,nS);B.quadN([x0,y0,z],[x1,y0,z],[x1,y,zt],[x0,y,zt],c,nN);
+      const g=[c[0]*.8,c[1]*.8,c[2]*.8];B.triN([x0,y0,z],[x0,y1,z],[x0,y,zt],g,[-1,0,0]);B.triN([x1,y0,z],[x1,y1,z],[x1,y,zt],g,[1,0,0])}
+    else{const l=Math.hypot(w/2,rh),nE=[rh/l,0,(w/2)/l],nW=[-rh/l,0,(w/2)/l];
+      B.quadN([x,y0,zt],[x,y1,zt],[x1,y1,z],[x1,y0,z],c,nE);B.quadN([x0,y0,z],[x0,y1,z],[x,y1,zt],[x,y0,zt],c,nW);
+      B.triN([x0,y1,z],[x1,y1,z],[x,y1,zt],[c[0]*.85,c[1]*.85,c[2]*.85],[0,1,0])}},
+  pyr(x,y,z,w,d,h,c){const x0=x-w/2,x1=x+w/2,y0=y-d/2,y1=y+d/2,ap=[x,y,z+h];B.tri([x0,y1,z],[x1,y1,z],ap,c);B.tri([x1,y0,z],[x1,y1,z],ap,c);B.tri([x0,y0,z],[x0,y1,z],ap,c);B.tri([x0,y0,z],[x1,y0,z],ap,c)},
+  cyl(x,y,z,r,h,n,c,top){for(let k=0;k<n;k++){const a0=k/n*Math.PI*2,a1=(k+1)/n*Math.PI*2,c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1),am=(a0+a1)/2;
+      if(Math.sin(am)>-.35)B.quadN([x+c0*r,y+s0*r,z],[x+c1*r,y+s1*r,z],[x+c1*r,y+s1*r,z+h],[x+c0*r,y+s0*r,z+h],c,[Math.cos(am),Math.sin(am),0]);
+      B.triN([x,y,z+h],[x+c0*r,y+s0*r,z+h],[x+c1*r,y+s1*r,z+h],top||c,[0,0,1])}},
+  cone(x,y,z,r,h,n,c){for(let k=0;k<n;k++){const a0=k/n*Math.PI*2,a1=(k+1)/n*Math.PI*2;B.tri([x+Math.cos(a0)*r,y+Math.sin(a0)*r,z],[x+Math.cos(a1)*r,y+Math.sin(a1)*r,z],[x,y,z+h],c)}},
+  // a lumpy ball for leafy crowns
+  blob(x,y,z,r,c,seed){const t=(1+Math.sqrt(5))/2,V=[[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]].map((v,j)=>{const l=Math.hypot(...v),k=r*(.85+hash(seed,j,9)*.3)/l;return[x+v[0]*k,y+v[1]*k,z+v[2]*k*.9]});
+    const F=[[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+    for(const f of F){const p1=V[f[0]],p2=V[f[1]],p3=V[f[2]],cx=(p1[0]+p2[0]+p3[0])/3-x,cy=(p1[1]+p2[1]+p3[1])/3-y,cz=(p1[2]+p2[2]+p3[2])/3-z,l=Math.hypot(cx,cy,cz)||1;B.triN(p1,p2,p3,c,[cx/l,cy/l,cz/l])}},
+  // a wall run between two points, with battlements
+  seg(x1,y1,z1,x2,y2,z2,th,h,c){const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1,px=-dy/L*th/2,py=dx/L*th/2,top=[c[0]*1.12,c[1]*1.12,c[2]*1.12];
+    const A=[x1+px,y1+py],Bq=[x2+px,y2+py],C=[x2-px,y2-py],D=[x1-px,y1-py];
+    B.quadN([A[0],A[1],z1+h],[Bq[0],Bq[1],z2+h],[C[0],C[1],z2+h],[D[0],D[1],z1+h],top,[0,0,1]);
+    const sn=py>0?1:-1;const S1=sn>0?A:D,S2=sn>0?Bq:C,nrm=[px/(th/2)*sn,py/(th/2)*sn,0];B.quadN([S1[0],S1[1],z1],[S2[0],S2[1],z2],[S2[0],S2[1],z2+h],[S1[0],S1[1],z1+h],c,nrm);
+    for(let q=1.5;q<L-1;q+=3){const f=q/L,cx=x1+dx*f,cy=y1+dy*f,cz=z1+(z2-z1)*f+h;B.box(cx,cy,cz,1.6,th*.9,1.4,c,top)}}};return B}
+const PAL={plaster:[.86,.80,.68],plaster2:[.80,.74,.62],timber:[.40,.29,.19],roofR:[.62,.28,.19],roofB:[.46,.33,.23],thatch:[.72,.6,.34],slate:[.33,.35,.4],stone:[.64,.62,.57],stone2:[.52,.5,.47],dark:[.12,.1,.09],wood:[.52,.37,.22],field1:[.83,.71,.32],field2:[.47,.6,.27],field3:[.55,.42,.27],leaf:[.27,.47,.2],fir:[.16,.34,.2]};
+function house(B,x,y,z,s,seed,along){const w=(along?8.4:6.4)*s,d=(along?6:8)*s,h=(4.2+hash(seed,1,3)*1.4)*s,rf=[PAL.roofR,PAL.roofB,PAL.thatch][Math.floor(hash(seed,2,3)*3)],wl=hash(seed,3,3)<.5?PAL.plaster:PAL.plaster2;
+  B.box(x,y,z-2,w,d,2+h,wl);B.box(x,y+d/2+.01,z+h*.15,1.2*s,.05,h*.55,PAL.timber);B.gable(x,y,z+h,w+1.2*s,d+1.2*s,3.6*s,rf,along);if(hash(seed,4,3)<.6)B.box(x+w*.25,y-d*.15,z+h+1.6*s,1.1*s,1.1*s,2.6*s,PAL.stone2)}
+function tileZ(i){return elevPx(tx(i)*TS+8,ty(i)*TS+8)}
+function buildModel(B,b,i,ownerCol){const cx=tx(i)*TS+8,cy=ty(i)*TS+8,z=tileZ(i),sd=i*7+3,oc=hexRGB(ownerCol);
+  const vil=(n,sc)=>{const spots=[[-3.6,-3],[3.4,-2.6],[-.4,3.4],[4,3.6],[-4.4,3.2],[.2,-5.4],[5.4,.4]];for(let k=0;k<n;k++){const [ox,oy]=spots[k];house(B,cx+ox,cy+oy,z,sc,sd+k,hash(sd,k,5)<.5)}};
+  switch(b){
+    case"house":house(B,cx,cy,z,1.05,sd,hash(sd,0,1)<.5);break;
+    case"village":vil(3,.72);break;
+    case"village2":vil(5,.72);break;
+    case"village3":vil(6,.78);B.box(cx+.5,cy-.5,z-2,4,4,16,PAL.stone);B.pyr(cx+.5,cy-.5,z+14,4.8,4.8,6,PAL.slate);break;
+    case"farm":{const cols=[PAL.field1,PAL.field2,PAL.field3,PAL.field1];for(let k=0;k<4;k++)B.box(cx-1.5,cy-6+k*3.6,z-1,11,3.2,1.5,cols[(k+sd)%4]);house(B,cx+5.2,cy+3.8,z,.7,sd,false);break}
+    case"lumber":house(B,cx-2.5,cy-1,z,.8,sd,true);for(let k=0;k<3;k++)B.box(cx+4,cy+3-k*.2,z+k*1.1,6-k,2.2,1.1,PAL.wood,[.65,.5,.32]);break;
+    case"quarry":B.box(cx,cy,z-2,13,11,3,PAL.stone2);B.box(cx-1.5,cy-1.5,z+1,9,7,3,PAL.stone);B.box(cx+3.5,cy+3.4,z+1,2.4,2,1.8,PAL.stone);B.box(cx+1,cy+4,z+1,2,1.6,1.4,PAL.stone);B.box(cx-5,cy+2,z+1,.6,.6,9,PAL.timber);B.box(cx-3,cy+2,z+9.6,4.5,.5,.5,PAL.timber);break;
+    case"mine":B.pyr(cx,cy-1,z-2,14,12,10,PAL.stone2);B.box(cx,cy+4.4,z,4.6,1.2,5,PAL.timber);B.box(cx,cy+5.06,z,3.2,.1,3.8,PAL.dark);house(B,cx+5,cy+4.2,z,.55,sd,true);break;
+    case"market":{B.box(cx,cy,z-1.5,13,12,1.7,[.68,.64,.56]);const aw=[[.75,.22,.2],[.9,.86,.78],[.2,.38,.65],[.85,.65,.2]];[[-3.6,-3],[3.6,-3],[-3.6,3],[3.6,3]].forEach(([ox,oy],k)=>{B.box(cx+ox,cy+oy,z,3.6,3,2.4,PAL.wood);B.gable(cx+ox,cy+oy,z+2.4,4.4,3.8,1.6,aw[(k+sd)%4],true)});B.cyl(cx,cy,z,1.2,1.4,8,PAL.stone);break}
+    case"barracks":B.box(cx,cy,z-2,13,7,7.5,PAL.plaster2);B.gable(cx,cy,z+5.5,14.2,8.2,4,PAL.slate,true);B.box(cx-5.5,cy+4,z,.4,.4,14,PAL.timber);B.box(cx-4.2,cy+4,z+10.5,2.6,.2,2,oc);break;
+    case"range":house(B,cx-3,cy-2,z,.75,sd,true);for(const ox of [2.5,6])B.box(cx+ox,cy+4,z,2.6,.5,2.8,[.86,.78,.5]);B.box(cx+4.2,cy+4.3,z+1.2,.8,.1,.8,[.75,.2,.2]);break;
+    case"stable":B.box(cx,cy-1.5,z-2,13,6,6,PAL.wood);B.gable(cx,cy-1.5,z+4,14,7.2,3.4,PAL.thatch,true);for(let k=0;k<5;k++)B.box(cx-6+k*3,cy+5,z,.5,.5,2.2,PAL.timber);B.box(cx,cy+5,z+1.6,12.5,.4,.4,PAL.timber);break;
+    case"workshop":B.box(cx-1,cy-1.5,z-2,10,8,7,PAL.stone);B.gable(cx-1,cy-1.5,z+5,11,9,3.6,PAL.roofB,false);B.box(cx+5.2,cy+4.5,z,3.4,2,1,PAL.wood);B.box(cx+5.2,cy+4.5,z+1,.5,.5,3.4,PAL.wood);break;
+    case"magetower":B.cyl(cx,cy,z-2,3.4,22,10,[.42,.38,.5]);B.cyl(cx,cy,z+16,4,1.6,10,[.36,.32,.44]);B.cone(cx,cy,z+17.6,4.4,10,10,[.42,.26,.66]);B.box(cx,cy+3.35,z+6,1,.1,2.4,[.9,.75,1]);break;
+    case"tower":B.cyl(cx,cy,z-2,3,19,10,PAL.stone);B.cyl(cx,cy,z+15,3.9,2.4,10,PAL.stone2);for(let k=0;k<8;k++){const a=k/8*Math.PI*2;B.box(cx+Math.cos(a)*3.4,cy+Math.sin(a)*3.4,z+17.4,1.2,1.2,1.4,PAL.stone)}B.cone(cx,cy,z+18.6,3.3,6,10,oc);break;
+    case"port":{let dx=0,dy=1;for(const [ax,ay] of [[0,1],[1,0],[-1,0],[0,-1]]){const x=tx(i)+ax,y=ty(i)+ay;if(x>=0&&y>=0&&x<W&&y<H&&TER[idx(x,y)]===WATER){dx=ax;dy=ay;break}}
+      const pl=Math.max(.8,z*.15);if(dx)B.box(cx+dx*9,cy+2,pl-1,12,3,1.2,PAL.wood);else B.box(cx+2,cy+dy*9,pl-1,3,12,1.2,PAL.wood);house(B,cx-2,cy-2,z,.85,sd,true);break}
+    case"bridge":{const vert=TER[i-W]===RIVER||TER[i+W]===RIVER,zb=z+1.4;if(vert)B.box(cx,cy,zb,18,5.4,1.2,PAL.wood,[.62,.46,.28]);else B.box(cx,cy,zb,5.4,18,1.2,PAL.wood,[.62,.46,.28]);break}
+    case"capital":{// a big castle: curtain walls with battlements, round corner towers with roofs in the country's colour, a tall keep
+      const W2=15,D2=12,y0=cy-1,st=PAL.stone,st2=PAL.stone2;
+      B.box(cx,y0,z-3,W2*2,D2*2,4.5,st2);
+      for(const [x1,y1,x2,y2] of [[-W2,-D2,W2,-D2],[W2,-D2,W2,D2],[-W2,D2,W2,D2],[-W2,-D2,-W2,D2]])B.seg(cx+x1,y0+y1,z,cx+x2,y0+y2,z,2.6,9,st);
+      for(const [ox,oy] of [[-W2,-D2],[W2,-D2],[-W2,D2],[W2,D2]]){B.cyl(cx+ox,y0+oy,z-3,3.8,17,10,st);B.cone(cx+ox,y0+oy,z+14,4.7,9,10,oc)}
+      B.box(cx,y0+D2+.2,z,4.4,1.2,6.5,PAL.dark);B.cyl(cx-3.4,y0+D2,z-3,2.4,15,8,st);B.cyl(cx+3.4,y0+D2,z-3,2.4,15,8,st);B.cone(cx-3.4,y0+D2,z+12,3,6,8,oc);B.cone(cx+3.4,y0+D2,z+12,3,6,8,oc);
+      B.box(cx,y0-2,z-3,12,10,26,[.7,.67,.6]);B.gable(cx,y0-2,z+23,13.4,11.4,7,PAL.slate,true);
+      B.cyl(cx-5.2,y0+2.2,z-3,2.2,32,8,[.72,.69,.62]);B.cone(cx-5.2,y0+2.2,z+29,2.9,8,8,oc);B.cyl(cx+5.2,y0+2.2,z-3,2.2,32,8,[.72,.69,.62]);B.cone(cx+5.2,y0+2.2,z+29,2.9,8,8,oc);
+      for(const [ox,oy] of [[-8,6],[8,6],[-9,-6],[9,-5]])house(B,cx+ox,y0+oy,z,.62,sd+ox,ox<0);break}
+  }}
+// walls: a tower stub on every wall tile and runs of wall to its neighbours, following the ground
+function buildWallMesh(B,c){for(const k in c.tiles){if(c.tiles[k]!=="wall")continue;const i=+k,x=tx(i)*TS+8,y=ty(i)*TS+8,z=tileZ(i),isW=n=>c.tiles[n]==="wall";
+  B.box(x,y,z-2,5.4,5.4,11,PAL.stone,[.72,.7,.65]);
+  const nb=[];if(tx(i)<W-1&&isW(i+1))nb.push(i+1);if(isW(i+W))nb.push(i+W);if(tx(i)<W-1&&isW(i+W+1)&&!isW(i+1)&&!isW(i+W))nb.push(i+W+1);if(tx(i)>0&&isW(i+W-1)&&!isW(i-1)&&!isW(i+W))nb.push(i+W-1);
+  for(const n of nb)B.seg(x,y,z-2,tx(n)*TS+8,ty(n)*TS+8,tileZ(n)-2,3.6,9.5,PAL.stone)}}
+function buildingMesh(){const B=MB(),sh=[];
+  const shadow=(x,y,r)=>{const ox=r*.35,oy=-r*.1;for(let k=0;k<10;k++){const a0=k/10*Math.PI*2,a1=(k+1)/10*Math.PI*2;for(const [px,py] of [[x+ox,y+oy],[x+ox+Math.cos(a0)*r,y+oy+Math.sin(a0)*r*.8],[x+ox+Math.cos(a1)*r,y+oy+Math.sin(a1)*r*.8]])sh.push(px,py,elevPx(px,py)+.5,0,0,1,0,0,0)}};
+  for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall")continue;const i=+k;buildModel(B,b,i,c.color);
+      if(b!=="farm"&&b!=="bridge"&&b!=="port")shadow(tx(i)*TS+8,ty(i)*TS+8,b==="capital"?19:7)}
+    buildWallMesh(B,c)}
+  for(const i of NEUTRAL){if(OWNER[i]>=0)continue;buildModel(B,"village",i,"#888");shadow(tx(i)*TS+8,ty(i)*TS+8,7)}
+  return{v:new Float32Array(B.a),s:new Float32Array(sh)}}
+// one tree of each kind, centred at 0,0 on the ground, about 1 unit = 1 px
+const TREE_MESH=(()=>{const F=MB();F.cyl(0,0,-1,.45,2.4,6,[.36,.25,.15]);F.cone(0,0,1,2.5,3.6,8,PAL.fir);F.cone(0,0,2.9,1.9,3,8,[.18,.38,.22]);F.cone(0,0,4.6,1.25,2.4,8,[.2,.42,.24]);
+  const L=MB();L.cyl(0,0,-1,.5,3.2,6,[.38,.27,.17]);L.blob(0,0,4.4,2.6,PAL.leaf,1);L.blob(1.3,.4,3.6,1.7,[.3,.52,.22],2);L.blob(-1.2,.6,3.7,1.6,[.24,.43,.18],3);
+  const S=[];for(let k=0;k<10;k++){const a0=k/10*Math.PI*2,a1=(k+1)/10*Math.PI*2;S.push(1.4,-.3,.4,0,0,1,0,0,0,1.4+Math.cos(a0)*2.6,-.3+Math.sin(a0)*1.9,.4,0,0,1,0,0,0,1.4+Math.cos(a1)*2.6,-.3+Math.sin(a1)*1.9,.4,0,0,1,0,0,0)}
+  return{fir:new Float32Array(F.a),leaf:new Float32Array(L.a),shadow:new Float32Array(S)}})();
+function treeInstances(){const fir=[],leaf=[],taken=new Set();for(const c of ORDER)for(const k in c.tiles)if(c.tiles[k])taken.add(+k);for(const i of NEUTRAL)taken.add(i);
+  for(let i=0;i<W*H;i++){const t=TER[i];let n=0,f=0;if(taken.has(i))continue;
+    if(t===FOREST){n=6;f=CLIMATE[i]===1?1:.25}else if(t===SNOW){n=hash(i,7,71)<.1?1:0;f=1}else if(t===HILL){n=hash(i,2,71)<.35?2:0;f=1}else if(t===GRASS){n=hash(i,3,71)<.12?1:0;f=0}
+    for(let k=0;k<n;k++){const x=tx(i)*TS+1.5+hash(i,k,72)*13,y=ty(i)*TS+1.5+hash(i,k,73)*13,r=hash(i,k,75),isF=hash(i,k,74)<f,snow=CLIMATE[i]===1?1:0;
+      (isF?fir:leaf).push(x,y,elevPx(x,y),(t===FOREST?1:.85)*(.8+r*.5),r,snow)}}
+  return{fir:new Float32Array(fir),leaf:new Float32Array(leaf)}}
 function glInit(){
   const gl=glc.getContext("webgl",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});if(!gl)return null;
   const sh=(t,src)=>{const o=gl.createShader(t);gl.shaderSource(o,src);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o};
@@ -1138,6 +1253,21 @@ function glInit(){
   const G={gl,pr,terr:mk(),own:mk(),w:[mk(),mk(),mk()],buf:gl.createBuffer(),ib:gl.createBuffer(),n:0,
     u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),wf:gl.getUniformLocation(pr,"wf"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
   gl.uniform1i(G.u.t0,0);gl.uniform1i(G.u.t1,1);gl.uniform1i(G.u.w0,2);gl.uniform1i(G.u.w1,3);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+  const prog=(vs,fs)=>{const q=gl.createProgram();gl.attachShader(q,sh(gl.VERTEX_SHADER,vs));gl.attachShader(q,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(q);if(!gl.getProgramParameter(q,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(q));return q};
+  const PROJ=`uniform vec4 cam;uniform vec4 vw;uniform vec3 L;uniform float shd;varying vec3 col;
+    vec4 proj(vec3 w){float sx=(w.x-cam.x)*cam.z,sy=(w.y-cam.y)*cam.z*cam.w-w.z*cam.z;float d=(w.y*.626+w.z*1.25)/vw.w;return vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);}`;
+  const FS=`precision mediump float;varying vec3 col;uniform float alpha;void main(){gl_FragColor=vec4(col,alpha);}`;
+  G.obj=prog(`attribute vec3 p;attribute vec3 n;attribute vec3 c;${PROJ}
+    void main(){gl_Position=proj(p);float dif=max(dot(n,L),0.);col=shd>.5?vec3(0.):c*(.5+.66*dif);}`,FS);
+  G.ext=gl.getExtension("ANGLE_instanced_arrays");
+  if(G.ext)G.tree=prog(`attribute vec3 p;attribute vec3 n;attribute vec3 c;attribute vec4 ip;attribute vec2 it;${PROJ}
+    void main(){vec3 w=vec3(ip.x+p.x*ip.w,ip.y+p.y*ip.w,ip.z+p.z*ip.w);gl_Position=proj(w);float dif=max(dot(n,L),0.);
+      vec3 cc=c*(.82+.36*it.x);cc=mix(cc,vec3(.9,.93,.97),it.y*step(.0,n.z-.25)*.55);col=shd>.5?vec3(0.):cc*(.5+.66*dif);}`,FS);
+  for(const [k,q] of [["obj",G.obj],["tree",G.tree]]){if(!q)continue;G[k+"L"]={p:gl.getAttribLocation(q,"p"),n:gl.getAttribLocation(q,"n"),c:gl.getAttribLocation(q,"c"),ip:gl.getAttribLocation(q,"ip"),it:gl.getAttribLocation(q,"it"),
+    cam:gl.getUniformLocation(q,"cam"),vw:gl.getUniformLocation(q,"vw"),L:gl.getUniformLocation(q,"L"),shd:gl.getUniformLocation(q,"shd"),alpha:gl.getUniformLocation(q,"alpha")}}
+  G.bb=gl.createBuffer();G.bs=gl.createBuffer();G.bn=0;G.sn=0;
+  if(G.ext){G.tm={};for(const k of ["fir","leaf","shadow"]){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,TREE_MESH[k],gl.STATIC_DRAW);G.tm[k]={b,n:TREE_MESH[k].length/9}}
+    G.ti={fir:{b:gl.createBuffer(),n:0},leaf:{b:gl.createBuffer(),n:0}}}
   return G}
 // the mesh: two vertices per tile; each vertex carries its height and a little extra light from the slope
 function glMesh(){if(!GL||!HEIGHT)return;const {gl}=GL,R=2,nx=W*R+1,ny=H*R+1,st=TS/R,hs=new Float32Array(nx*ny);
@@ -1146,7 +1276,7 @@ function glMesh(){if(!GL||!HEIGHT)return;const {gl}=GL,R=2,nx=W*R+1,ny=H*R+1,st=
     const shade=clamp(1+((l-r)*.6+(u-d)*.9)*.032,.68,1.25);v.set([x*st,y*st,h,shade],o*4)}
   const idx16=new Uint16Array((nx-1)*(ny-1)*6);let k=0;for(let y=0;y<ny-1;y++)for(let x=0;x<nx-1;x++){const a=x+y*nx,b=a+1,c=a+nx,d=c+1;idx16.set([a,c,b,b,c,d],k);k+=6}
   gl.bindBuffer(gl.ARRAY_BUFFER,GL.buf);gl.bufferData(gl.ARRAY_BUFFER,v,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,GL.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx16,gl.STATIC_DRAW);GL.n=k}
-function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;
+function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;gl.useProgram(GL.pr);
   const up=(t,c)=>{gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,c)};
   if(GLD.terr&&terrCv.width>1){up(GL.terr,terrCv);GLD.terr=false}if(GLD.own){up(GL.own,ownCv);GLD.own=false}
   if(GLD.wfx&&WFX.length===3){WFX.forEach((c,j)=>up(GL.w[j],c));GLD.wfx=false}
@@ -1156,9 +1286,34 @@ function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.terr);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,GL.own);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,GL.w[i]);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,GL.w[(i+1)%3]);
   gl.bindBuffer(gl.ARRAY_BUFFER,GL.buf);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,GL.ib);gl.enableVertexAttribArray(GL.a);gl.vertexAttribPointer(GL.a,4,gl.FLOAT,false,0,0);
-  gl.drawElements(gl.TRIANGLES,GL.n,gl.UNSIGNED_SHORT,0)}
+  gl.drawElements(gl.TRIANGLES,GL.n,gl.UNSIGNED_SHORT,0);gl.disableVertexAttribArray(GL.a);
+  glObjects()}
+function glObjects(){const G=GL,gl=G.gl;
+  if(GLD.bld){const m=buildingMesh();gl.bindBuffer(gl.ARRAY_BUFFER,G.bb);gl.bufferData(gl.ARRAY_BUFFER,m.v,gl.STATIC_DRAW);G.bn=m.v.length/9;gl.bindBuffer(gl.ARRAY_BUFFER,G.bs);gl.bufferData(gl.ARRAY_BUFFER,m.s,gl.STATIC_DRAW);G.sn=m.s.length/9;GLD.bld=false}
+  if(G.ext&&GLD.trees){const t=treeInstances();for(const k of ["fir","leaf"]){gl.bindBuffer(gl.ARRAY_BUFFER,G.ti[k].b);gl.bufferData(gl.ARRAY_BUFFER,t[k],gl.STATIC_DRAW);G.ti[k].n=t[k].length/6}GLD.trees=false}
+  const uni=(U)=>{gl.uniform4f(U.cam,cam.x,cam.y,cam.z,CY3);gl.uniform4f(U.vw,vw,vh,0,PH*.626+HS3*1.25+1);gl.uniform3f(U.L,...LDIR)};
+  const attrs=(U,stride)=>{gl.enableVertexAttribArray(U.p);gl.vertexAttribPointer(U.p,3,gl.FLOAT,false,36,0);
+    if(U.n>=0){gl.enableVertexAttribArray(U.n);gl.vertexAttribPointer(U.n,3,gl.FLOAT,false,36,12)}if(U.c>=0){gl.enableVertexAttribArray(U.c);gl.vertexAttribPointer(U.c,3,gl.FLOAT,false,36,24)}};
+  const off=U=>{for(const a of [U.p,U.n,U.c,U.ip,U.it])if(a>=0)gl.disableVertexAttribArray(a)};
+  // shadows first (soft, see-through), then solid models
+  gl.useProgram(G.obj);const O=G.objL;uni(O);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+  gl.uniform1f(O.shd,1);gl.uniform1f(O.alpha,.3);if(G.sn){gl.bindBuffer(gl.ARRAY_BUFFER,G.bs);attrs(O);gl.drawArrays(gl.TRIANGLES,0,G.sn)}off(O);
+  if(G.ext){gl.useProgram(G.tree);const T=G.treeL;uni(T);gl.uniform1f(T.shd,1);gl.uniform1f(T.alpha,.24);
+    for(const k of ["fir","leaf"]){const I=G.ti[k];if(!I.n)continue;gl.bindBuffer(gl.ARRAY_BUFFER,G.tm.shadow.b);attrs(T);gl.bindBuffer(gl.ARRAY_BUFFER,I.b);
+      gl.enableVertexAttribArray(T.ip);gl.vertexAttribPointer(T.ip,4,gl.FLOAT,false,24,0);G.ext.vertexAttribDivisorANGLE(T.ip,1);gl.enableVertexAttribArray(T.it);gl.vertexAttribPointer(T.it,2,gl.FLOAT,false,24,16);G.ext.vertexAttribDivisorANGLE(T.it,1);
+      G.ext.drawArraysInstancedANGLE(gl.TRIANGLES,0,G.tm.shadow.n,I.n)}
+    G.ext.vertexAttribDivisorANGLE(T.ip,0);G.ext.vertexAttribDivisorANGLE(T.it,0);off(T)}
+  gl.disable(gl.BLEND);gl.depthMask(true);
+  gl.useProgram(G.obj);gl.uniform1f(O.shd,0);gl.uniform1f(O.alpha,1);if(G.bn){gl.bindBuffer(gl.ARRAY_BUFFER,G.bb);attrs(O);gl.drawArrays(gl.TRIANGLES,0,G.bn)}off(O);
+  if(G.ext){gl.useProgram(G.tree);const T=G.treeL;gl.uniform1f(T.shd,0);gl.uniform1f(T.alpha,1);
+    for(const k of ["fir","leaf"]){const I=G.ti[k];if(!I.n)continue;gl.bindBuffer(gl.ARRAY_BUFFER,G.tm[k].b);attrs(T);gl.bindBuffer(gl.ARRAY_BUFFER,I.b);
+      gl.enableVertexAttribArray(T.ip);gl.vertexAttribPointer(T.ip,4,gl.FLOAT,false,24,0);G.ext.vertexAttribDivisorANGLE(T.ip,1);gl.enableVertexAttribArray(T.it);gl.vertexAttribPointer(T.it,2,gl.FLOAT,false,24,16);G.ext.vertexAttribDivisorANGLE(T.it,1);
+      G.ext.drawArraysInstancedANGLE(gl.TRIANGLES,0,G.tm[k].n,I.n)}
+    G.ext.vertexAttribDivisorANGLE(T.ip,0);G.ext.vertexAttribDivisorANGLE(T.it,0);off(T)}
+  gl.useProgram(G.pr)}
+let LAST_TREES3D=null;const TREES3D=()=>!!(D3&&GL&&GL.ext);
 function set3D(on){if(on&&!GL){try{GL=glInit()}catch(e){console.warn(e);GL=null}}D3=!!(on&&GL);glc.style.display=D3?"block":"none";try{localStorage.setItem("cw_3d",D3?"1":"0")}catch{}
-  if(D3){GLD.terr=GLD.own=GLD.wfx=true;if(GL)glMesh()}computeLift();GUARD_CACHE.key="";renderNet()}
+  const hadTrees=TREES3D();if(D3){GLD.terr=GLD.own=GLD.wfx=GLD.bld=GLD.trees=true;if(GL)glMesh()}computeLift();if(HEIGHT&&hadTrees!==LAST_TREES3D)drawTerrain();GUARD_CACHE.key="";renderNet()}
 const s2g=(sx,sy)=>[(sx-vw/2)/cam.z+cam.x,(sy-vh/2)/(cam.z*CYc())+cam.y]; // onto flat ground
 const s2w=(sx,sy)=>{const [x,y0]=s2g(sx,sy);if(!D3)return[x,y0];let y=y0;for(let k=0;k<4;k++)y=y0+elevPx(x,y)/CY3;return[x,y]}; // onto the raised terrain
 function clampCam(){cam.z=clamp(cam.z,.3,3.5);cam.x=clamp(cam.x,0,W*TS);cam.y=clamp(cam.y,0,H*TS)}
@@ -1204,7 +1359,7 @@ function frame(){
   const vis=i=>{const x=tx(i),y=ty(i);return x>=x0&&x<=x1&&y>=y0&&y<=y1};
   // walls
   ctx.lineCap="round";
-  for(const c of ORDER){for(const k in c.tiles){if(c.tiles[k]!=="wall")continue;const i=+k;if(!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8-LIFT[i];
+  if(!D3)for(const c of ORDER){for(const k in c.tiles){if(c.tiles[k]!=="wall")continue;const i=+k;if(!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8-LIFT[i];
     for(const n of [i+1,i+W]){if(c.tiles[n]==="wall"&&(n!==i+1||tx(i)<W-1)){const ex=tx(n)*TS+8,ey=ty(n)*TS+8-LIFT[n];
       ctx.strokeStyle="rgba(15,20,10,.3)";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(cx+1.6,cy+1.6);ctx.lineTo(ex+1.6,ey+1.6);ctx.stroke();
       ctx.strokeStyle="#857d6f";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();ctx.strokeStyle="#bdb4a2";ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(cx,cy-.8);ctx.lineTo(ex,ey-.8);ctx.stroke();
@@ -1212,10 +1367,10 @@ function frame(){
     ctx.fillStyle="rgba(15,20,10,.3)";ctx.fillRect(cx-3,cy-2,7,7);ctx.fillStyle="#8e8678";ctx.fillRect(cx-3.6,cy-3.6,7.2,7.2);ctx.fillStyle="#c9c0ad";ctx.fillRect(cx-3.6,cy-3.6,7.2,3.2);
     ctx.fillStyle="#6f685c";for(const [ox,oy] of [[-3.6,-4.6],[-.7,-4.6],[2.2,-4.6]])ctx.fillRect(cx+ox,cy+oy,1.4,1.4)}}
   // neutral villages
-  for(const i of NEUTRAL){if(OWNER[i]>=0||!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8;
+  if(!D3)for(const i of NEUTRAL){if(OWNER[i]>=0||!vis(i))continue;const cx=tx(i)*TS+8,cy=ty(i)*TS+8;
     ctx.globalAlpha=.9;drawBuildingSprite(ctx,"village",i,cx,cy,1.05);ctx.globalAlpha=1}
   // buildings
-  if(z>.42){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawBuildingSprite(ctx,b,i,tx(i)*TS+8,ty(i)*TS+8,1)}}
+  if(z>.42&&!D3){for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b||b==="wall"||b==="capital")continue;const i=+k;if(!vis(i))continue;drawBuildingSprite(ctx,b,i,tx(i)*TS+8,ty(i)*TS+8,1)}}
     for(const c of ORDER){for(const k in c.tiles){const b=c.tiles[k];if(!b)continue;const i=+k;if(!vis(i))continue;drawBuildingTrees(ctx,b,i,tx(i)*TS+8,ty(i)*TS+8)}}}
   // the fleet: built ships idle in the water next to their port, slowly circling
   for(const c of ORDER){const wn=Math.min(c.army?.warship||0,3);if(wn){const pt=nearestPort(c,c.capital);if(pt!=null&&vis(pt)){const water=N4(pt).concat(N4(pt).flatMap(N4)).filter((q,j,arr)=>TER[q]===WATER&&arr.indexOf(q)===j);
@@ -1230,9 +1385,9 @@ function frame(){
       drawWake(ctx,x,y,ss*.6,dir,now+m*400,.12);drawShip(ctx,x,y,ss,c.color,now/500+m,dir,m===0?c.flag:undefined)}}
   // capitals with flags
   for(const c of ORDER){const i=c.capital;if(i==null||!vis(i))continue;const x=tx(i)*TS,y=ty(i)*TS;
-    drawBuildingSprite(ctx,"capital",i,x+8,y+6,1.45);
-    const L=LIFT[i];ctx.fillStyle="#2a241b";ctx.fillRect(x+8,y-22-L,1.3,16);drawFlag(ctx,c.flag,x+9.3,y-22-L,15,10);
-    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+26-L,w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+31.5-L)}}
+    if(!D3)drawBuildingSprite(ctx,"capital",i,x+8,y+2,2.3);
+    const L=LIFT[i],Lf=L+(D3?24/CY3:10);ctx.fillStyle="#2a241b";ctx.fillRect(x+8,y-22-Lf,1.3,16);drawFlag(ctx,c.flag,x+9.3,y-22-Lf,15,10);
+    if(z>.7){ctx.font="600 7px 'Noto Sans Georgian',sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";const lbl=c.name;const w=ctx.measureText(lbl).width+6;ctx.fillStyle="rgba(18,24,33,.85)";ctx.fillRect(x+8-w/2,y+26-L+(D3?6:0),w,10);ctx.fillStyle="#fff";ctx.fillText(lbl,x+8,y+31.5-L+(D3?6:0))}}
   // villagers: little people walking between buildings and nearby land
   if(z>.7){let cnt=0;const tt=now/1000;
     for(const c of ORDER){for(const key in c.tiles){const b=c.tiles[key];if(!b||b==="wall")continue;const i=+key;if(!vis(i))continue;
@@ -1333,6 +1488,7 @@ function frame(){
     ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6*k;ctx.beginPath();for(let j=0;j<10;j++){const an=j*Math.PI/5+t*2,r1=(4+t*10)*k,r2=(10+t*24)*k;ctx.moveTo(e.x+Math.cos(an)*r1,e.y+Math.sin(an)*r1);ctx.lineTo(e.x+Math.cos(an)*r2,e.y+Math.sin(an)*r2)}ctx.stroke();
     ctx.fillStyle="rgba(255,240,200,"+(1-t)*.8+")";ctx.beginPath();ctx.arc(e.x,e.y,(7*(1-t)+2)*k,0,7);ctx.fill();
     drawIcon(ctx,"sword",e.x,e.y,(14+t*6)*k);ctx.globalAlpha=1}
+  drawTowerArrows(now);
   drawGuard();
   drawRoutePreview(now);
   for(const i of upQ){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.6;ctx.strokeRect(tx(i)*TS+1.5,TY(i)+1.5,TS-3,TS-3)}
@@ -1660,14 +1816,14 @@ async function redirectArmy(id,an,path){let lift=null;const T=ownerOf(an.target)
     await mutate("attacks/"+id,cur=>{if(!cur||cur.status!=="returning")throw new Error("ჯარი უკვე სახლშია");units=cur.result?.survivors||{};loot=cur.result?.loot||{};fromTile=cur.fromTile;cur.status="done";return cur});
     await mutateMe(c=>{const key=id+":c";if((c.applied||[]).includes(key))return false;for(const k of RK)c.res[k]=(c.res[k]||0)+(loot[k]||0);c.applied=[key,...(c.applied||[])].slice(0,60)});
     const ref=db.collection("attacks").doc(),now=Date.now(),doc={id:ref.id,from:ME,units,target:an.target,fromTile,path,launch:now,arrive:now+an.time,status:"marching",naval:!!an.naval,redirected:true,...(an.burn?{burn:true}:{}),...(an.area?{area:an.area}:{})};
-    if(T&&an.mode!=="camp"&&!isFleet(units)){const wc=wallCut(path,T.uid,{noGap:an.mode==="wall",air:isAir(units)});if(wc){doc.path=wc.head;if(wc.rest)doc.rest=wc.rest;doc.arrive=now+pathTravel(wc.head,units)}}
+    if(T&&an.mode!=="camp"&&!isFleet(units)){const wc=wallCut(path,wallsFor(ME),{noGap:an.mode==="wall",air:isAir(units)});if(wc){doc.path=wc.head;if(wc.rest)doc.rest=wc.rest;doc.arrive=now+pathTravel(wc.head,units)}}
     if(an.mode==="camp"){doc.kind="camp";doc.to=null}else{doc.to=T?.uid||null;doc.mode=an.mode;if(an.line)doc.siegeLine=an.line}
     await ref.set(doc);postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""}`,true);return}
   await mutate("attacks/"+id,cur=>{if(!canCommand(cur))throw new Error("ამ ჯარს ვეღარ მართავ");const now=Date.now();
     if(cur.status==="besieging")lift={to:cur.to,id:cur.id};
     if(an.mode==="camp"){cur.kind="camp";cur.to=null;delete cur.mode}else{delete cur.kind;cur.to=T?.uid||null;cur.mode=an.mode}
     cur.naval=!!an.naval;cur.path=path;cur.target=an.target;if(an.burn)cur.burn=true;else delete cur.burn;if(an.area)cur.area=an.area;else delete cur.area;if(an.line)cur.siegeLine=an.line;else delete cur.siegeLine;cur.launch=now;cur.arrive=now+an.time;cur.status="marching";cur.redirected=true;delete cur.rest;delete cur.inside;cur.gate=false;delete cur.breachWalls;delete cur.breachEnd;
-    if(cur.to&&!isFleet(cur.units)){const wc=wallCut(path,cur.to,{noGap:cur.mode==="wall",air:isAir(cur.units)});if(wc){cur.path=wc.head;if(wc.rest)cur.rest=wc.rest;cur.arrive=now+pathTravel(wc.head,cur.units)}}delete cur.siegeEnd;return cur});
+    if(cur.to&&!isFleet(cur.units)){const wc=wallCut(path,wallsFor(ME),{noGap:cur.mode==="wall",air:isAir(cur.units)});if(wc){cur.path=wc.head;if(wc.rest)cur.rest=wc.rest;cur.arrive=now+pathTravel(wc.head,cur.units)}}delete cur.siegeEnd;return cur});
   if(lift)await mutate("countries/"+lift.to,c=>{if(!c||!c.siege||c.siege.id!==lift.id)return;c.siege=null;return c});
   postChat(`${ROUTE_NAME[an.mode]}: ${countries[ME].name}${T&&an.mode!=="camp"?" → "+T.name:""} (გზა შეიცვალა)`,true)}
 function startRouteDraw(src,units,raid){
@@ -1739,7 +1895,7 @@ function firePlan(area,start){const plan=new Map(),q=[];for(const t of area)if(c
   return plan}
 async function launchBurnRun(units,path,src,area){
   if(!area?.length)throw new Error("მონიშნე დასაწვავი ტყე");
-  const ref=db.collection("attacks").doc(),now=Date.now(),time=pathTravel(path,units);let doc;
+  path=openPath(path,ME,units);const ref=db.collection("attacks").doc(),now=Date.now(),time=pathTravel(path,units);let doc;
   if(!area.some(canBurnHere))throw new Error("მონიშნულ ადგილას დასაწვავი ტყე არ არის");
   const startFrom=s=>({id:ref.id,kind:"burn",from:ME,to:null,units,target:path[path.length-1],fromTile:s,path,launch:now,arrive:now+time,status:"marching",burnArea:area});
   if(src==="home"||!src)await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=startFrom(c.capital);pushLog(c,"ტყის გადაწვა")});
@@ -1754,7 +1910,7 @@ function finishRoute(){
   const rd=routeDraw,T=ownerOf(an.target);
   const ov=document.createElement("div");ov.className="overlay";ov.style.background="rgba(8,11,16,.35)";ov.style.alignItems="flex-end";
   ov.innerHTML=`<div class="card" style="max-width:420px"><h2>${ROUTE_NAME[an.mode]}${an.naval?" (ზღვით)":""}${T&&an.mode!=="camp"?`: <span style="color:${T.color}">${esc(T.name)}</span>`:""}</h2>
-    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>${an.mode!=="wall"&&an.mode!=="camp"&&ownerOf(an.target)&&!isFleet(rd.units)&&(()=>{const wc=wallCut(an.path,ownerOf(an.target).uid,{air:isAir(rd.units)});return wc&&!wc.rest?"open":wc?"shut":""})()==="shut"?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">გზაზე დახურული გალავანია. ჯარი მასთან გაჩერდება და ჯერ მას დაანგრევს. კატაპულტები და დრაკონები ამას აჩქარებენ.</p>`:""}${an.mode==="burnforest"?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm gold" id="rtForest">ტყის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} ტყის უჯრა`:"ჯერ მონიშნე, რომელი ტყე დაიწვას"}</span></div>`:""}
+    <p class="muted" style="margin:0 0 6px">გზაში ${mmss(an.time)}${an.mode==="siege"?` + ალყა ${mmss(SIEGE_MS)}`:""} · ${unitSum(rd.units)} ჯარისკაცი</p><p style="margin:0;font-size:13px">${ROUTE_DESC[an.mode]}</p>${an.mode!=="wall"&&an.mode!=="camp"&&ownerOf(an.target)&&!isFleet(rd.units)&&(()=>{const wc=wallCut(an.path,wallsFor(ME),{air:isAir(rd.units)});return wc&&!wc.rest?"open":wc?"shut":""})()==="shut"?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">გზაზე დახურული გალავანია. ჯარი მასთან გაჩერდება და ჯერ მას დაანგრევს. კატაპულტები და დრაკონები ამას აჩქარებენ.</p>`:""}${an.mode==="burnforest"?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm gold" id="rtForest">ტყის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} ტყის უჯრა`:"ჯერ მონიშნე, რომელი ტყე დაიწვას"}</span></div>`:""}
     ${["direct","flank"].includes(an.mode)?`<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn sm" id="rtArea">ტერიტორიის მონიშვნა</button><span class="muted" style="font-size:12px">${rd.area?.length?`მონიშნულია ${rd.area.length} უჯრა`:"მთელი მონიშნული მიწა დაიპყრობა"}</span></div>`:""}
     ${["direct","flank","siege"].includes(an.mode)?`<label class="row" style="margin-top:12px;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="rtBurn" ${rd.burnPick?"checked":""}><span><b>გადაწვა</b> <span class="muted">შენობებს დაწვავს, მიწას არ დაიპყრობს</span></span></label>`:""}
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn" id="rtRe">თავიდან დახატვა</button>${rd.move?"":`<button class="btn" id="rtGoMore">წინ და შემდეგი ჯარი</button>`}<button class="btn red" id="rtGo">წინ!</button></div></div>`;
@@ -1823,6 +1979,20 @@ function drawGuard(){const c=countries[ME];if(!c?.tiles)return;const key=Object.
   // the reach of a tower while placing one or when one is selected
   const show=[];if(placing==="build"&&paintB==="tower"&&hoverTile>=0)show.push(hoverTile);if(selected>=0&&c.tiles[selected]==="tower")show.push(selected);
   for(const t of show){const [x,y]=TC(t);ctx.fillStyle="rgba(120,220,130,.08)";ctx.strokeStyle="rgba(120,220,130,.7)";ctx.lineWidth=lw;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(x,y,(TOWER_R+.5)*TS,0,7);ctx.fill();ctx.stroke();ctx.setLineDash([])}}
+// watchtowers shoot at enemy armies that come within their reach
+function towersAlong(path,D){const out=new Set();if(!D?.tiles||!path?.length)return out;const tw=Object.keys(D.tiles).filter(k=>D.tiles[k]==="tower").map(Number);if(!tw.length)return out;
+  for(let j=0;j<path.length;j++){const a=path[Math.max(0,j-1)],b=path[j],n=Math.max(Math.abs(tx(b)-tx(a)),Math.abs(ty(b)-ty(a)))||1;
+    for(let q=0;q<=n;q++){const x=tx(a)+(tx(b)-tx(a))*q/n,y=ty(a)+(ty(b)-ty(a))*q/n;for(const t of tw)if(Math.hypot(tx(t)-x,ty(t)-y)<=TOWER_R)out.add(t)}}return out}
+function drawTowerArrows(now){const k=clamp(1.5/cam.z,.8,2.2);
+  for(const a of Object.values(attacks)){if(a.kind||!["marching","fighting","breaching","besieging"].includes(a.status))continue;const D=countries[a.to];if(!D?.tiles)continue;
+    const P=armyPos(a,now);if(!P)continue;
+    for(const kk in D.tiles){if(D.tiles[kk]!=="tower")continue;const t=+kk,x0=tx(t)*TS+8,y0=ty(t)*TS+8;if(Math.hypot(x0-P.x,(y0-LIFT[t])-P.y)>TOWER_R*TS)continue;
+      const top=y0-LIFT[t]-(D3?21/CY3:14);
+      for(let m=0;m<3;m++){const ph=((now/700)+hash(t,m,41))%1,tx2=P.x+(hash(t,m,42)-.5)*10,ty2=P.y+(hash(t,m,43)-.5)*6,arc=Math.sin(ph*Math.PI)*18;
+        const x=x0+(tx2-x0)*ph,y=top+(ty2-top)*ph-arc,dx=tx2-x0,dy=(ty2-top)-Math.cos(ph*Math.PI)*18*Math.PI,ang=Math.atan2(dy,dx),L=8*k,bx=x-Math.cos(ang)*L,by=y-Math.sin(ang)*L;
+        ctx.strokeStyle="rgba(255,250,230,.35)";ctx.lineWidth=2.4*k;ctx.beginPath();ctx.moveTo(bx-Math.cos(ang)*6*k,by-Math.sin(ang)*6*k);ctx.lineTo(x,y);ctx.stroke();
+        ctx.strokeStyle="#2b1d10";ctx.lineWidth=1.2*k;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(x,y);ctx.stroke();
+        ctx.fillStyle="#d8d2c0";ctx.fillRect(bx-1.2*k,by-1.2*k,2.4*k,2.4*k);ctx.fillStyle="#6b6b6b";ctx.beginPath();ctx.arc(x,y,1*k,0,7);ctx.fill()}}}}
 function countNear(c,t,type,r){let n=0;const X=tx(t),Y=ty(t);for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;if(c.tiles?.[idx(x,y)]===type)n++}return n}
 function travelTime(from,to,units){
   const spd=Math.max(...Object.keys(units).filter(u=>units[u]>0).map(u=>UNITS[u].spd),1);
@@ -1876,6 +2046,9 @@ async function sendGift(t,k,n){n=Math.floor(n);if(!(n>0))throw new Error("მი
 function gapPath(from,to,F,air){const lim=Math.abs(tx(from)-tx(to))+Math.abs(ty(from)-ty(to))+30,prev=new Map([[from,-1]]),dist=new Map([[from,0]]),q=[from];
   for(let h=0;h<q.length;h++){const t=q[h];if(t===to){const out=[];for(let c=t;c!==-1;c=prev.get(c))out.push(c);return out.reverse()}const d=dist.get(t);if(d>=lim)continue;
     for(const n of N4(t)){if(prev.has(n)||F.tiles[n]==="wall"||(!air&&TER[n]===WATER&&n!==to))continue;prev.set(n,t);dist.set(n,d+1);q.push(n)}}return null}
+function wallsFor(mover){const t={};for(const c of Object.values(countries)){if(!c||c.uid===mover||c.alive===false)continue;for(const k in c.tiles||{})if(c.tiles[k]==="wall")t[k]="wall"}return{tiles:t}}
+// for a move that cannot break through (a camp, torch riders): go round through a gap or refuse
+function openPath(path,mover,units){const wc=wallCut(path,wallsFor(mover),{air:isAir(units)});if(!wc)return path;if(wc.rest)throw new Error(`გზას ${ownerOf(wc.rest[1])?.name||"სხვისი"} გალავანი კეტავს. შემოუარე ან ჯერ დაანგრიე`);return wc.head}
 function wallCut(path,foe,opt={}){const c0=wallCut0(path,foe);if(!c0||opt.noGap)return c0;const F=typeof foe==="string"?countries[foe]:foe;
   const gp=gapPath(c0.rest[0],path[path.length-1],F,opt.air);if(gp)return{head:[...c0.head.slice(0,-1),...gp],rest:null,open:true};return c0}
 function wallCut0(path,foe){const F=typeof foe==="string"?countries[foe]:foe;if(!F?.tiles||!path?.length)return null;let prev=path[0];
@@ -1916,7 +2089,7 @@ async function launchAttack(target,units,mode="direct",naval=false,src="home",cu
   const ref=db.collection("attacks").doc();let doc;const c0=live(ME);
   const from=src==="home"?c0.capital:attacks[src]?.target;if(from==null)throw new Error("ბანაკი აღარ არსებობს");
   const pl=customPath?{time:pathTravel(customPath,units)*(mode==="raid"?.8:1),path:customPath}:planRoute(c0,from,target,units,mode,naval&&src==="home");if(pl.err)throw new Error(pl.err);
-  const cut=isFleet(units)?null:wallCut(pl.path,o.uid,{noGap:mode==="wall",air:isAir(units)});if(cut){pl.path=cut.head;pl.rest=cut.rest;pl.time=pathTravel(cut.head,units)*(mode==="raid"?.8:1)}
+  const cut=isFleet(units)?null:wallCut(pl.path,wallsFor(ME),{noGap:mode==="wall",air:isAir(units)});if(cut?.rest){const wo=ownerOf(cut.rest[1]);if(wo&&wo.uid!==ME&&!atWar(ME,wo.uid))throw new Error(`გზას ${wo.name}-ის გალავანი კეტავს და მასთან ომში არ ხარ. შემოუარე`)}if(cut){pl.path=cut.head;pl.rest=cut.rest;pl.time=pathTravel(cut.head,units)*(mode==="raid"?.8:1)}
   const mk=()=>{const now=Date.now();return{id:ref.id,from:ME,to:o.uid,units,target,fromTile:from,launch:now,arrive:now+pl.time,status:"marching",mode,naval:!!pl.naval,path:pl.path,...(pl.rest?{rest:pl.rest}:{}),...(siegeLine?{siegeLine}:{}),...(burn?{burn:true}:{}),...(area?{area}:{})}};
   if(src==="home")await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];doc=mk();pushLog(c,`${MODES[mode].n}: ${o.name}`)});
   else await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}
@@ -1928,9 +2101,9 @@ async function launchCamp(tile,units,path=null,src="home"){
   if(!unitSum(units))throw new Error("აირჩიე ჯარისკაცები");const o=ownerOf(tile);if(o&&o.uid!==ME)throw new Error("ბანაკს მხოლოდ შენს ან თავისუფალ მიწაზე გაშლი");
   const ref=db.collection("attacks").doc();let doc;const now=Date.now();
   if(src==="home")await mutateMe(c=>{for(const u in units){if((c.army[u]||0)<units[u])throw new Error("საკმარისი ჯარი არ გყავს")}for(const u in units)c.army[u]-=units[u];
-    const pth=path||[c.capital,tile];doc={id:ref.id,kind:"camp",from:ME,to:null,units,target:tile,fromTile:c.capital,path:pth,launch:now,arrive:now+pathTravel(pth,units),status:"marching"};pushLog(c,"ჯარი ბანაკისკენ გაემართა")});
+    const pth=openPath(path||[c.capital,tile],ME,units);doc={id:ref.id,kind:"camp",from:ME,to:null,units,target:tile,fromTile:c.capital,path:pth,launch:now,arrive:now+pathTravel(pth,units),status:"marching"};pushLog(c,"ჯარი ბანაკისკენ გაემართა")});
   else{await mutate("attacks/"+src,cur=>{if(!cur||cur.status!=="camped")throw new Error("ბანაკი აღარ არსებობს");for(const u in units){if((cur.units[u]||0)<units[u])throw new Error("ბანაკში საკმარისი ჯარი არ არის")}
-      for(const u in units)cur.units[u]-=units[u];if(!unitSum(cur.units))cur.status="done";const pth=path||[cur.target,tile];
+      for(const u in units)cur.units[u]-=units[u];if(!unitSum(cur.units))cur.status="done";const pth=openPath(path||[cur.target,tile],ME,units);
       doc={id:ref.id,kind:"camp",from:ME,to:null,units,target:tile,fromTile:cur.fromTile,path:pth,launch:now,arrive:now+pathTravel(pth,units),status:"marching"};return cur})}
   await ref.set(doc);
 }
@@ -1969,6 +2142,7 @@ function battle(a,def){
   if(mode==="raid"){atkLoss*=.7;defLoss*=.6}
   if(!defending)defLoss=0;else if(!guarded)defLoss*=guardF;
   if(a.breached&&wallList.length)atkLoss=Math.min(.95,atkLoss+Math.min(.25,wallList.length*.015));
+  const arrowT=isAir(u)?0:towersAlong(pathOf(a),def).size,arrowLoss=Math.min(.22,arrowT*.035);atkLoss=Math.min(.95,atkLoss+arrowLoss);
   if(win&&a.area?.length)atkLoss=Math.min(.95,atkLoss+Math.min(.3,a.area.length*.004));
   const survivors={};let survivorsN=0,atkLostN=0;for(const k in u){survivors[k]=Math.floor(u[k]*(1-atkLoss));survivorsN+=survivors[k];atkLostN+=u[k]-survivors[k]}
   let defLostN=0;const defLost={};for(const k of UK){const l=(def.army?.[k]||0)-Math.floor((def.army?.[k]||0)*(1-defLoss));if(l)defLost[k]=l;defLostN+=l}
@@ -1991,7 +2165,7 @@ function battle(a,def){
   if(win&&!blocked&&a.area?.length&&mode!=="raid")for(const t of a.area){if(!(t in (def.tiles||{}))||(t===def.capital&&t!==a.target)||safe(t))continue;
     if(a.burn){if(def.tiles[t]&&def.tiles[t]!=="wall"&&def.tiles[t]!=="capital"&&!ravaged.includes(t))ravaged.push(t)}else tiles[t]=def.tiles[t]}
   const lootFrac=!win?0:mode==="raid"?.24+ravaged.length*.02:blocked?0:lootCap?.4:.12,loot={};for(const k of RK)loot[k]=Math.floor((def.res?.[k]||0)*Math.min(.6,lootFrac));
-  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,unguarded:defending&&!guarded,undefended:!defending,ravaged,burned:!!a.burn,conquered,at:Date.now()};
+  return {win,A:Math.round(A),D:Math.round(D),atkLoss,defLoss,survivors,survivorsN,atkLostN,defLostN,defLost,defArmy:Object.fromEntries(UK.filter(k=>def.army?.[k]>0).map(k=>[k,def.army[k]])),tiles,tilesN:Object.keys(tiles).length,capital,loot,mode,wallsDestroyed,blocked,starving,arrowT,arrowLoss,unguarded:defending&&!guarded,undefended:!defending,ravaged,burned:!!a.burn,conquered,at:Date.now()};
 }
 const unitSum=u=>UK.reduce((t,k)=>t+(u?.[k]||0),0);
 function unitsHTML(u){const ks=UK.filter(k=>u?.[k]);return ks.length?`<div class="cost" style="gap:4px 10px">${ks.map(k=>`<span title="${UNITS[k].n}">${icn(k,1)}${u[k]}</span>`).join("")}</div>`:'<span class="muted">—</span>'}
@@ -2077,6 +2251,7 @@ function showReport(a){
     <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">${side(A,pA,lostA,ic?"დამხვედრი":"თავდამსხმელი")}${side(D,pD,lostD,ic?"ლაშქარი":"დამცველი")}</div>
     ${r.sea&&r.win?`<p style="margin:12px 0 0">ჩაიძირა ${r.shipsSunk||0} სატრანსპორტო გემი${r.ravaged?.length?`, დაინგრა ${r.ravaged.length} სანაპირო შენობა`:""}.</p>`:""}
     ${!ic?`<p class="muted" style="margin:12px 0 0;font-size:12px">${MODES[r.mode||"direct"].n}${a.naval?" · ზღვით":""}${r.wallsDestroyed?.length?` · დაინგრა ${r.wallsDestroyed.length} გალავანი`:""}${r.starving?" · დამცველები შიმშილობდნენ":""}</p>`:""}
+    ${!ic&&r.arrowT?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">${r.arrowT} საგუშაგო კოშკი ისრებს ესროდა თავდამსხმელებს (დანაკარგი +${Math.round(r.arrowLoss*100)}%).</p>`:""}
     ${!ic&&r.undefended?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">დამცველს ჯარი არ გამოუყვანია, მტერს მხოლოდ ქალაქის მცველები და ნაგებობები დახვდნენ.</p>`:""}
     ${!ic&&r.unguarded?`<p style="margin:8px 0 0;font-size:12.5px;color:var(--brass2)">საზღვრის ეს მონაკვეთი საგუშაგოს არ ეკავა, ამიტომ მტერს ჯარის მხოლოდ ნაწილი დახვდა.</p>`:""}
     ${!ic&&r.win&&r.burned&&!r.blocked?`<p style="margin:10px 0 0;color:#f08a2c">დაიწვა ${r.ravaged?.length||0} შენობა.</p>`:""}
@@ -2097,7 +2272,7 @@ async function barbarianTick(){
   let sp=-1;for(let k=0;k<300&&sp<0;k++){const an=Math.random()*Math.PI*2,r=16+Math.random()*12,x=Math.round(tx(target)+Math.cos(an)*r),y=Math.round(ty(target)+Math.sin(an)*r);if(x<1||y<1||x>W-2||y>H-2)continue;const i=idx(x,y);if(TER[i]!==WATER&&OWNER[i]<0)sp=i}
   if(sp<0)return;const lt=live(T.uid),defP=UK.reduce((t,k)=>t+(lt.army?.[k]||0)*UNITS[k].def,0)+30,n=clamp(Math.round(defP*(.5+Math.random()*.6)/9),6,160);
   const units={sword:Math.round(n*.45),spear:Math.round(n*.2),archer:Math.round(n*.25),knight:Math.max(1,Math.round(n*.1))},path=[sp,target],ref=db.collection("attacks").doc();
-  const bc=wallCut(path,T.uid),bpath=bc?bc.head:path;if(bc&&!bc.rest)delete bc.rest;
+  const bc=wallCut(path,wallsFor("barbarians")),bpath=bc?bc.head:path;if(bc&&!bc.rest)delete bc.rest;
   await ref.set({id:ref.id,from:"barbarians",to:T.uid,units,target,fromTile:sp,path:bpath,...(bc?.rest?{rest:bc.rest}:{}),launch:now,arrive:now+pathTravel(bpath,units)*1.2,status:"marching",mode:"raid",burn:true});
   postChat(`უცხო ტომელები მოდიან: ${T.name}!`,true)}
 const busyA=new Set();
@@ -2116,24 +2291,24 @@ async function resolveAttacks(){
           await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;const n2=Date.now(),sv=cur.units;cur.result={survivors:sv,survivorsN:unitSum(sv),loot:{},camp:1,at:n2};cur.status="returning";cur.retFrom=cur.target;cur.arrive=n2;cur.returnAt=n2+travelTime(cur.target,cur.fromTile,sv);return cur})}}
       else if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
       else if(a.status==="marching"&&a.rest&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
-        await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching"||!cur.rest)return;const foe=countries[cur.to],w=cur.rest[1];
-          if(foe?.tiles?.[w]!=="wall"){const nc=wallCut(cur.rest,cur.to,{noGap:cur.mode==="wall",air:isAir(cur.units)});cur.path=nc?nc.head:cur.rest;cur.rest=nc?nc.rest:null;if(!cur.rest)delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(cur.path,cur.units);return cur}
-          if(cur.mode!=="wall"){const gp=gapPath(cur.rest[0],cur.rest[cur.rest.length-1],foe,isAir(cur.units));if(gp){cur.path=gp;delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(gp,cur.units);return cur}}
+        await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching"||!cur.rest)return;const w=cur.rest[1],foe=ownerOf(w)||countries[cur.to];
+          if(foe?.tiles?.[w]!=="wall"){const nc=wallCut(cur.rest,wallsFor(cur.from),{noGap:cur.mode==="wall",air:isAir(cur.units)});cur.path=nc?nc.head:cur.rest;cur.rest=nc?nc.rest:null;if(!cur.rest)delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(cur.path,cur.units);return cur}
+          if(cur.mode!=="wall"){const gp=gapPath(cur.rest[0],cur.rest[cur.rest.length-1],wallsFor(cur.from),isAir(cur.units));if(gp){cur.path=gp;delete cur.rest;const n2=Date.now();cur.launch=n2;cur.arrive=n2+pathTravel(gp,cur.units);return cur}}
           const walls=gateWalls(foe,w),sp=siegePower(cur.units,cur.mode),secs=clamp((10+walls.length*12)/(1+sp*1.5+unitSum(cur.units)/40),8,150);
-          cur.status="breaching";cur.gate=true;cur.breachWalls=walls;cur.breachEnd=Date.now()+secs*1000;started=true;return cur});
+          cur.status="breaching";cur.gate=true;cur.gateOwner=foe.uid;cur.breachWalls=walls;cur.breachEnd=Date.now()+secs*1000;started=true;return cur});
         if(started)postChat(`${cOf(a.from)?.name||"მტერი"} ანგრევს ${countries[a.to]?.name}-ის გალავანს!`,true)}
       else if(a.status==="breaching"&&a.gate&&a.breachEnd<=now&&(involved||now-a.breachEnd>15000)){busyA.add(a.id);let broke=null;
         await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="breaching"||!cur.gate)return;const n2=Date.now(),walls=cur.breachWalls||[];broke=walls;
-          const loss=Math.min(.2,walls.length*.03);for(const k in cur.units)cur.units[k]=Math.max(0,Math.ceil(cur.units[k]*(1-loss)));
+          const nearT=towersAlong([walls[0]],ownerOf(walls[0])||countries[cur.to]).size,loss=Math.min(.32,walls.length*.03+nearT*.03);for(const k in cur.units)cur.units[k]=Math.max(0,Math.ceil(cur.units[k]*(1-loss)));
           cur.gate=false;delete cur.breachWalls;delete cur.breachEnd;
           const stand=cur.rest?.[0]??cur.path[cur.path.length-1];
           if(cur.mode==="wall"&&(walls.includes(cur.target)||!cur.rest||cur.rest.length<=2)){const sv=cur.units;
             cur.result={win:true,A:0,D:0,atkLoss:loss,defLoss:0,survivors:sv,survivorsN:unitSum(sv),atkLostN:0,defLostN:0,defLost:{},tiles:{},tilesN:0,loot:{},mode:"wall",wallsDestroyed:walls,ravaged:[],at:n2};
             cur.status="returning";cur.retFrom=stand;delete cur.rest;cur.arrive=n2;cur.returnAt=n2+travelTime(stand,cur.fromTile,sv);return cur}
-          const rest=cur.rest.slice(),F=JSON.parse(JSON.stringify(countries[cur.to]||{tiles:{}}));for(const w of walls)if(F.tiles?.[w]==="wall")F.tiles[w]="";
+          const rest=cur.rest.slice(),F=wallsFor(cur.from);for(const w of walls)delete F.tiles[w];
           const nc=wallCut(rest,F,{air:isAir(cur.units)});
           cur.path=nc?nc.head:rest;if(nc)cur.rest=nc.rest;else{delete cur.rest;cur.inside=true}cur.status="marching";cur.launch=n2;cur.arrive=n2+pathTravel(cur.path,cur.units)*(cur.mode==="raid"?.8:1);return cur});
-        if(broke)await mutate("countries/"+a.to,c=>{if(!c)return;let n=0;for(const w of broke)if(c.tiles[w]==="wall"){c.tiles[w]="";n++}if(!n)return;pushLog(c,`${cOf(a.from)?.name||"მტერმა"} დაანგრია ${n} გალავანი`);return c})}
+        if(broke)await mutate("countries/"+(attacks[a.id]?.gateOwner||a.gateOwner||a.to),c=>{if(!c)return;let n=0;for(const w of broke)if(c.tiles[w]==="wall"){c.tiles[w]="";n++}if(!n)return;pushLog(c,`${cOf(a.from)?.name||"მტერმა"} დაანგრია ${n} გალავანი`);return c})}
       else if(a.status==="marching"&&a.mode==="siege"&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
         await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="besieging";cur.siegeEnd=Date.now()+SIEGE_MS;started=cur.siegeEnd;return cur});
         if(started){await mutate("countries/"+a.to,c=>{if(!c)return;c=materialize(c,Date.now());c.siege={id:a.id,by:a.from,until:started};pushLog(c,"ალყა! "+(cOf(a.from)?.name||""));return c});postChat(`ალყა: ${cOf(a.from)?.name} → ${countries[a.to]?.name}`,true)}}
@@ -2290,6 +2465,37 @@ function renderAll(force){
 }
 function banner(html){let b=$("#banner");if(!b){b=document.createElement("div");b.id="banner";b.className="plate";$("#app").appendChild(b)}b.innerHTML=html;b.hidden=false}
 function setWait(kind){banner(kind==="hostoff"?`<h2>მასპინძელი არ არის ონლაინ</h2><p class="muted">ეს სამყარო მისი შემქმნელის ბრაუზერში ინახება. როცა ის თამაშს გახსნის, აქ ავტომატურად შეხვალ.</p>`:`<h2>უკავშირდება…</h2>`)}
+const RECENT_KEY="cw_recent";
+const recent=()=>{try{return JSON.parse(localStorage.getItem(RECENT_KEY)||"[]")}catch{return[]}};
+function rememberWorld(wid,name){try{const l=recent().filter(r=>r.wid!==wid);const old=recent().find(r=>r.wid===wid);l.unshift({wid,name:name||old?.name||"",t:Date.now()});localStorage.setItem(RECENT_KEY,JSON.stringify(l.slice(0,8)))}catch{}}
+function goWorld(wid){try{sessionStorage.setItem("cw_go",wid)}catch{}if(location.hash==="#w-"+wid)location.reload();else location.hash="#w-"+wid}
+// shown every time the game opens: continue, a new server, join one by code or link, your servers, settings, how to play
+function startMenu(linkWid){return new Promise(res=>{
+  const rec=recent(),last=rec[0],ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?"ახლახან":m<60?m+" წთ წინ":m<1440?Math.round(m/60)+" სთ წინ":Math.round(m/1440)+" დღის წინ"};
+  const ov=document.createElement("div");ov.className="overlay";ov.id="menu";
+  ov.innerHTML=`<div class="card" style="width:min(520px,100%)"><h1>Country War</h1><p class="muted" style="margin:4px 0 18px">ააშენე ქვეყანა, შეებრძოლე მეგობრებს</p>
+    <div class="list" style="gap:8px">
+      ${linkWid?(()=>{const lr=rec.find(r=>r.wid===linkWid);return `<button class="btn gold" data-go="${esc(linkWid)}" style="padding:12px;font-size:15px">${lr?"გაგრძელება"+(lr.name?": "+esc(lr.name):""):`შესვლა მოწვეულ სერვერზე <span style="opacity:.7">(${esc(linkWid)})</span>`}</button>`})():""}
+      ${last&&last.wid!==linkWid?`<button class="btn ${linkWid?"":"gold"}" data-go="${esc(last.wid)}" style="padding:12px;font-size:15px">გაგრძელება${last.name?": "+esc(last.name):""}</button>`:""}
+      <button class="btn" id="mNew" style="padding:12px;font-size:15px">ახალი სერვერის შექმნა</button>
+      <div class="row" style="gap:6px"><input id="mCode" placeholder="სერვერის კოდი ან ლინკი" style="flex:1"><button class="btn" id="mJoin">შესვლა</button></div>
+    </div>
+    ${rec.length?`<h3 style="font-family:var(--display);color:var(--brass2);margin:20px 0 8px;font-size:15px">ჩემი სერვერები</h3><div class="list">${rec.map(r=>`<div class="item"><span class="tx"><b>${esc(r.name||"უსახელო")}</b><span>კოდი ${esc(r.wid)} · ${ago(r.t)}</span></span><span class="btns" style="flex-direction:row"><button class="btn sm" data-go="${esc(r.wid)}">შესვლა</button><button class="btn sm" data-forget="${esc(r.wid)}" aria-label="სიიდან ამოშლა">×</button></span></div>`).join("")}</div>`:""}
+    <h3 style="font-family:var(--display);color:var(--brass2);margin:20px 0 8px;font-size:15px">პარამეტრები</h3>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" id="m3d">გრაფიკა: ${(()=>{try{return localStorage.getItem("cw_3d")==="0"?"2D (სწრაფი)":"3D"}catch{return "3D"}})()}</button><button class="btn sm" id="mHelp">როგორ ვითამაშო</button></div>
+    <div id="mHelpTx" hidden class="muted" style="font-size:12.5px;line-height:1.55;margin-top:10px">შექმენი ქვეყანა, იყიდე მიწა და ააშენე შენობები: სოფლები ოქროსთვის, ფერმები საკვებისთვის, სახერხი, სამტეხლო და მაღარო. ზამთრის მხარეში რკინაა, უდაბნოში მანა, ზომიერში საკვები და ცხენები. ყაზარმაში ავარჯიშე ჯარი, ომში შეტევისთვის რუკაზე ჯარის გზა დახატე: წრე ალყაა, უკნიდან მისვლა შემოვლა, შესვლა და გამოსვლა დარბევა. მტრის გალავანს ჯარი ღიობით შემოუვლის ან დაანგრევს. საგუშაგო კოშკები საზღვარს იცავენ და ისრებს ისვრიან. როცა თამაშში არ ხარ, რესურსი არ გემატება.</div>
+  </div>`;
+  $("#app").appendChild(ov);
+  const parse=v=>{v=(v||"").trim();const m=v.match(/#w-([a-z0-9]+)/i)||v.match(/^([a-z0-9]{6,14})$/i);return m?m[1].toLowerCase():null};
+  ov.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+    if(b.dataset.go){ov.remove();res(b.dataset.go)}
+    if(b.dataset.forget){try{localStorage.setItem(RECENT_KEY,JSON.stringify(recent().filter(r=>r.wid!==b.dataset.forget)))}catch{}b.closest(".item").remove()}
+    if(b.id==="mNew"){const id="i"+rid(9);try{localStorage.setItem("cw_host",id);sessionStorage.setItem("cw_fresh",id)}catch{}ov.remove();res(id)}
+    if(b.id==="mJoin"){const w=parse($("#mCode").value);if(!w){toast("კოდი ან ლინკი ვერ ამოვიცანი","err");return}ov.remove();res(w)}
+    if(b.id==="m3d"){let on=true;try{on=localStorage.getItem("cw_3d")==="0"}catch{}try{localStorage.setItem("cw_3d",on?"1":"0")}catch{}set3D(on);b.textContent="გრაფიკა: "+(on?"3D":"2D (სწრაფი)")}
+    if(b.id==="mHelp")$("#mHelpTx").hidden=!$("#mHelpTx").hidden});
+  $("#mCode").addEventListener("keydown",e=>{if(e.key==="Enter")$("#mJoin").click()});
+})}
 function landing(){return new Promise(res=>{
   const ov=document.createElement("div");ov.className="overlay";
   ov.innerHTML=`<div class="card"><h1>Country War</h1><p class="sub">შექმენი სამყარო და მოიწვიე მეგობრები. სამყარო შენს ბრაუზერში შეინახება.</p>
@@ -2313,15 +2519,17 @@ async function boot(){
     if(typeof mqtt==="undefined"){banner(`<h2>ქსელი ვერ ჩაიტვირთა</h2><p class="muted">განაახლე გვერდი.</p>`);return}
     ME=playerId();
     const m=location.hash.match(/^#w-([a-z0-9]+)$/);let hostId=null;try{hostId=localStorage.getItem("cw_host")}catch{}
-    let fresh=false;
-    if(!m&&!hostId){await landing();hostId="i"+rid(9);fresh=true;try{localStorage.setItem("cw_host",hostId)}catch{}}
-    NET.role="client";NET.wid=m?m[1]:hostId;history.replaceState(null,"","#w-"+NET.wid);setWait("wait");
+    let fresh=false,go=null;try{go=sessionStorage.getItem("cw_go");sessionStorage.removeItem("cw_go")}catch{}
+    if(!(m&&go===m[1])){const pick=await startMenu(m?m[1]:null);if(!m||pick!==m[1]){goWorld(pick);return}}
+    try{fresh=sessionStorage.getItem("cw_fresh")===m[1];sessionStorage.removeItem("cw_fresh")}catch{}
+    NET.role="client";NET.wid=m[1];history.replaceState(null,"","#w-"+NET.wid);setWait("wait");rememberWorld(NET.wid);
     await new Promise(r=>joinWorld(NET.wid,r,fresh));
     $("#banner")?.remove();
   }
   ME=String(ME);
   db.collection("countries").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,uid:d.id}}countries=next;rebuildOwners();
     if(!booted){booted=true;const c=me();if(c){cam.x=tx(c.capital)*TS+8;cam.y=ty(c.capital)*TS+8;cam.z=1.8}else showOnboarding()}
+    if(me()&&NET.wid)rememberWorld(NET.wid,me().name);
     else if(!me()&&!$("#onb")&&countries[ME]?.alive===false){toast("შენი ქვეყანა დაეცა. შეგიძლია ახალი დააარსო.","err");showOnboarding()}
     else if(me()&&$("#onb"))$("#onb").remove();
     renderAll()},e=>toast("მონაცემები ვერ ჩაიტვირთა","err"));
