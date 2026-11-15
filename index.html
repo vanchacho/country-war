@@ -183,13 +183,37 @@ const TER=new Uint8Array(W*H), ELEV=new Float32Array(W*H);
 const idx=(x,y)=>y*W+x, tx=i=>i%W, ty=i=>(i/W)|0;
 const N4=i=>{const x=tx(i),y=ty(i),r=[];if(x>0)r.push(i-1);if(x<W-1)r.push(i+1);if(y>0)r.push(i-W);if(y<H-1)r.push(i+W);return r};
 const RIVER_EDGES=[],RIVER_PATHS=[];
+const WID0=((location.hash.match(/^#w-([a-z0-9]+)$/)||[])[1])||(()=>{try{return localStorage.getItem("cw_host")||""}catch{return ""}})();
+const ISLANDS=!WID0||WID0[0]==="i";
 function genWorld(){
+  let tW,tS,tH,tM;
+  if(!ISLANDS){
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const nx=x/W-.5,ny=y/H-.5,d=Math.sqrt(nx*nx+ny*ny*1.2)*2;
     ELEV[idx(x,y)]=fbm(x/24,y/24,SEED)*1.2-Math.pow(d,3)*.7+fbm(x/7,y/7,SEED+5)*.08;
   }
   const sorted=Float32Array.from(ELEV).sort(),q=p=>sorted[Math.floor(p*(sorted.length-1))];
-  const tW=q(.42),tS=q(.46),tH=q(.84),tM=q(.93);
+  tW=q(.42);tS=q(.46);tH=q(.84);tM=q(.93);
+  }else{
+    // land blobs: two continents made of several overlapping lobes, then island groups of two or three with narrow straits between them
+    const blobs=[];let rs=1;const rnd=()=>hash(rs++,7,SEED+1234);
+    const clear=(x,y,r,grp,gap)=>blobs.every(b=>b.g===grp&&grp<0||Math.hypot(b.x-x,(b.y-y)*1.2)>b.r+r+(b.g===grp?gap:6));
+    const inside=(x,y,r)=>x-r>2&&x+r<W-3&&y-r*.85>2&&y+r*.85<H-3;
+    for(let k=0;k<2;k++)for(let t=0;t<500;t++){const x=22+rnd()*(W-44),y=18+rnd()*(H-36);if(!clear(x,y,30,-1-k,0)||!inside(x,y,16))continue;
+      const lobes=[];for(let m=0;m<5;m++){const r=13+rnd()*7,an=rnd()*Math.PI*2,d=m?9+rnd()*10:0,lx=x+Math.cos(an)*d,ly=y+Math.sin(an)*d*.75;if(inside(lx,ly,r))lobes.push({x:lx,y:ly,r,g:-1-k})}
+      if(lobes.length>=3&&lobes.every(l=>clear(l.x,l.y,l.r,-1-k,0))){blobs.push(...lobes);break}}
+    for(let g=0;g<8;g++){const n=rnd()<.4?2:3;
+      for(let t=0;t<300;t++){const r0=6+rnd()*4,cx=8+rnd()*(W-16),cy=8+rnd()*(H-16);if(!inside(cx,cy,r0)||!clear(cx,cy,r0+10,g,0))continue;
+        const isl=[{x:cx,y:cy,r:r0,g}];
+        for(let m=1;m<n;m++)for(let t2=0;t2<60;t2++){const r=5+rnd()*3.5,base=isl[Math.floor(rnd()*isl.length)],an=rnd()*Math.PI*2,d=base.r+r+2.6+rnd()*2.5,x=base.x+Math.cos(an)*d,y=base.y+Math.sin(an)*d/1.2;
+          if(inside(x,y,r)&&isl.every(o=>Math.hypot(o.x-x,(o.y-y)*1.2)>o.r+r+2.4)&&clear(x,y,r,g,2.4)){isl.push({x,y,r,g});break}}
+        if(isl.length>=2){blobs.push(...isl);break}}}
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){const wx=x+(fbm(x/11,y/11,SEED+61)-.5)*13,wy=y+(fbm(x/11,y/11,SEED+62)-.5)*13;let e=-1;
+      for(const b of blobs){const d=Math.hypot(wx-b.x,(wy-b.y)*1.2)/b.r;e=Math.max(e,1-d)}
+      ELEV[idx(x,y)]=e>0?Math.min(1,e*4)*.3+fbm(x/13,y/13,SEED)*.75+fbm(x/5,y/5,SEED+5)*.12:e}
+    const land=Float32Array.from(ELEV).filter(v=>v>0).sort(),lq=p=>land[Math.floor(p*(land.length-1))];
+    tW=0;tS=lq(.07);tH=lq(.74);tM=lq(.89);
+  }
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const i=idx(x,y),e=ELEV[i],m=fbm(x/20,y/20,SEED+99);let t;
     if(e<tW)t=WATER;else if(e<tS)t=SAND;else if(e>tM)t=MOUNTAIN;else if(e>tH)t=HILL;
@@ -210,11 +234,15 @@ function genWorld(){
     while(heap.length){const [d,u]=heap[0];const last=heap.pop();if(heap.length){heap[0]=last;down()}if(d>dist[u])continue;if(u===e)break;
       const ux=tx(u),uy=ty(u);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const x=ux+dx,y=uy+dy;if(x<0||y<0||x>=W||y>=H)continue;const n=idx(x,y),c=cost(n);if(c===Infinity)continue;const nd=d+c*(dx&&dy?1.42:1);if(nd<dist[n]){dist[n]=nd;prev[n]=u;heap.push([nd,n]);up()}}}
     if(prev[e]<0&&s!==e)return null;const p=[];for(let t=e;t>=0;t=prev[t])p.push(t);return p.reverse()}
-  const cx=W/2,cy=H/2;
+  let cx=W/2,cy=H/2,coastAll=coast,comps=null;
+  if(ISLANDS){const lab=new Int32Array(W*H).fill(-1);comps=[];for(let i=0;i<W*H;i++){if(TER[i]===WATER||lab[i]>=0)continue;const q=[i];lab[i]=comps.length;
+      for(let h=0;h<q.length;h++)for(const n of N4(q[h]))if(TER[n]!==WATER&&lab[n]<0){lab[n]=comps.length;q.push(n)}comps.push({id:comps.length,tiles:q})}
+    comps.sort((a,b)=>b.tiles.length-a.tiles.length);comps=comps.slice(0,2).map(c=>({...c,set:new Set(c.tiles),cx:c.tiles.reduce((s,t)=>s+tx(t),0)/c.tiles.length,cy:c.tiles.reduce((s,t)=>s+ty(t),0)/c.tiles.length}))}
   for(let r=0;r<4;r++){
-    const ang=r/4*Math.PI+.35+hash(r,1,SEED)*.4,dx=Math.cos(ang),dy=Math.sin(ang),off=(hash(r,2,SEED)-.5)*26;
+    if(comps){const cp=comps[r%comps.length];coastAll=coast.filter(t=>cp.set.has(t));cx=cp.cx;cy=cp.cy}
+    const ang=r/4*Math.PI+.35+hash(r,1,SEED)*.4,dx=Math.cos(ang),dy=Math.sin(ang),off=(hash(r,2,SEED)-.5)*(comps?10:26);
     let s=-1,e=-1,bs=-1e9,be=-1e9;
-    for(const i of coast){const px=tx(i)-cx,py=(ty(i)-cy)*1.5,pr=px*dx+py*dy,perp=Math.abs(-px*dy+py*dx-off);
+    for(const i of coastAll){const px=tx(i)-cx,py=(ty(i)-cy)*1.5,pr=px*dx+py*dy,perp=Math.abs(-px*dy+py*dx-off);
       const a=pr-perp*.8+hash(i,r,9)*4,b=-pr-perp*.8+hash(i,r,11)*4;if(a>bs){bs=a;s=i}if(b>be){be=b;e=i}}
     RS=r;const p=route(s,e);if(!p||p.length<12)continue;
     for(const t of p)TER[t]=RIVER;
@@ -571,8 +599,8 @@ const MODES={direct:{n:"პირდაპირი შეტევა",d:"ს�
 const SIEGE_MS=150e3,SHIP_CAP=10,SHIP_COST={wood:80,gold:40};
 const COLORS=["#d9473b","#3b7dd9","#e0b43a","#3fae5c","#9b59d0","#e07a2f","#2bb5b0","#d65b9e"];
 const PRICE={food:.5,wood:.6,stone:.9,iron:2};
-const OFFLINE_CAP=24*3600e3;
-const ECO_SPEED=2,TRAIN_SPEED=2,MARCH_SPEED=1.6; // pace of the game
+const OFFLINE_CAP=24*3600e3,PRESENCE_GRACE=90e3;
+const ECO_SPEED=1,TRAIN_SPEED=1.2,MARCH_SPEED=1.6; // pace of the game
 
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
@@ -589,17 +617,17 @@ function stats(c){
 }
 function materialize(c,now){
   if(!c)return c;
-  const from=c.t||now,dt=Math.min(Math.max(0,now-from),OFFLINE_CAP)/60000;
+  const end=Math.min(now,(c.seen||now)+PRESENCE_GRACE),from=c.t||now,dt=Math.min(Math.max(0,end-from),OFFLINE_CAP)/60000;
   const s=stats(c);c.res=c.res||{};
   for(const k of RK){const v=(c.res[k]||0)+s.prod[k]*dt;
     if(k==="food"&&v<0&&s.prod.food<0){const starve=Math.min(dt,-v/(-s.prod.food)),fr=Math.min(.6,.03*starve);c.army=c.army||{};for(const u of UK)if(c.army[u])c.army[u]=Math.floor(c.army[u]*(1-fr))}
     c.res[k]=Math.max(0,v)}
   c.starving=c.res.food<1&&s.prod.food<0;
   c.army=c.army||{};const left=[];
-  for(const q of c.queue||[]){if(q.done<=now)c.army[q.u]=(c.army[q.u]||0)+q.n;else left.push(q)}
+  for(const q of c.queue||[]){if(q.done<=end)c.army[q.u]=(c.army[q.u]||0)+q.n;else left.push(q)}
   // each production line works on its own; old orders are re-planned and never get slower than before
   const cnt=stats({tiles:c.tiles,army:{}}).cnt,lines={};
-  for(const q of left.slice().sort((a,b)=>a.done-b.done)){const L=UNITS[q.u].req.join("+"),cur=lines[L]??now,nd=cur+UNITS[q.u].time/TRAIN_SPEED/Math.max(1,Math.min(10,...UNITS[q.u].req.map(r=>cnt[r]||0)))*q.n*1000;q.done=Math.min(q.done,nd);lines[L]=q.done}
+  for(const q of left.slice().sort((a,b)=>a.done-b.done)){const L=UNITS[q.u].req.join("+"),cur=lines[L]??end,nd=cur+UNITS[q.u].time/TRAIN_SPEED/Math.max(1,Math.min(10,...UNITS[q.u].req.map(r=>cnt[r]||0)))*q.n*1000;q.done=Math.min(q.done,nd);lines[L]=q.done}
   c.queue=left;c.t=now;return c;
 }
 const buildCost=(c,b)=>{const n=(stats(c).cnt[b]||0),m=b==="wall"?1+n*.01:1+n*.15,o={};for(const k in B[b].cost)o[k]=Math.ceil(B[b].cost[k]*m);return o};
@@ -625,10 +653,10 @@ let selected=-1,placing=null,tab="land",lastChatSeen=0;
 const NET={role:null,wid:null,status:"",peers:0};
 
 /* ================= shared storage: host browser keeps the world, friends connect peer-to-peer ================= */
-function makeStore(wid){
-  const KEY="cw_world_"+wid;let data={};try{data=JSON.parse(localStorage.getItem(KEY)||"{}")}catch{}
-  const leases={},listeners=new Set();let saveT=null;
-  const changed=()=>{clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch{}},250);for(const f of listeners)f()};
+function makeStore(wid,init,shared){
+  const KEY="cw_world_"+wid;let data=init||{};if(!init)try{data=JSON.parse(localStorage.getItem(KEY)||"{}")}catch{}
+  const leases={},listeners=shared||new Set();let saveT=null;
+  const changed=()=>{clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(KEY+"_ts",String(Date.now()))}catch{}},250);for(const f of listeners)f()};
   const ops={
     get:p=>data[p]??null,
     set:(p,d)=>{data[p]=d;changed();return true},
@@ -655,49 +683,58 @@ function netDB(getData,listeners,call,optimistic){
 const BROKER="wss://broker.emqx.io:8084/mqtt";
 const topic=(wid,s)=>"countrywar-ka/v1/"+wid+"/"+s;
 function mqttConnect(prefix){return mqtt.connect(BROKER,{clientId:prefix+rid(10),clean:true,keepalive:30,reconnectPeriod:3000,connectTimeout:10000})}
-function startHost(wid){
-  const store=makeStore(wid);if(store.data["meta/admin"]?.uid!==ME)store.ops.set("meta/admin",{uid:ME});
-  db=netDB(()=>store.data,store.listeners,async(op,...a)=>store.ops[op](...a));
-  const seen=new Map();
-  const online=()=>{const now=Date.now();let n=1;for(const [k,t] of seen){if(now-t<30000)n++;else seen.delete(k)}return n};
-  const cl=mqttConnect("cwh_");
-  const pubState=()=>{if(cl.connected)cl.publish(topic(wid,"state"),JSON.stringify({d:store.data,n:online(),ts:Date.now()}),{retain:true,qos:1})};
-  let bt=null;store.listeners.add(()=>{clearTimeout(bt);bt=setTimeout(pubState,80)});
-  cl.on("connect",()=>{cl.subscribe([topic(wid,"req"),topic(wid,"hello")],{qos:1});NET.status="online";renderNet();pubState()});
+/* Every player runs the same code. If somebody is already keeping the world, you join them; if nobody is,
+   your browser takes over from the latest saved copy (the retained state on the relay, or your own saved copy if newer).
+   If two browsers ever take over at once, the later one steps back. */
+function joinWorld(wid,onFirst,fresh){
+  let mirror={},seq=0,first=true,lastHb=0,hosting=null,lastState=null;
+  const listeners=new Set(),pending=new Map(),me_c="c"+rid(10),KEY="cw_world_"+wid;
+  const cl=mqttConnect("cwc_");
+  const hostUp=()=>!!hosting||Date.now()-lastHb<14000;
+  const call=(op,...a)=>{
+    if(hosting){try{return Promise.resolve(hosting.store.ops[op](...a))}catch(e){return Promise.reject(e)}}
+    return new Promise((res,rej)=>{
+      if(!cl.connected)return rej(new Error("ინტერნეტთან კავშირი არ არის"));
+      if(!hostUp())return rej(new Error("სამყარო ჯერ არ ჩატვირთულა, სცადე რამდენიმე წამში"));
+      const id=++seq;pending.set(id,{res,rej});cl.publish(topic(wid,"req"),JSON.stringify({c:me_c,p:ME,id,op,a}),{qos:1});
+      setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error("სამყარო არ პასუხობს"))}},12000)})};
+  const recent={};
+  db=netDB(()=>mirror,listeners,call,(p,d)=>{if(hosting)return;recent[p]={d,t:Date.now()};mirror={...mirror,[p]:d};for(const f of listeners)f()});
+  const overlay=()=>{const now=Date.now();for(const p in recent){if(now-recent[p].t<2500)mirror[p]=recent[p].d;else delete recent[p]}};
+  const ready=()=>{for(const f of listeners)f();if(first){first=false;onFirst()}};
+  const seen=new Map(),online=()=>{const now=Date.now();let n=1;for(const [k,t] of seen){if(now-t<30000)n++;else seen.delete(k)}return n};
+  const pubState=()=>{if(hosting&&cl.connected)cl.publish(topic(wid,"state"),JSON.stringify({d:hosting.store.data,n:online(),ts:Date.now()}),{retain:true,qos:1})};
+  let bt=null;
+  const takeOver=()=>{if(hosting)return;
+    let local=null,lts=0;try{local=JSON.parse(localStorage.getItem(KEY)||"null");lts=+(localStorage.getItem(KEY+"_ts")||0)}catch{}
+    const init=lastState&&(!local||(lastState.ts||0)>=lts)?lastState.d:(local||{});
+    const store=makeStore(wid,JSON.parse(JSON.stringify(init||{})),listeners);hosting={store,since:Date.now()};mirror=store.data;NET.role="host";
+    listeners.add(()=>{mirror=store.data;clearTimeout(bt);bt=setTimeout(pubState,80)});
+    if(!store.data["meta/admin"])store.ops.set("meta/admin",{uid:ME});
+    cl.subscribe([topic(wid,"req"),topic(wid,"hello")],{qos:1});NET.status="online";renderNet();pubState();ready()};
+  cl.on("connect",()=>{cl.subscribe([topic(wid,"state"),topic(wid,"hb"),topic(wid,"res/"+me_c)],{qos:1},()=>{if(!hosting&&cl.connected)cl.publish(topic(wid,"hello"),JSON.stringify({c:me_c}))});
+    if(hosting){cl.subscribe([topic(wid,"req"),topic(wid,"hello")],{qos:1});pubState()}});
   cl.on("reconnect",()=>{NET.status="wait";renderNet()});
   cl.on("offline",()=>{NET.status="offline";renderNet()});
   cl.on("error",()=>{NET.status="offline";renderNet()});
-  cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}
-    if(!m||!m.c)return;
-    const isNew=!seen.has(m.c);seen.set(m.c,Date.now());
-    if(tp.endsWith("/hello")){if(isNew){NET.peers=online();renderNet()}pubState();return}
-    let res=null,err=null;const banned=store.data["meta/bans"]?.ids||[];
-    if(m.op!=="get"&&banned.includes(m.p))err="ადმინმა გაგაგდო ამ სამყაროდან";else try{res=store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}
-    cl.publish(topic(wid,"res/"+m.c),JSON.stringify({id:m.id,res,err}),{qos:1});
-  });
-  setInterval(()=>{if(cl.connected){NET.peers=online();renderNet();cl.publish(topic(wid,"hb"),JSON.stringify({n:NET.peers,ts:Date.now()}))}},5000);
-}
-function startClient(wid,onFirst){
-  let mirror={},seq=0,first=true,lastHb=0;const listeners=new Set(),pending=new Map(),me_c="c"+rid(10);
-  const cl=mqttConnect("cwc_");
-  const hostUp=()=>Date.now()-lastHb<14000;
-  const call=(op,...a)=>new Promise((res,rej)=>{
-    if(!cl.connected)return rej(new Error("ინტერნეტთან კავშირი არ არის"));
-    if(!hostUp())return rej(new Error("მასპინძელი არ არის ონლაინ"));
-    const id=++seq;pending.set(id,{res,rej});cl.publish(topic(wid,"req"),JSON.stringify({c:me_c,p:ME,id,op,a}),{qos:1});
-    setTimeout(()=>{if(pending.has(id)){pending.delete(id);rej(new Error("მასპინძელი არ პასუხობს"))}},12000)});
-  const recent={};
-  db=netDB(()=>mirror,listeners,call,(p,d)=>{recent[p]={d,t:Date.now()};mirror={...mirror,[p]:d};for(const f of listeners)f()});
-  const overlay=()=>{const now=Date.now();for(const p in recent){if(now-recent[p].t<2500)mirror[p]=recent[p].d;else delete recent[p]}};
-  const hello=()=>{if(cl.connected)cl.publish(topic(wid,"hello"),JSON.stringify({c:me_c}))};
-  cl.on("connect",()=>{cl.subscribe([topic(wid,"state"),topic(wid,"hb"),topic(wid,"res/"+me_c)],{qos:1},()=>hello())});
-  cl.on("offline",()=>{NET.status="offline";renderNet()});
-  cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}
-    if(tp.endsWith("/state")){mirror=m.d||{};overlay();if(m.ts&&Math.abs(Date.now()-m.ts)<20000){lastHb=Math.max(lastHb,Date.now());NET.status="online"}if(m.n)NET.peers=m.n;for(const f of listeners)f();if(first){first=false;onFirst()}}
-    else if(tp.endsWith("/hb")){const was=hostUp();lastHb=Date.now();NET.peers=m.n||NET.peers;NET.status="online";renderNet();if(!was)hello()}
-    else{const p=pending.get(m.id);if(p){pending.delete(m.id);m.err?p.rej(new Error(m.err)):p.res(m.res)}}});
-  setInterval(()=>{hello();if(!hostUp()&&cl.connected){NET.status="hostoff";renderNet()}},10000);
-  setTimeout(()=>{if(first)setWait("hostoff")},12000);
+  cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}if(!m)return;
+    if(tp.endsWith("/state")){if(hosting)return;lastState=m;mirror=m.d||{};overlay();if(m.ts&&Math.abs(Date.now()-m.ts)<20000){lastHb=Math.max(lastHb,Date.now());NET.status="online"}if(m.n)NET.peers=m.n;
+      if(hostUp())ready();else for(const f of listeners)f();return}
+    if(tp.endsWith("/hb")){if(m.h===me_c)return;
+      if(hosting){if((m.since||0)<hosting.since||((m.since||0)===hosting.since&&m.h<me_c))location.reload();return} // another keeper started first: step back and join it
+      lastHb=Date.now();NET.peers=m.n||NET.peers;NET.status="online";renderNet();if(first&&lastState)ready();return}
+    if(tp.endsWith("/req")||tp.endsWith("/hello")){if(!hosting||!m.c)return;const isNew=!seen.has(m.c);seen.set(m.c,Date.now());
+      if(tp.endsWith("/hello")){if(isNew){NET.peers=online();renderNet()}pubState();return}
+      let res=null,err=null;const banned=hosting.store.data["meta/bans"]?.ids||[];
+      if(m.op!=="get"&&banned.includes(m.p))err="ადმინმა გაგაგდო ამ სამყაროდან";else try{res=hosting.store.ops[m.op](...m.a)}catch(e){err=String(e.message||e)}
+      cl.publish(topic(wid,"res/"+m.c),JSON.stringify({id:m.id,res,err}),{qos:1});return}
+    const p=pending.get(m.id);if(p){pending.delete(m.id);m.err?p.rej(new Error(m.err)):p.res(m.res)}});
+  // nobody keeping the world for a while (plus a small random wait so two players don't jump in together): take over
+  let deadline=Date.now()+(fresh?600:4000+Math.random()*2500);
+  setInterval(()=>{const now=Date.now();
+    if(hosting){if(cl.connected){NET.peers=online();renderNet();cl.publish(topic(wid,"hb"),JSON.stringify({n:NET.peers,ts:now,h:me_c,since:hosting.since}))}return}
+    if(hostUp())deadline=now+9000+Math.random()*5000;else if(cl.connected&&now>deadline)takeOver();
+    if(cl.connected&&!hostUp()){NET.status="wait";renderNet()}},1000);
 }
 function inviteLink(){return location.origin+location.pathname+"#w-"+NET.wid}
 function renderNet(){
@@ -1283,7 +1320,7 @@ function renderPane(force){
       ${(()=>{const bt=borderTiles(c),gs=guardSet(c),g=bt.filter(t=>gs.has(t)).length,pc=bt.length?Math.round(g/bt.length*100):100;return `<h3>საზღვარი</h3><p class="muted" style="margin:0 0 6px;font-size:12.5px">დაცულია <b style="display:inline;color:${pc>=80?"var(--ok)":pc>=40?"var(--brass2)":"var(--danger)"}">${pc}%</b> (${g}/${bt.length} უჯრა). რუკაზე მწვანე ხაზი დაცულია, წითელი წყვეტილი ხაზი არა. თითო საგუშაგო კოშკი ${TOWER_R} უჯრის რადიუსში აკონტროლებს. დაუცველ ადგილას შემოსულ მტერს ჯარის მხოლოდ ნაწილი დახვდება.</p>`})()}
       <h3>გალავანი</h3>${(()=>{const bw=borderWallTiles();return `<div class="list"><div class="row" style="flex-wrap:wrap"><button class="btn gold" id="wallMode">გალავნის ხატვა</button><button class="btn" id="wallRing" ${bw.length?"":"disabled"}>მთელი საზღვრის შემოზღუდვა · ${bw.length}</button></div>${bw.length?costHTML({stone:wallCostFor(c,bw.length)},c):""}</div>`})()}
       <h3>ქრონიკა</h3><div class="log">${(c.log||[]).slice(0,10).map(l=>`<div>${hhmm(l.t)} · ${esc(l.m)}</div>`).join("")}</div>
-      <div class="row" style="margin-top:20px;flex-wrap:wrap"><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>${isOwnerViewer?`<button class="btn sm red" id="resetWorld">სამყაროს წაშლა</button>`:""}</div>`;
+      <div class="row" style="margin-top:20px;flex-wrap:wrap"><button class="btn sm red" id="abandon">ქვეყნის დატოვება</button>${isOwnerViewer?`<button class="btn sm red" id="resetWorld">სამყაროს წაშლა</button>${ISLANDS?"":`<button class="btn sm gold" id="newIsl">ახალი სამყარო კუნძულებით</button>`}`:""}</div>`;
   }
   if(tab==="army"){
     const away={};for(const a of Object.values(attacks)){if(a.from!==ME)continue;const u=a.status==="marching"?a.units:a.status==="returning"?a.result?.survivors:null;if(u)for(const k in u)away[k]=(away[k]||0)+u[k]}
@@ -1385,6 +1422,7 @@ $("#pane").addEventListener("click",e=>{
   if(t.id==="invOpen")showInvite();
   if(t.id==="invCopyP")copyText(inviteLink(),$("#invInP"));
   if(t.id==="abandon"){if(t.dataset.sure)act(abandon);else{t.dataset.sure=1;t.textContent="დარწმუნებული ხარ? ყველაფერი წაიშლება"}}
+  if(t.id==="newIsl"){if(t.dataset.sure){const id="i"+rid(9);try{localStorage.setItem("cw_host",id)}catch{}location.hash="#w-"+id}else{t.dataset.sure=1;t.textContent="შეიქმნება ახალი სამყარო ახალი ლინკით. ძველი ლინკით ძველი სამყარო დარჩება. გავაგრძელო?"}}
   if(t.id==="resetWorld"){if(t.dataset.sure)act(resetWorld,"სამყარო გასუფთავდა");else{t.dataset.sure=1;t.textContent="ნამდვილად? ყველა ქვეყანა წაიშლება"}}
 });
 $("#pane").addEventListener("input",e=>{const u=e.target.dataset?.tq;if(u){TQ[u]=e.target.value;return}const k=e.target.dataset?.mq;if(!k)return;MQ[k]=e.target.value;const info=document.querySelector(`[data-mqinfo="${k}"]`);if(info)info.innerHTML=mqInfo(k,live(ME))});
@@ -2103,6 +2141,11 @@ function showOnboarding(){
     if(b.id==="oWatch")ov.remove();
     if(b.id==="oGo"){b.disabled=true;foundCountry().then(()=>{ov.remove();renderAll(true);if(NET.role==="host"&&alive().length<=1)showInvite()}).catch(err=>{toast(err.message||String(err),"err");b.disabled=false})}});
 }
+function randomSpawn(){const owned=[];for(const c of alive())for(const k in c.tiles)owned.push(+k);
+  for(let tryN=0;tryN<1500;tryN++){const minD=tryN<600?16:tryN<1100?11:7,x=4+Math.floor(Math.random()*(W-8)),y=4+Math.floor(Math.random()*(H-8)),i=idx(x,y);
+    if(TER[i]!==GRASS&&TER[i]!==FOREST&&TER[i]!==DESERT)continue;if(NEUTRAL.has(i))continue;
+    let land=0;for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const t=TER[idx(x+dx,y+dy)];if(t!==WATER&&t!==RIVER&&t!==MOUNTAIN)land++}if(land<36)continue;
+    if(owned.some(o=>Math.hypot(tx(o)-x,ty(o)-y)<minD))continue;return i}return null}
 async function foundCountry(){
   const ruler=draft.ruler.trim(),name=draft.name.trim(),currency=draft.currency.trim()||"ოქრო";
   if(BANNED)throw new Error("ამ სამყაროდან გაგდებული ხარ");if(!ruler)throw new Error("ჩაწერე შენი სახელი");if(!name)throw new Error("დაარქვი სახელი ქვეყანას");
@@ -2111,7 +2154,7 @@ async function foundCountry(){
     for(const k in cur.slots){if(cur.slots[k]===ME){slot=+k;return cur}}
     for(let k=0;k<5;k++){const u=cur.slots[k];if(!u){slot=k;break}const s=await db.doc("countries/"+u).get();if(!s.exists||s.data().alive===false){slot=k;break}}
     if(slot<0)throw new Error("სამყარო სავსეა (5/5)");cur.slots[slot]=ME;return cur});
-  const sp=SPAWNS[slot],tiles={};const X=tx(sp),Y=ty(sp);
+  const sp=randomSpawn()??SPAWNS[slot],tiles={};const X=tx(sp),Y=ty(sp);
   for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){if(Math.abs(dx)+Math.abs(dy)>3)continue;const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H)continue;const i=idx(x,y);if(TER[i]===WATER||OWNER[i]>=0)continue;tiles[i]=""}
   tiles[sp]="capital";
   const taken=alive().filter(c=>c.uid!==ME).map(c=>c.color);const color=taken.includes(draft.color)?COLORS.find(c=>!taken.includes(c)):draft.color;
@@ -2155,15 +2198,11 @@ async function boot(){
     if(typeof mqtt==="undefined"){banner(`<h2>ქსელი ვერ ჩაიტვირთა</h2><p class="muted">განაახლე გვერდი.</p>`);return}
     ME=playerId();
     const m=location.hash.match(/^#w-([a-z0-9]+)$/);let hostId=null;try{hostId=localStorage.getItem("cw_host")}catch{}
-    if(m&&m[1]!==hostId){
-      NET.role="client";NET.wid=m[1];setWait("wait");
-      await new Promise(r=>startClient(m[1],r));
-      $("#banner")?.remove();
-    }else{
-      if(!m&&!hostId){await landing();hostId=rid(10);try{localStorage.setItem("cw_host",hostId)}catch{}}
-      NET.role="host";NET.wid=m?m[1]:hostId;history.replaceState(null,"","#w-"+NET.wid);isOwnerViewer=true;
-      startHost(NET.wid);
-    }
+    let fresh=false;
+    if(!m&&!hostId){await landing();hostId="i"+rid(9);fresh=true;try{localStorage.setItem("cw_host",hostId)}catch{}}
+    NET.role="client";NET.wid=m?m[1]:hostId;history.replaceState(null,"","#w-"+NET.wid);setWait("wait");
+    await new Promise(r=>joinWorld(NET.wid,r,fresh));
+    $("#banner")?.remove();
   }
   ME=String(ME);
   db.collection("countries").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,uid:d.id}}countries=next;rebuildOwners();
@@ -2177,11 +2216,14 @@ async function boot(){
     attacks=next;renderAll()},()=>{});
   db.doc("world/forestfire").onSnapshot(s=>{FOREST_FIRE=s.exists?(s.data().t||{}):{};applyForestFires()},()=>{});
   setInterval(applyForestFires,3000);
-  db.doc("meta/admin").onSnapshot(s=>{ADMIN=s.exists?s.data().uid:null},()=>{});
+  db.doc("meta/admin").onSnapshot(s=>{ADMIN=s.exists?s.data().uid:null;if(!window.claude?.use)isOwnerViewer=!!ADMIN&&ADMIN===ME},()=>{});
   db.doc("meta/bans").onSnapshot(s=>{const ids=s.exists?(s.data().ids||[]):[];if(ids.includes(ME)&&!BANNED){BANNED=true;document.querySelectorAll(".overlay").forEach(o=>o.remove());$("#hud").hidden=true;$("#side").hidden=true;$("#tile").hidden=true;
     banner(`<h2>გაგდებული ხარ</h2><p class="muted">ამ სამყაროს ადმინმა გაგაგდო. შეგიძლია შექმნა საკუთარი სამყარო.</p><a class="btn gold" href="${location.origin+location.pathname}" style="text-decoration:none;display:inline-block;margin-top:8px">ჩემი სამყარო</a>`)}},()=>{});
   db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat")renderPane(false);else if(booted&&me())renderTabs()},()=>{});
   setInterval(()=>{renderHUD();if(Date.now()-lastPane>4000){lastPane=Date.now();renderPane(false);renderTile()}},1000);
+  const presence=()=>{if(!me()||BANNED)return;mutate("countries/"+ME,cur=>{if(!cur||cur.alive===false)return;const now=Date.now(),seen=cur.seen||now;materialize(cur,now);
+      const gap=now-(seen+PRESENCE_GRACE);if(gap>0)for(const q of cur.queue||[])q.done+=gap;cur.seen=now;return cur}).catch(()=>{})};
+  setTimeout(presence,1500);setInterval(presence,20000);
   setInterval(resolveAttacks,2500);
   setInterval(()=>barbarianTick().catch(()=>{}),30000);
   setInterval(checkReports,1500);
