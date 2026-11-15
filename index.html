@@ -198,7 +198,9 @@ function fbm(x,y,s){let t=0,a=1,f=1,n=0;for(let o=0;o<5;o++){t+=vnoise(x*f,y*f,s
 const WID0=((location.hash.match(/^#w-([a-z0-9]+)$/)||[])[1])||(()=>{try{return localStorage.getItem("cw_host")||""}catch{return ""}})();
 const ISLANDS=!WID0||WID0[0]==="i";
 // every island server gets its own map, made from its code: the same code always gives the same map
-const W=150,H=96,TS=16,SEED=ISLANDS&&WID0?(strHash("map:"+WID0)%2000000000)+1:20261108;
+// a server keeps the map it was born with: its seed is saved in the world and remembered here
+const MAP_OVERRIDE=(()=>{try{return WID0?localStorage.getItem("cw_map_"+WID0):null}catch{return null}})();
+const W=150,H=96,TS=16,SEED=MAP_OVERRIDE?+MAP_OVERRIDE:ISLANDS&&WID0?(strHash("map:"+WID0)%2000000000)+1:20261108;
 const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7,SNOW=8;
 const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო","თოვლიანი ველი"];
 // climate of every tile: 0 temperate, 1 winter, 2 hot desert (only on island worlds; older worlds are all temperate)
@@ -735,9 +737,9 @@ function mqttConnect(prefix){return mqtt.connect(BROKER,{clientId:prefix+rid(10)
    your browser takes over from the latest saved copy (the retained state on the relay, or your own saved copy if newer).
    If two browsers ever take over at once, the later one steps back. */
 function joinWorld(wid,onFirst,fresh){
-  let mirror={},seq=0,first=true,lastHb=0,hosting=null,lastState=null;
+  let mirror={},seq=0,first=true,lastHb=0,hosting=null,lastState=null;const bornAt=Date.now();
   const listeners=new Set(),pending=new Map(),me_c="c"+rid(10),KEY="cw_world_"+wid;
-  const cl=mqttConnect("cwc_");
+  const cl=mqttConnect("cwc_");const saveBak={t:0};
   const hostUp=()=>!!hosting||Date.now()-lastHb<14000;
   const call=(op,...a)=>{
     if(hosting){try{return Promise.resolve(hosting.store.ops[op](...a))}catch(e){return Promise.reject(e)}}
@@ -753,9 +755,15 @@ function joinWorld(wid,onFirst,fresh){
   const seen=new Map(),online=()=>{const now=Date.now();let n=1;for(const [k,t] of seen){if(now-t<30000)n++;else seen.delete(k)}return n};
   const pubState=()=>{if(hosting&&cl.connected)cl.publish(topic(wid,"state"),JSON.stringify({d:hosting.store.data,n:online(),ts:Date.now()}),{retain:true,qos:1})};
   let bt=null;
+  const nC=d=>d?Object.keys(d).filter(k=>k.startsWith("countries/")).length:0;
   const takeOver=()=>{if(hosting)return;
-    let local=null,lts=0;try{local=JSON.parse(localStorage.getItem(KEY)||"null");lts=+(localStorage.getItem(KEY+"_ts")||0)}catch{}
-    const init=lastState&&(!local||(lastState.ts||0)>=lts)?lastState.d:(local||{});
+    const cands=[];if(lastState?.d)cands.push({d:lastState.d,ts:lastState.ts||0});
+    try{const l=JSON.parse(localStorage.getItem(KEY)||"null");if(l)cands.push({d:l,ts:+(localStorage.getItem(KEY+"_ts")||0)})}catch{}
+    try{const b=JSON.parse(localStorage.getItem(KEY+"_bak")||"null");if(b?.d)cands.push(b)}catch{}
+    // the newest copy wins, but a copy with countries always beats one without (an empty copy must never wipe a world)
+    cands.sort((a,b)=>(nC(b.d)>0)-(nC(a.d)>0)||b.ts-a.ts);
+    if(!cands.length&&!fresh){if(Date.now()-bornAt<60000){deadline=Date.now()+3000;return}}
+    const init=cands[0]?.d||{};
     const store=makeStore(wid,JSON.parse(JSON.stringify(init||{})),listeners);hosting={store,since:Date.now()};mirror=store.data;NET.role="host";
     listeners.add(()=>{mirror=store.data;clearTimeout(bt);bt=setTimeout(pubState,80)});
     if(!store.data["meta/admin"])store.ops.set("meta/admin",{uid:ME});
@@ -767,6 +775,7 @@ function joinWorld(wid,onFirst,fresh){
   cl.on("error",()=>{NET.status="offline";renderNet()});
   cl.on("message",(tp,buf)=>{let m;try{m=JSON.parse(buf.toString())}catch{return}if(!m)return;
     if(tp.endsWith("/state")){if(hosting)return;lastState=m;mirror=m.d||{};overlay();if(m.n)NET.peers=m.n;
+      if(nC(m.d)&&Date.now()-(saveBak.t||0)>8000){saveBak.t=Date.now();try{localStorage.setItem(KEY+"_bak",JSON.stringify({d:m.d,ts:m.ts||Date.now()}))}catch{}}
       if(hostUp())ready();else for(const f of listeners)f();return}
     if(tp.endsWith("/hb")){if(m.h===me_c)return;
       if(hosting){if((m.since||0)<hosting.since||((m.since||0)===hosting.since&&m.h<me_c))location.reload();return} // another keeper started first: step back and join it
@@ -2471,6 +2480,13 @@ function setWait(kind){banner(kind==="hostoff"?`<h2>მასპინძელ�
 const RECENT_KEY="cw_recent";
 const recent=()=>{try{return JSON.parse(localStorage.getItem(RECENT_KEY)||"[]")}catch{return[]}};
 function rememberWorld(wid,name){try{const l=recent().filter(r=>r.wid!==wid);const old=recent().find(r=>r.wid===wid);l.unshift({wid,name:name||old?.name||"",t:Date.now()});localStorage.setItem(RECENT_KEY,JSON.stringify(l.slice(0,8)))}catch{}}
+// servers made before every server got its own map keep the shared one they started on
+const UNIQUE_MAPS_SINCE=1794771370000;
+async function checkMapSeed(){if(!NET.wid)return;const snap=await db.doc("meta/map").get();let want;
+  if(snap.exists&&snap.data()?.seed)want=+snap.data().seed;
+  else{const first=Math.min(Infinity,...Object.values(countries).map(c=>c.created||Infinity));want=first<UNIQUE_MAPS_SINCE?20261108:SEED;await db.doc("meta/map").set({seed:want,at:Date.now()})}
+  try{localStorage.setItem("cw_map_"+NET.wid,String(want))}catch{}
+  if(want!==SEED){try{sessionStorage.setItem("cw_go",NET.wid)}catch{}location.reload()}}
 function goWorld(wid){try{sessionStorage.setItem("cw_go",wid)}catch{}if(location.hash==="#w-"+wid)location.reload();else location.hash="#w-"+wid}
 // shown every time the game opens: continue, a new server, join one by code or link, your servers, settings, how to play
 function startMenu(linkWid){return new Promise(res=>{
@@ -2531,7 +2547,7 @@ async function boot(){
   }
   ME=String(ME);
   db.collection("countries").onSnapshot(s=>{const next={};for(const d of s.docs){const v=d.data();if(v)next[d.id]={...v,uid:d.id}}countries=next;rebuildOwners();
-    if(!booted){booted=true;const c=me();if(c){cam.x=tx(c.capital)*TS+8;cam.y=ty(c.capital)*TS+8;cam.z=1.8}else showOnboarding()}
+    if(!booted){booted=true;setTimeout(()=>checkMapSeed().catch(e=>console.warn(e)),300);const c=me();if(c){cam.x=tx(c.capital)*TS+8;cam.y=ty(c.capital)*TS+8;cam.z=1.8}else showOnboarding()}
     if(me()&&NET.wid)rememberWorld(NET.wid,me().name);
     else if(!me()&&!$("#onb")&&countries[ME]?.alive===false){toast("შენი ქვეყანა დაეცა. შეგიძლია ახალი დააარსო.","err");showOnboarding()}
     else if(me()&&$("#onb"))$("#onb").remove();
