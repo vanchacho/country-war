@@ -1525,6 +1525,13 @@ function frame1(){
   for(const a of Object.values(attacks)){
     if(SCENES.some(sc=>sc.id===a.id||sc.id===a.targetAttack||attacks[sc.id]?.targetAttack===a.id))continue;
     const P=armyPos(a,now);if(!P)continue;const C=cOf(a.from),col=C?.color||"#fff",ic=a.kind==="intercept";
+    if(a.kind==="colony"){if(a.status!=="marching")continue;const pts=pathOf(a).map(TC),q=along(pathOf(a),clamp((now-a.launch)/(a.arrive-a.launch),0,1));
+      ctx.setLineDash([3*k,3*k]);ctx.strokeStyle=col;ctx.lineWidth=1.3*k;ctx.beginPath();ctx.moveTo(P.x,P.y);for(let i=q.seg+1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.stroke();ctx.setLineDash([]);
+      const here=idx(clamp(Math.floor(P.x/TS),0,W-1),clamp(Math.floor(P.y/TS),0,H-1)),dir=heading(a,now);
+      if(TER[here]===WATER){drawWake(ctx,P.x,P.y,6*k,dir+Math.PI/2,now,.1);drawGalley(ctx,P.x,P.y,8*k,col,now/600,dir+Math.PI/2)}
+      else{for(let m=0;m<3;m++)drawPerson(ctx,P.x+(m-1)*4*k,P.y+(m%2)*2*k,4*k,CLOTH[m%CLOTH.length],SKIN[m%SKIN.length],now/150+m,false);ctx.fillStyle="#6b4a2b";ctx.fillRect(P.x+6*k,P.y-1*k,5*k,3*k)}
+      ctx.save();ctx.translate(P.x,P.y);uprM(ctx);ctx.fillStyle="#2a241b";ctx.fillRect(0,-16*k,1.2*k,12*k);drawFlag(ctx,C?.flag,1.2*k,-16*k,10*k,7*k);ctx.restore();
+      const [tx0,ty0]=TC(a.target);ctx.strokeStyle=col;ctx.lineWidth=1.5*k;ctx.beginPath();ctx.arc(tx0,ty0,(7+pulse*6)*k,0,7);ctx.stroke();continue}
     const units=P.going||P.stat?a.units:a.result?.survivors||{},N=unitSum(units);if(!N)continue;
     if(P.going){
       const pts=pathOf(a).map(TC),q=along(pathOf(a),clamp((now-a.launch)/(a.arrive-a.launch),0,1));
@@ -1733,7 +1740,7 @@ function renderPane(force){
     h=`<div class="item" style="margin-bottom:10px"><span class="tx"><b>მიწის დაცვა</b><span>${c.autoDefend?"ჯარი ყველა შეტევას ავტომატურად დახვდება.":"ჯარი მხოლოდ მაშინ დახვდება, თუ შეტევაზე „დაცვას“ დააჭერ. თუ არ დააჭერ, მტერს წინააღმდეგობა არ ექნება."}</span></span><span class="btns"><button class="btn sm ${c.autoDefend?"gold":""}" id="autoDef">${c.autoDefend?"ავტომატური: ჩართული":"ავტომატური: გამორთული"}</button></span></div>`+h;
     const camps=Object.values(attacks).filter(a=>a.kind==="camp"&&a.from===ME&&(a.status==="camped"||a.status==="marching"));
     if(camps.length)h+=`<h3>ბანაკები</h3><div class="list">`+camps.map(a=>`<div class="item">${icn("camp")}<span class="tx"><b>${a.status==="camped"?"ბანაკი":"მიდის ბანაკისკენ"}</b>${unitsHTML(a.units)}</span><span class="btns"><button class="btn sm" data-goto="${esc(a.id)}">ნახვა</button>${a.status==="camped"||a.status==="marching"?`<button class="btn sm gold" data-redirect="${esc(a.id)}">გზა</button><button class="btn sm" data-recall="${esc(a.id)}">დაბრუნება</button>`:""}</span></div>`).join("")+`</div>`;
-    const mine=Object.values(attacks).filter(a=>a.kind!=="camp"&&(a.from===ME||a.to===ME)).sort((a,b)=>b.launch-a.launch).slice(0,15);
+    const mine=Object.values(attacks).filter(a=>a.kind!=="camp"&&a.kind!=="colony"&&(a.from===ME||a.to===ME)).sort((a,b)=>b.launch-a.launch).slice(0,15);
     if(mine.length){h+=`<h3>ბრძოლები</h3><div class="list">`;
       for(const a of mine){const out=a.from===ME,o=cOf(out?a.to:a.from),r=a.result,ic=a.kind==="intercept";let st="",ttl="";
         if(ic){ttl=`დახვედრა: ${esc(o?.name||"?")}`;
@@ -1836,7 +1843,8 @@ function renderTile(){
     else if(b!=="capital")h+=`<div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`;
   }else if(!o){
     if(t!==WATER&&adjMine(i)){const cost=claimCost(c,i);h+=`<div class="acts"><button class="btn sm gold" data-claim="1">${neutral?"სოფლის შემოერთება":"შემოერთება"}</button><button class="btn sm" data-claimmode="1">ბევრის მონიშვნა</button>${costHTML(cost,c)}</div>`}
-    else if(t!==WATER)h+=`<p class="muted" style="margin:8px 0 0;font-size:12px">ჯერ მიაღწიე შენი საზღვრით.</p>`;
+    else if(t!==WATER){const pl=colonyPlan(c,i),cc=colonyCost(c,i),n=colonyTiles(i).length;
+      h+=`<div class="item" style="margin-top:10px">${icn("village")}<span class="tx"><b>კოლონიის დაარსება</b><span>კოლონისტები ${pl.naval?"გემით":"ფეხით"} წავლენ და აქ ${n} უჯრას დაიკავებენ${pl.err?"":` · გზაში ${mmss(pl.time)}`}</span>${pl.err?`<div class="cost"><span class="no">${esc(pl.err)}</span></div>`:costHTML(cc,c)}</span><span class="btns"><button class="btn sm ${!pl.err&&canPay(c,cc)?"gold":""}" data-colony="1" ${pl.err?"disabled":""}>გაგზავნა</button></span></div>`}
   }else if(o.alive!==false){
     h+=`<div class="acts">${atWar(ME,o.uid)?`<button class="btn sm red" data-attack="1">ჯარის გაგზავნა</button>`:`<button class="btn sm red" data-war="${esc(o.uid)}">ომის გამოცხადება</button>`}</div>`;
   }
@@ -1851,6 +1859,7 @@ $("#tile").addEventListener("click",e=>{const t=e.target.closest("button");if(!t
   if(d.upg)act(()=>upgradeAt(selected),"გაუმჯობესდა");
   if(d.upgpaint){const first=selected;selected=-1;renderTile();startPlacing("upgrade");lastPaint=-1;queueUpgrade(first)}
   if(d.upgall){const list=Object.keys(countries[ME].tiles).map(Number).filter(i=>countries[ME].tiles[i]===d.upgall);act(async()=>{const n=await upgradeMany(list);toast(n<list.length?`გაუმჯობესდა ${n}, რესურსი აღარ გყოფნის`:`გაუმჯობესდა ${n}`,n?"good":"err")})}
+  if(d.colony){const t=selected;act(()=>launchColony(t),"კოლონისტები გაემგზავრნენ")}
   if(d.claim)act(()=>claim(selected),"შემოიერთე");
   if(d.claimmode){selected=-1;renderTile();startPlacing("claim")}
   if(d.paint){const first=selected;selected=-1;renderTile();startPlacing("build",d.paint);lastPaint=-1;placeWallAt(first)}
@@ -2248,6 +2257,23 @@ async function launchAttack(target,units,mode="direct",naval=false,src="home",cu
   await ref.set(doc);
   postChat(`${MODES[mode].n}${doc.naval?" ზღვით":""}: ${countries[ME].name} → ${o.name}`,true);
 }
+// a colony: the centre tile and the free land around it; settling far from home costs a lot more than buying land at the border
+const colonyTiles=t=>[t,...N4(t)].filter(i=>TER[i]!==WATER&&OWNER[i]<0&&!castleGround(i));
+function colonyCost(c,t){const n=colonyTiles(t).length||1;return{gold:Math.round(claimCost(c,t).gold*n*3),wood:80,food:60}}
+function colonyPlan(c,t){const homeIds=new Set(Object.keys(c.tiles).map(k=>compId(+k)));
+  if(homeIds.has(compId(t))){const from=c.capital;return{path:[from,t],time:travelTime(from,t,{spear:1}),naval:false}}
+  const nr=navalRoute(c,t);if(!nr)return{err:Object.values(c.tiles).includes("port")?"ზღვით აქამდე გზა არ არის":"სხვა კუნძულზე გასაგზავნად ნავსადგური გჭირდება"};
+  const from=c.capital,d1=Math.hypot(tx(nr.port)-tx(from),ty(nr.port)-ty(from)),d2=Math.hypot(tx(t)-tx(nr.landing),ty(t)-ty(nr.landing));
+  return{path:[from,nr.port,...nr.water.filter((_,i)=>i%3===0||i===nr.water.length-1),t],time:Math.max(15,(d1*3+nr.water.length*.6+d2*3+6)/MARCH_SPEED)*1000,naval:true}}
+async function launchColony(t){const c0=live(ME);if(!c0)throw new Error("ჯერ ქვეყანა დააარსე");if(!(t>=0&&t<W*H))throw new Error("აირჩიე მიწა რუკაზე");if(TER[t]===WATER||OWNER[t]>=0)throw new Error("ეს მიწა თავისუფალი არ არის");
+  const pl=colonyPlan(c0,t);if(pl.err)throw new Error(pl.err);const ref=db.collection("attacks").doc();let doc;
+  await mutateMe(c=>{pay(c,colonyCost(c,t));const now=Date.now();doc={id:ref.id,kind:"colony",from:ME,to:null,units:{},target:t,fromTile:c.capital,path:pl.path,naval:pl.naval,launch:now,arrive:now+pl.time,status:"marching"};pushLog(c,"კოლონისტები გაემგზავრნენ")});
+  await ref.set(doc)}
+async function settleColony(a){let ok=false,got=0;
+  await mutateMe(c=>{const tiles=colonyTiles(a.target).filter(i=>!(i in c.tiles));if(!tiles.length){const back=colonyCost(c,a.target);c.res.gold=(c.res.gold||0)+Math.round(back.gold/2);pushLog(c,"კოლონისტებმა თავისუფალი მიწა ვერ იპოვეს, ფულის ნახევარი დაბრუნდა");return}
+    for(const i of tiles)c.tiles[i]=NEUTRAL.has(i)?"village":"";got=tiles.length;ok=true;pushLog(c,`კოლონია დაარსდა: ${got} უჯრა`)});
+  await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="done";cur.returnAt=Date.now();return cur});
+  if(ok&&got)toast(`კოლონია დაარსდა (${got} უჯრა)`,"good")}
 async function launchCamp(tile,units,path=null,src="home"){
   if(!unitSum(units))throw new Error("აირჩიე ჯარისკაცები");const o=ownerOf(tile);if(o&&o.uid!==ME)throw new Error("ბანაკს მხოლოდ შენს ან თავისუფალ მიწაზე გაშლი");
   const ref=db.collection("attacks").doc();let doc;const now=Date.now();
@@ -2456,6 +2482,7 @@ async function resolveAttacks(){
           const hit={};for(const t of tiles){const o=ownerOf(t);if(o&&o.uid!==ME&&o.tiles[t]&&o.tiles[t]!=="capital")(hit[o.uid]=hit[o.uid]||[]).push(t)}
           for(const uid in hit)await mutate("countries/"+uid,c=>{if(!c)return;const now2=Date.now();c.burnt=c.burnt||{};for(const t of hit[uid]){if(c.tiles[t]&&c.tiles[t]!=="capital"){c.tiles[t]="";c.burnt[t]=now2}}pushLog(c,`ტყე და ${hit[uid].length} შენობა დაწვეს (${countries[ME].name})`);return c});
           await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;const n2=Date.now(),sv=cur.units;cur.result={survivors:sv,survivorsN:unitSum(sv),loot:{},camp:1,at:n2};cur.status="returning";cur.retFrom=cur.target;cur.arrive=n2;cur.returnAt=n2+travelTime(cur.target,cur.fromTile,sv);return cur})}}
+      else if(a.kind==="colony"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await settleColony(a)}}
       else if(a.kind==="camp"){if(a.status==="marching"&&a.arrive<=now&&a.from===ME){busyA.add(a.id);await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching")return;cur.status="camped";return cur})}}
       else if(a.status==="marching"&&a.rest&&a.arrive<=now&&(involved||now-a.arrive>15000)){busyA.add(a.id);let started=false;
         await mutate("attacks/"+a.id,cur=>{if(!cur||cur.status!=="marching"||!cur.rest)return;const w=cur.rest[1],foe=ownerOf(w)||countries[cur.to];
@@ -2599,7 +2626,8 @@ function showOnboarding(){
     if(b.id==="oWatch")ov.remove();
     if(b.id==="oGo"){b.disabled=true;foundCountry().then(()=>{ov.remove();renderAll(true);if(NET.role==="host"&&alive().length<=1)showInvite()}).catch(err=>{toast(err.message||String(err),"err");b.disabled=false})}});
 }
-let COMP_SIZE=null;function compSize(i){if(!COMP_SIZE){COMP_SIZE=new Int32Array(W*H);const lab=new Int32Array(W*H).fill(-1);let n=0;
+let COMP_SIZE=null,COMP_ID=null;function compId(i){compSize(i);return COMP_ID[i]}
+function compSize(i){if(!COMP_SIZE){COMP_SIZE=new Int32Array(W*H);const lab=new Int32Array(W*H).fill(-1);COMP_ID=lab;let n=0;
     for(let s0=0;s0<W*H;s0++){if(TER[s0]===WATER||lab[s0]>=0)continue;const q=[s0];lab[s0]=n;for(let h=0;h<q.length;h++)for(const m of N4(q[h]))if(TER[m]!==WATER&&lab[m]<0){lab[m]=n;q.push(m)}for(const t of q)COMP_SIZE[t]=q.length;n++}}return COMP_SIZE[i]}
 function spawnScore(i){const X=tx(i),Y=ty(i);let F=0,M=0,G=0;for(let dy=-6;dy<=6;dy++)for(let dx=-6;dx<=6;dx++){const x=X+dx,y=Y+dy;if(x<0||y<0||x>=W||y>=H||dx*dx+dy*dy>40)continue;const t=TER[idx(x,y)];
     if(t===FOREST)F++;else if(t===HILL||t===MOUNTAIN)M++;else if(t===GRASS||t===DESERT||t===SNOW||t===SAND)G++}return{F,M,G}}
