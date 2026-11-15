@@ -1233,7 +1233,7 @@ const TREE_MESH=(()=>{const F=MB();F.cyl(0,0,-1,.45,2.4,6,[.36,.25,.15]);F.cone(
   const L=MB();L.cyl(0,0,-1,.5,3.2,6,[.38,.27,.17]);L.blob(0,0,4.4,2.6,PAL.leaf,1);L.blob(1.3,.4,3.6,1.7,[.3,.52,.22],2);L.blob(-1.2,.6,3.7,1.6,[.24,.43,.18],3);
   const S=[];for(let k=0;k<10;k++){const a0=k/10*Math.PI*2,a1=(k+1)/10*Math.PI*2;S.push(1.4,-.3,.4,0,0,1,0,0,0,1.4+Math.cos(a0)*2.6,-.3+Math.sin(a0)*1.9,.4,0,0,1,0,0,0,1.4+Math.cos(a1)*2.6,-.3+Math.sin(a1)*1.9,.4,0,0,1,0,0,0)}
   return{fir:new Float32Array(F.a),leaf:new Float32Array(L.a),shadow:new Float32Array(S)}})();
-function treeInstances(){const fir=[],leaf=[],taken=new Set();for(const c of ORDER)for(const k in c.tiles)if(c.tiles[k])taken.add(+k);for(const i of NEUTRAL)taken.add(i);
+function treeInstances(){const fir=[],leaf=[],taken=new Set();for(const c of ORDER){for(const k in c.tiles)if(c.tiles[k])taken.add(+k);if(c.capital!=null)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)taken.add(c.capital+dy*W+dx)}for(const i of NEUTRAL)taken.add(i);
   for(let i=0;i<W*H;i++){const t=TER[i];let n=0,f=0;if(taken.has(i))continue;
     if(t===FOREST){n=6;f=CLIMATE[i]===1?1:.25}else if(t===SNOW){n=hash(i,7,71)<.1?1:0;f=1}else if(t===HILL){n=hash(i,2,71)<.35?2:0;f=1}else if(t===GRASS){n=hash(i,3,71)<.12?1:0;f=0}
     for(let k=0;k<n;k++){const x=tx(i)*TS+1.5+hash(i,k,72)*13,y=ty(i)*TS+1.5+hash(i,k,73)*13,r=hash(i,k,75),isF=hash(i,k,74)<f,snow=CLIMATE[i]===1?1:0;
@@ -1710,9 +1710,9 @@ function renderTile(){
   const i=selected,o=ownerOf(i),c=live(ME),t=TER[i],b=o?o.tiles[i]:"",neutral=!o&&NEUTRAL.has(i);
   let h=`<button class="x" aria-label="დახურვა" id="tileX">×</button><h4>${b?B[b].n:neutral?"ნეიტრალური სოფელი":TNAME[t]}</h4><div class="muted" style="font-size:12px">${o?`<span style="color:${o.color};font-weight:700">${esc(o.name)}</span> · `:""}${TNAME[t]}${ISLANDS&&t!==WATER?` · ${CLIM_NAME[CLIMATE[i]]}`:""}</div>${ISLANDS&&t!==WATER?`<div class="muted" style="font-size:11.5px">ეს რეგიონი მდიდარია: ${CLIM_RICH[CLIMATE[i]]}</div>`:""}`;
   if(o&&o.uid===ME){
-    if(!b){const opts=BUILD_ORDER.filter(k=>B[k].on.includes(t)&&(!B[k].coast||N4(i).some(n=>TER[n]===WATER)));
+    if(!b){const opts=castleGround(i)?[]:BUILD_ORDER.filter(k=>B[k].on.includes(t)&&(!B[k].coast||N4(i).some(n=>TER[n]===WATER)));
       h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodHTML(k)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button><button class="btn sm" data-paint="${k}">ბევრი</button></span></div>`}).join("")+`</div>`
-        :`<p class="muted">აქ ვერაფერს ააშენებ.</p>`}
+        :`<p class="muted">${castleGround(i)?"ეს სასახლის ეზოა, აქ ვერაფერს ააშენებ.":"აქ ვერაფერს ააშენებ."}</p>`}
     else if(UPG[b]){const nx=UPG[b];h+=`<div class="item" style="margin-top:10px">${icn(nx)}<span class="tx"><b>${B[nx].n}</b><span>+${B[nx].prod.gold} ოქრო/წთ, +${B[nx].pop} მოსახლე</span>${costHTML(B[nx].cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,B[nx].cost)?"gold":""}" data-upg="1">გაუმჯობესება</button><button class="btn sm" data-upgpaint="1">ბევრი</button><button class="btn sm" data-upgall="${b}">ყველა · ${Object.values(c.tiles).filter(x=>x===b).length}</button></span></div>
       <div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`}
     else if(b==="port")h+=`<div class="item" style="margin-top:10px">${icn("ship")}<span class="tx"><b>გემები: ${c.ships||0}</b><span>თითო გემი ${SHIP_CAP} ჯარისკაცს გადაიყვანს</span>${costHTML(SHIP_COST,c)}</span><button class="btn sm gold" data-ship="1">გემის აშენება</button></div><div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`;
@@ -1779,7 +1779,8 @@ async function claimMany(list){let got=0;
   return got}
 /* bulk walls: painted tiles are queued and built together in one go, like buying land */
 const wallQ=new Set();let wallT=null,wallBusy=false,paintB="wall";
-const fitsHere=(b,i)=>B[b].on.includes(TER[i])&&(!B[b].coast||N4(i).some(n=>TER[n]===WATER));
+const castleGround=i=>Object.values(countries).some(c=>c&&c.alive!==false&&c.capital!=null&&c.capital!==i&&Math.abs(tx(c.capital)-tx(i))<=1&&Math.abs(ty(c.capital)-ty(i))<=1);
+const fitsHere=(b,i)=>!castleGround(i)&&B[b].on.includes(TER[i])&&(!B[b].coast||N4(i).some(n=>TER[n]===WATER));
 const canWall=i=>i>=0&&fitsHere(paintB,i)&&!wallQ.has(i)&&(isMine(i)?!countries[ME].tiles[i]:freeLand(i)&&N4(i).some(n=>isMine(n)||wallQ.has(n)));
 function placeWallAt(i){if(!canWall(i))return;wallQ.add(i);clearTimeout(wallT);wallT=setTimeout(flushWalls,450)}
 async function flushWalls(){if(wallBusy){wallT=setTimeout(flushWalls,300);return}if(!wallQ.size)return;wallBusy=true;const list=[...wallQ];
@@ -1793,7 +1794,7 @@ async function buildMany(b,list){let got=0;
     if(c.tiles[i])continue;const cost=buildCost(c,b);if(!canPay(c,cost))break;pay(c,cost);c.tiles[i]=b;got++}if(!got)return false;speedUpQueue(c,before);pushLog(c,`აშენდა ${got} × ${B[b].n}`)});
   return got}
 // every free tile on the outer edge of my land
-function borderWallTiles(){const c=countries[ME];if(!c)return[];return Object.keys(c.tiles).map(Number).filter(i=>!c.tiles[i]&&B.wall.on.includes(TER[i])&&(N4(i).some(n=>!isMine(n))||tx(i)===0||ty(i)===0||tx(i)===W-1||ty(i)===H-1))}
+function borderWallTiles(){const c=countries[ME];if(!c)return[];return Object.keys(c.tiles).map(Number).filter(i=>!c.tiles[i]&&!castleGround(i)&&B.wall.on.includes(TER[i])&&(N4(i).some(n=>!isMine(n))||tx(i)===0||ty(i)===0||tx(i)===W-1||ty(i)===H-1))}
 
 /* drawing the army's route with the cursor: the path decides the strategy.
    Circle a city = siege. Reach it from the side or behind = flank. Otherwise a direct attack (or a raid if chosen). */
@@ -2005,7 +2006,7 @@ function travelTime(from,to,units){
 async function buildAt(i,b){
   const o=ownerOf(i);if(!o||o.uid!==ME)throw new Error("ეს უჯრა შენი არ არის");
   await mutateMe(c=>{if(!(i in c.tiles))throw new Error("ეს უჯრა შენი არ არის");if(c.tiles[i])throw new Error("აქ უკვე რაღაც დგას");
-    if(!B[b].on.includes(TER[i])||(B[b].coast&&!N4(i).some(n=>TER[n]===WATER)))throw new Error(B[b].n+" აქ ვერ აშენდება");const before={...stats(c).cnt};pay(c,buildCost(c,b));c.tiles[i]=b;speedUpQueue(c,before);if(b!=="wall")pushLog(c,B[b].n+" აშენდა")});
+    if(castleGround(i))throw new Error("ეს სასახლის ეზოა, აქ ვერაფერს ააშენებ");if(!B[b].on.includes(TER[i])||(B[b].coast&&!N4(i).some(n=>TER[n]===WATER)))throw new Error(B[b].n+" აქ ვერ აშენდება");const before={...stats(c).cnt};pay(c,buildCost(c,b));c.tiles[i]=b;speedUpQueue(c,before);if(b!=="wall")pushLog(c,B[b].n+" აშენდა")});
 }
 const upQ=new Set();let upT=null,upBusy=false;
 function queueUpgrade(i){const c=countries[ME];if(i<0||!c||!UPG[c.tiles[i]]||upQ.has(i))return;upQ.add(i);clearTimeout(upT);upT=setTimeout(flushUpgrades,450)}
@@ -2547,7 +2548,11 @@ async function boot(){
   db.doc("chat/main").onSnapshot(s=>{chat=s.exists?(s.data().msgs||[]):[];if(tab==="chat")renderPane(false);else if(booted&&me())renderTabs()},()=>{});
   setInterval(()=>{renderHUD();if(Date.now()-lastPane>4000){lastPane=Date.now();renderPane(false);renderTile()}},1000);
   const presence=()=>{if(!me()||BANNED)return;mutate("countries/"+ME,cur=>{if(!cur||cur.alive===false)return;const now=Date.now(),seen=cur.seen||now;materialize(cur,now);
-      const gap=now-(seen+PRESENCE_GRACE);if(gap>0)for(const q of cur.queue||[])q.done+=gap;cur.seen=now;return cur}).catch(()=>{})};
+      const gap=now-(seen+PRESENCE_GRACE);if(gap>0)for(const q of cur.queue||[])q.done+=gap;cur.seen=now;
+      // anything standing inside the castle grounds is taken down and paid back
+      if(cur.capital!=null)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const i=cur.capital+dy*W+dx;if(i===cur.capital||Math.abs(tx(i)-tx(cur.capital))>1)continue;const b=cur.tiles[i];
+        if(b&&B[b]){const base=B[b].cost||{};for(const r in base)cur.res[r]=(cur.res[r]||0)+base[r];cur.tiles[i]="";pushLog(cur,B[b].n+" სასახლის ეზოდან აიღეს, ფასი დაგიბრუნდა")}}
+      return cur}).catch(()=>{})};
   setTimeout(presence,1500);setInterval(presence,20000);
   setInterval(resolveAttacks,2500);
   setInterval(()=>barbarianTick().catch(()=>{}),30000);
