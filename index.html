@@ -708,8 +708,8 @@ const HOLDER=rid(10);
 let countries={},attacks={},chat=[];
 let OWNER=new Int16Array(W*H).fill(-1),ORDER=[];let FOREST_FIRE={};const WAS_FOREST=new Uint8Array(W*H);
 const BAKED=new Set();
-function bakeBurnt(){if(!terrCv.width)return;GLD.terr=true;const now=Date.now(),g=terrCv.getContext("2d"),k2=terrCv.width/PW;
-  for(const k in FOREST_FIRE){if(BAKED.has(k)||now-FOREST_FIRE[k]<60000)continue;BAKED.add(k);const i=+k,x=(tx(i)*TS+8)*k2,y=(ty(i)*TS+8)*k2,r=12*k2;
+function bakeBurnt(){if(!terrCv.width)return;const now=Date.now(),g=terrCv.getContext("2d"),k2=terrCv.width/PW;
+  for(const k in FOREST_FIRE){if(BAKED.has(k)||now-FOREST_FIRE[k]<60000)continue;BAKED.add(k);GLD.terr=true;const i=+k,x=(tx(i)*TS+8)*k2,y=(ty(i)*TS+8)*k2,r=12*k2;
     const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,"rgba(104,152,68,1)");gr.addColorStop(.65,"rgba(104,152,68,.92)");gr.addColorStop(1,"rgba(104,152,68,0)");g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();
     for(let q=0;q<26;q++){const v=hash(i,q,3);g.fillStyle=`rgba(${70+v*50|0},${118+v*48|0},${46+v*20|0},.55)`;const rx=(hash(i,q,4)-.5)*15*k2,ry=(hash(i,q,5)-.5)*15*k2;if(rx*rx+ry*ry<r*r*.6)g.fillRect(x+rx,y+ry,1.4*k2,1.4*k2)}}}
 function applyForestFires(){bakeBurnt();const now=Date.now();for(const k in FOREST_FIRE){const i=+k;if(FOREST_FIRE[k]<=now&&TER[i]===FOREST){WAS_FOREST[i]=1;TER[i]=GRASS;GLD.trees=true}}}const BRIDGES=new Set();
@@ -853,9 +853,11 @@ const live=uid=>{const c=countries[uid];return c?materialize(JSON.parse(JSON.str
 const atWar=(a,b)=>{const A=countries[a],Bc=countries[b];return !!(A&&Bc&&((A.wars||[]).includes(b)||(Bc.wars||[]).includes(a)))};
 function rebuildOwners(){
   OWNER.fill(-1);ORDER=alive().sort((a,b)=>(a.created||0)-(b.created||0));
-  GLD.bld=GLD.trees=true;BRIDGES.clear();ORDER.forEach((c,n)=>{for(const k in c.tiles||{}){const i=+k;if(OWNER[i]<0)OWNER[i]=n;if(c.tiles[k]==="bridge")BRIDGES.add(i)}});
+  BRIDGES.clear();let sig="";ORDER.forEach((c,n)=>{sig+="|"+c.uid+c.color+c.capital+":";for(const k in c.tiles||{}){const i=+k;sig+=k+(c.tiles[k]||"")+",";if(OWNER[i]<0)OWNER[i]=n;if(c.tiles[k]==="bridge")BRIDGES.add(i)}});
+  if(sig===LAND_SIG)return;LAND_SIG=sig;GLD.bld=GLD.trees=true;COMP_SIZE=COMP_SIZE;
   drawTerritory();
 }
+let LAND_SIG="";
 const ownerOf=i=>OWNER[i]>=0?ORDER[OWNER[i]]:null;
 const isMine=i=>{const o=ownerOf(i);return o&&o.uid===ME};
 const adjMine=i=>N4(i).some(isMine);
@@ -973,25 +975,30 @@ function flame(g,x,y,h,w,ph){if(D3&&g===ctx&&!UPR){g.save();g.translate(x,y);upr
   const gr=g.createLinearGradient(0,y,0,y-h);gr.addColorStop(0,"rgba(255,90,20,.95)");gr.addColorStop(.35,"rgba(255,150,30,.9)");gr.addColorStop(.75,"rgba(255,210,80,.55)");gr.addColorStop(1,"rgba(255,240,170,0)");
   g.fillStyle=gr;g.beginPath();g.moveTo(x-w,y);g.bezierCurveTo(x-w*1.1,y-h*.45,x-w*.2+sway,y-h*.7,x+tip,y-h);g.bezierCurveTo(x+w*.25+sway,y-h*.65,x+w*1.1,y-h*.4,x+w,y);g.closePath();g.fill();
   const c2=g.createLinearGradient(0,y,0,y-h*.6);c2.addColorStop(0,"rgba(255,250,200,.95)");c2.addColorStop(1,"rgba(255,220,120,0)");g.fillStyle=c2;g.beginPath();g.moveTo(x-w*.45,y);g.quadraticCurveTo(x+sway*.5,y-h*.7,x+w*.45,y);g.fill()}
-function drawFires(now,vis){
-  for(const c of ORDER){if(!c.burnt)continue;for(const k in c.burnt){const i=+k;if(!vis(i))continue;const age=(now-c.burnt[k])/60000;if(age>5)continue;
+const FSPR={};function initFS(){const mk=(w,h,f)=>{const c=document.createElement("canvas");c.width=w;c.height=h;f(c.getContext("2d"),w,h);return c};
+  const rad=(g,w,h,stops)=>{const gr=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);for(const [o,c] of stops)gr.addColorStop(o,c);g.fillStyle=gr;g.fillRect(0,0,w,h)};
+  Object.assign(FSPR,{scorch:mk(64,64,(g,w,h)=>rad(g,w,h,[[0,"rgba(22,16,10,1)"],[.55,"rgba(26,20,13,.8)"],[1,"rgba(26,20,13,0)"]])),
+    glow:mk(64,64,(g,w,h)=>rad(g,w,h,[[0,"rgba(255,140,40,1)"],[1,"rgba(255,90,20,0)"]])),
+    smoke:mk(32,32,(g,w,h)=>rad(g,w,h,[[0,"rgba(70,66,62,1)"],[1,"rgba(70,66,62,0)"]])),
+    flame:[0,1,2,3,4,5,6,7].map(f=>mk(24,48,(g,w,h)=>{const ph=f/8*Math.PI*2;g.translate(w/2,h-2);flame(g,0,0,h-4,w*.36,ph)}))})}
+function flameSpr(x,y,h,w,ph){const fr=FSPR.flame[((Math.floor(ph*1.27)%8)+8)%8];ctx.drawImage(fr,x-w*1.4,y-h*1.02,w*2.8,h*1.06)}
+function drawFires(now,vis){if(!FSPR.scorch)initFS();const lod=cam.z>.75;
+  for(const c of ORDER){if(!c.burnt)continue;for(const k in c.burnt){const i=+k;if(!vis(i))continue;if(c.tiles?.[k])continue;const age=(now-c.burnt[k])/60000;if(age>5)continue;
     const [x,y]=liftXY(tx(i)*TS+8,ty(i)*TS+9,LIFT[i]),heat=age<1.5?1-age/1.5:0,seed=hash(i,1,77);
     // scorched ground and ruins
-    const sg=ctx.createRadialGradient(x,y,1,x,y,11);sg.addColorStop(0,`rgba(20,14,8,${.75*(1-age/5)})`);sg.addColorStop(1,"rgba(20,14,8,0)");ctx.fillStyle=sg;ctx.beginPath();ctx.ellipse(x,y,11,8,0,0,7);ctx.fill();
-    if(age>.8){ctx.fillStyle="#2a2420";for(let r=0;r<4;r++)ctx.fillRect(x-6+hash(i,r,8)*10,y-2+hash(i,r,9)*5,2.5+hash(i,r,10)*2,1.6);ctx.strokeStyle="#1a120c";ctx.lineWidth=1.1;ctx.beginPath();
+    ctx.globalAlpha=.75*(1-age/5);ctx.drawImage(FSPR.scorch,x-11,y-8,22,16);ctx.globalAlpha=1;
+    if(age>.8&&lod){ctx.fillStyle="#2a2420";for(let r=0;r<4;r++)ctx.fillRect(x-6+hash(i,r,8)*10,y-2+hash(i,r,9)*5,2.5+hash(i,r,10)*2,1.6);ctx.strokeStyle="#1a120c";ctx.lineWidth=1.1;ctx.beginPath();
       ctx.moveTo(x-5,y+2);ctx.lineTo(x-1,y-4);ctx.moveTo(x+4,y+2);ctx.lineTo(x+1,y-3);ctx.moveTo(x-3,y-1);ctx.lineTo(x+5,y-2);ctx.stroke();
-      if(heat<.6){ctx.fillStyle=`rgba(255,110,30,${.5+Math.sin(now/200+seed*9)*.3})`;for(let r=0;r<3;r++){ctx.beginPath();ctx.arc(x-4+hash(i,r,11)*8,y+hash(i,r,12)*3,.8,0,7);ctx.fill()}}}
-    if(heat>0){ // glow
-      ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-3,1,x,y-3,22);gl.addColorStop(0,`rgba(255,140,40,${.45*heat*(.85+Math.sin(now/120+seed*5)*.15)})`);gl.addColorStop(1,"rgba(255,90,20,0)");
-      ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-3,22,0,7);ctx.fill();ctx.restore();
-      // flames
-      const n=5;for(let f=0;f<n;f++){const fx=x-6+f*3+Math.sin(seed*20+f)*1.2,fh=(7+hash(i,f,13)*7)*(.6+heat*.6)*(.85+Math.sin(now/110+f*1.9+seed*7)*.18),fw=1.8+hash(i,f,14)*1.2;flame(ctx,fx,y+2,fh,fw,now/130+f*2.1+seed*11)}
-      // sparks
-      for(let e=0;e<6;e++){const t=((now/1100)+e/6+seed)%1;const ex=x-4+hash(i,e,15)*8+Math.sin(t*6+e)*3+t*6,ey=y-4-t*24;ctx.fillStyle=`rgba(255,${180+e*10},90,${(1-t)*heat})`;ctx.fillRect(ex,ey,1.1,1.1)}}
-    // smoke column drifting with the wind
-    const dens=age<1.5?.5:Math.max(0,.5-(age-1.5)*.15);for(let s2=0;s2<7;s2++){const t=((now/3800)+s2/7+seed)%1,a=dens*(1-t)*(t<.08?t/.08:1);if(a<=.01)continue;
-      const sx=x+t*30+Math.sin(t*5+s2+seed*3)*3,sy=y-6-t*30,r=3+t*11;const sg2=ctx.createRadialGradient(sx,sy,0,sx,sy,r);sg2.addColorStop(0,`rgba(${heat>0?60:85},${heat>0?56:82},${heat>0?52:80},${a})`);sg2.addColorStop(1,"rgba(80,78,75,0)");
-      ctx.fillStyle=sg2;ctx.beginPath();ctx.arc(sx,sy,r,0,7);ctx.fill()}}}}
+      if(heat<.6){ctx.fillStyle=`rgba(255,110,30,${.5+Math.sin(now/200+seed*9)*.3})`;for(let r=0;r<3;r++)ctx.fillRect(x-4+hash(i,r,11)*8,y+hash(i,r,12)*3,1.4,1.4)}}
+    if(heat>0){ctx.globalAlpha=.35*heat*(.85+Math.sin(now/120+seed*5)*.15);ctx.drawImage(FSPR.glow,x-20,y-23,40,40);ctx.globalAlpha=1;
+      ctx.save();ctx.translate(x,y);uprM(ctx);
+      for(let f=0;f<(lod?4:2);f++){const fx=-6+f*3+Math.sin(seed*20+f)*1.2,fh=(7+hash(i,f,13)*7)*(.6+heat*.6)*(.85+Math.sin(now/110+f*1.9+seed*7)*.18),fw=1.8+hash(i,f,14)*1.2;flameSpr(fx,2,fh,fw,now/130+f*2.1+seed*11)}
+      if(cam.z>1.2)for(let e=0;e<4;e++){const t=((now/1100)+e/6+seed)%1;ctx.fillStyle=`rgba(255,${180+e*10},90,${(1-t)*heat})`;ctx.fillRect(-4+hash(i,e,15)*8+Math.sin(t*6+e)*3+t*6,-4-t*24,1.1,1.1)}
+      ctx.restore()}
+    // smoke drifting with the wind
+    const dens=age<1.5?.5:Math.max(0,.5-(age-1.5)*.15);if(dens>.01)for(let s2=0;s2<(lod?4:2);s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t)*(t<.08?t/.08:1);if(a<=.01)continue;
+      const sx=x+t*30+Math.sin(t*5+s2+seed*3)*3,sy=y-6-t*30,r=3+t*11;ctx.globalAlpha=a;ctx.drawImage(FSPR.smoke,sx-r,sy-r,r*2,r*2)}
+    ctx.globalAlpha=1}}}
 function drawBridge(g,i,cx,cy){const flowH=TER[i-1]===RIVER||TER[i+1]===RIVER||TER[i-1]===WATER||TER[i+1]===WATER,flowV=TER[i-W]===RIVER||TER[i+W]===RIVER;
   const vert=flowH&&!flowV?true:!flowH&&flowV?false:hash(i,1,9)<.5;g.save();g.translate(cx,cy);if(!vert)g.rotate(Math.PI/2);
   const L=TS*.95,Wd=TS*.42;g.fillStyle="rgba(10,25,35,.35)";g.fillRect(-Wd/2+1.5,-L/2+1.5,Wd,L);
@@ -1270,7 +1277,10 @@ function glInit(){
     void main(){float vx=a.x-cam.x,vy=a.y-cam.y,rx=rot.x*vx+rot.y*vy,ry=-rot.y*vx+rot.x*vy;float sx=rx*cam.z,sy=ry*cam.z*cam.w-a.z*cam.z*vw.z;
       float d=(ry*rot.z+a.z/.626*rot.w+vw.w)/(2.*vw.w);gl_Position=vec4(sx/(vw.x*.5),-sy/(vw.y*.5),.999-1.99*d,1.);uv=vec2(a.x/${PW}.,a.y/${PH}.);sh=a.w;}`));
   gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`precision mediump float;uniform sampler2D t0,t1,w0,w1;uniform float wf;varying vec2 uv;varying float sh;
-    void main(){vec3 c=texture2D(t0,uv).rgb;vec4 o=texture2D(t1,uv);c=mix(c,o.rgb,o.a);vec4 w=mix(texture2D(w0,uv),texture2D(w1,uv),wf);c=mix(c,w.rgb,w.a);gl_FragColor=vec4(c*sh,1.);}`));
+    void main(){vec3 c=texture2D(t0,uv).rgb;vec4 o=texture2D(t1,uv);c=mix(c,o.rgb,o.a);vec4 w=mix(texture2D(w0,uv),texture2D(w1,uv),wf);c=mix(c,w.rgb,w.a);c*=sh;
+      // near the edge of the map, water melts into the open sea's deep blue so there is no seam
+      float bd=min(min(uv.x,1.-uv.x)*${PW}.,min(uv.y,1.-uv.y)*${PH}.);float isW=step(c.r+.06,c.b)*step(c.g,c.b);float f=(1.-smoothstep(10.,230.,bd))*isW;
+      c=mix(c,vec3(.086,.239,.408),f);gl_FragColor=vec4(c,1.);}`));
   gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
   const mk=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -1396,7 +1406,8 @@ function heading(a,now){const P1=armyPos(a,now),P2=armyPos(a,now+700);if(!P1||!P
 function heel(a,now){let d=heading(a,now+900)-heading(a,now);while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return clamp(d*.5,-.22,.22)}
 function armyAt(sx,sy){const now=Date.now();let best=null,bd=18;for(const a of Object.values(attacks)){const P=armyPos(a,now);if(!P)continue;
   const [X,Y]=w2s(P.x,P.y),d=Math.hypot(X-sx,Y-sy);if(d<bd){bd=d;best=a}}return best}
-function frame(){
+function frame(){requestAnimationFrame(frame);try{frame1()}catch(e){if(!frame.errT||Date.now()-frame.errT>5000){frame.errT=Date.now();console.warn("frame",e)}try{ctx.restore()}catch{}}}
+function frame1(){
   const now=Date.now();
   updView();ctx.setTransform(dpr,0,0,dpr,0,0);const z=cam.z;
   if(D3&&GL){ctx.clearRect(0,0,vw,vh);glDraw(now);const a=z*VIEW.ca,c=z*VIEW.sa,b=-z*VIEW.cy*VIEW.sa,d=z*VIEW.cy*VIEW.ca;
@@ -1450,13 +1461,13 @@ function frame(){
         drawPerson(ctx,x,y+3,clamp(5/z,3,4.5),CLOTH[Math.floor(hash(i,m,8)*CLOTH.length)],SKIN[Math.floor(hash(i,m,9)*SKIN.length)],tt*7+sd*9,false,HAIR[Math.floor(hash(i,m,10)*HAIR.length)]);cnt++}}}}
   drawFires(now,vis);
   // forest fires: tiles ignite as the riders pass, burn a few minutes, then stay scorched and slowly green over
-  for(const k in FOREST_FIRE){const i=+k;if(!vis(i))continue;const age=(now-FOREST_FIRE[k])/60000;if(age<0)continue;const [x,y]=liftXY(tx(i)*TS+8,ty(i)*TS+8,LIFT[i]),seed=hash(i,2,88);
+  {if(!FSPR.scorch)initFS();const lod=cam.z>.75;for(const k in FOREST_FIRE){const i=+k;if(!vis(i))continue;const age=(now-FOREST_FIRE[k])/60000;if(age<0||age>3)continue;const [x,y]=liftXY(tx(i)*TS+8,ty(i)*TS+8,LIFT[i]),seed=hash(i,2,88);
     const dark=age<1?.9:Math.max(0,.9*(1-(age-1)/2));
-    if(dark>0){const sc=ctx.createRadialGradient(x,y,1,x,y,12);sc.addColorStop(0,`rgba(34,28,20,${dark})`);sc.addColorStop(.55,`rgba(34,28,20,${dark*.8})`);sc.addColorStop(1,"rgba(34,28,20,0)");ctx.fillStyle=sc;ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.fill()}
-    if(age<1){const heat=1-age;ctx.save();ctx.globalCompositeOperation="lighter";const gl=ctx.createRadialGradient(x,y-2,1,x,y-2,20);gl.addColorStop(0,`rgba(255,130,40,${.5*heat})`);gl.addColorStop(1,"rgba(255,90,20,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y-2,20,0,7);ctx.fill();ctx.restore();
-      for(let f=0;f<6;f++){const fx=x-6+hash(i,f,24)*12,fy=y-2+hash(i,f,25)*8;flame(ctx,fx,fy,(5+hash(i,f,26)*7)*(.5+heat*.7)*(.85+Math.sin(now/110+f*2+seed*9)*.18),1.6+hash(i,f,27),now/130+f*2.3+seed*7)}}
-    if(age<2.5){const dens=age<1?.45:.45-(age-1)*.3;for(let s2=0;s2<4;s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t);if(a<=.01)continue;const sx=x+t*26+Math.sin(t*5+s2)*3,sy=y-6-t*28,r=3+t*10;
-      const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,r);sg.addColorStop(0,`rgba(70,66,62,${a})`);sg.addColorStop(1,"rgba(70,66,62,0)");ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sx,sy,r,0,7);ctx.fill()}}}
+    if(dark>0){ctx.globalAlpha=dark;ctx.drawImage(FSPR.scorch,x-12,y-12,24,24);ctx.globalAlpha=1}
+    if(age<1){const heat=1-age;ctx.globalAlpha=.4*heat;ctx.drawImage(FSPR.glow,x-18,y-20,36,36);ctx.globalAlpha=1;
+      ctx.save();ctx.translate(x,y);uprM(ctx);for(let f=0;f<(lod?4:2);f++){const fx=-6+hash(i,f,24)*12,fy=-2+hash(i,f,25)*8;flameSpr(fx,fy,(5+hash(i,f,26)*7)*(.5+heat*.7)*(.85+Math.sin(now/110+f*2+seed*9)*.18),1.6+hash(i,f,27),now/130+f*2.3+seed*7)}ctx.restore()}
+    if(age<2.5){const dens=age<1?.45:.45-(age-1)*.3;for(let s2=0;s2<(lod?4:2);s2++){const t=((now/3800)+s2/4+seed)%1,a=dens*(1-t);if(a<=.01)continue;const sx=x+t*26+Math.sin(t*5+s2)*3,sy=y-6-t*28,r=3+t*10;
+      ctx.globalAlpha=a;ctx.drawImage(FSPR.smoke,sx-r,sy-r,r*2,r*2)}ctx.globalAlpha=1}}}
   // creatures at home: dragons and griffins circle over the capital, golems patrol around it
   if(z>.35){const tt=now/1000,kk=clamp(1.5/z,.8,3);
     for(const c of ORDER){const cap=c.capital;if(cap==null)continue;const [cx,cy]=liftXY(tx(cap)*TS+8,ty(cap)*TS+8,LIFT[cap]);if(!vis(cap)&&Math.abs(tx(cap)-(x0+x1)/2)>(x1-x0)/2+6)continue;const A=c.army||{};
@@ -1521,7 +1532,7 @@ function frame(){
           slots=walking}}
       slots.forEach((u,m)=>{const row=Math.floor(m/3)+1,colI=m%3-1,sx=P.x+bx*row*9*k+px*colI*8*k,sy=P.y+by*row*9*k+py*colI*8*k;drawUnitSprite(ctx,u,sx,sy+4*k,4.5*k,col,now/90+m*1.7,SKIN[m%SKIN.length],dir)})}
     // banner: flag, main unit, head-count, composition strip
-    {ctx.save();ctx.translate(X,Y);uprM(ctx);const X=0,Y=0;
+    ctx.save();ctx.translate(X,Y);uprM(ctx);{const X=0,Y=0;
     const main=UK.filter(u=>units[u]).sort((p,q)=>units[q]*UNITS[q].atk-units[p]*UNITS[p].atk)[0];
     if(!atSea){ctx.fillStyle="#2a241b";ctx.fillRect(X+6*k,Y-20*k,1.6*k,20*k);drawFlag(ctx,C?.flag,X+7.6*k,Y-20*k,14*k,9*k);
     ctx.fillStyle=col;ctx.strokeStyle=ic?"#f2c771":"#fff";ctx.lineWidth=2*k;ctx.beginPath();ctx.arc(X,Y,9*k,0,7);ctx.fill();ctx.stroke();
@@ -1532,7 +1543,7 @@ function frame(){
       const cells=kinds.map(u=>({u,t:String(units[u]),w:9*k+ctx.measureText(String(units[u])).width+3*k})),tw=cells.reduce((t,c)=>t+c.w,0)+3*k;
       let cx=X-tw/2;const cy=Y+20*k;ctx.fillStyle="rgba(18,24,33,.88)";ctx.fillRect(cx,cy,tw,10*k);ctx.strokeStyle=col;ctx.lineWidth=.8*k;ctx.strokeRect(cx,cy,tw,10*k);cx+=2*k;
       ctx.textAlign="left";for(const c of cells){drawIcon(ctx,c.u,cx+4*k,cy+5*k,8.5*k);ctx.fillStyle="#fff";ctx.fillText(c.t,cx+9*k,cy+5.4*k);cx+=c.w}ctx.textAlign="center"}
-    ctx.restore()}
+    }ctx.restore();
     if(selectedArmy===a.id){ctx.strokeStyle="#f2c771";ctx.lineWidth=1.5*k;ctx.beginPath();ctx.arc(X,Y,13*k,0,7);ctx.stroke()}
   }
   for(let n=SCENES.length-1;n>=0;n--)if(!drawScene(SCENES[n],now,k))SCENES.splice(n,1);
@@ -1553,7 +1564,6 @@ function frame(){
     ctx.strokeStyle=ok?"#f2c771":"#e3624f";ctx.lineWidth=1.5;ctx.strokeRect(TX(hoverTile)+1,TY(hoverTile)+1,TS-2,TS-2)}
   if(selected>=0){ctx.strokeStyle="#f2c771";ctx.lineWidth=2;ctx.strokeRect(TX(selected),TY(selected),TS,TS);ctx.strokeStyle="rgba(0,0,0,.5)";ctx.lineWidth=1;ctx.strokeRect(TX(selected)-1.5,TY(selected)-1.5,TS+3,TS+3)}
   drawClouds(now);
-  requestAnimationFrame(frame);
 }
 /* input: drag, wheel, pinch, tap; in 3D right-drag (or two fingers) turns and tilts the view */
 const camctl=document.createElement("div");camctl.id="camctl";camctl.className="plate";camctl.hidden=true;
@@ -1852,7 +1862,7 @@ const buildWalls=list=>buildMany("wall",list);
 async function buildMany(b,list){let got=0;
   await mutateMe(c=>{const before={...stats(c).cnt};for(const i of list){if(!fitsHere(b,i))continue;
     if(!(i in c.tiles)){const o=ownerOf(i);if(o&&o.uid!==ME)continue;if(!N4(i).some(q=>q in c.tiles))continue;const land=claimCost(c,i).gold;if((c.res.gold||0)<land)break;c.res.gold-=land;c.tiles[i]=""}
-    if(c.tiles[i])continue;const cost=buildCost(c,b);if(!canPay(c,cost))break;pay(c,cost);c.tiles[i]=b;got++}if(!got)return false;speedUpQueue(c,before);pushLog(c,`აშენდა ${got} × ${B[b].n}`)});
+    if(c.tiles[i])continue;const cost=buildCost(c,b);if(!canPay(c,cost))break;pay(c,cost);c.tiles[i]=b;if(c.burnt)delete c.burnt[i];got++}if(!got)return false;speedUpQueue(c,before);pushLog(c,`აშენდა ${got} × ${B[b].n}`)});
   return got}
 // every free tile on the outer edge of my land
 function borderWallTiles(){const c=countries[ME];if(!c)return[];return Object.keys(c.tiles).map(Number).filter(i=>!c.tiles[i]&&!castleGround(i)&&B.wall.on.includes(TER[i])&&(N4(i).some(n=>!isMine(n))||tx(i)===0||ty(i)===0||tx(i)===W-1||ty(i)===H-1))}
@@ -1992,7 +2002,7 @@ function drawRoutePreview(now){
   ctx.strokeStyle=col;ctx.lineWidth=3.5*k;ctx.setLineDash([7*k,4*k]);ctx.lineDashOffset=-now/40;ctx.stroke();ctx.setLineDash([]);ctx.lineDashOffset=0;
   const a=pts[pts.length-1],b=pts[Math.max(0,pts.length-3)];if(pts.length>1){const ang=Math.atan2(a[1]-b[1],a[0]-b[0]);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(a[0]+Math.cos(ang)*6*k,a[1]+Math.sin(ang)*6*k);ctx.lineTo(a[0]+Math.cos(ang+2.4)*7*k,a[1]+Math.sin(ang+2.4)*7*k);ctx.lineTo(a[0]+Math.cos(ang-2.4)*7*k,a[1]+Math.sin(ang-2.4)*7*k);ctx.fill()}
   const an=analyzeRoute();if(an&&an.ok){const [x,y]=TC(an.target),p=(now%1000)/1000;ctx.strokeStyle=an.err?"#e3624f":an.mode==="siege"?"#e3624f":an.mode==="camp"?"#fff":"#f2c771";ctx.lineWidth=2.5*k;ctx.beginPath();ctx.arc(x,y,(an.mode==="siege"?20:8+p*6)*k,0,7);ctx.stroke();
-    {ctx.save();ctx.translate(x,y);uprM(ctx);const x=0,y=0;ctx.font=`700 ${9*k}px 'Noto Sans Georgian',sans-serif`;ctx.textAlign="center";const lbl=an.err?an.err:`${ROUTE_NAME[an.mode]}${an.naval?" · ზღვით":""} · ${mmss(an.time)}`,w=ctx.measureText(lbl).width+8*k;ctx.fillStyle="rgba(18,24,33,.9)";ctx.fillRect(x-w/2,y-34*k,w,13*k);ctx.fillStyle="#fff";ctx.fillText(lbl,x,y-27*k);ctx.restore()}}
+    ctx.save();ctx.translate(x,y);uprM(ctx);{const x=0,y=0;ctx.font=`700 ${9*k}px 'Noto Sans Georgian',sans-serif`;ctx.textAlign="center";const lbl=an.err?an.err:`${ROUTE_NAME[an.mode]}${an.naval?" · ზღვით":""} · ${mmss(an.time)}`,w=ctx.measureText(lbl).width+8*k;ctx.fillStyle="rgba(18,24,33,.9)";ctx.fillRect(x-w/2,y-34*k,w,13*k);ctx.fillStyle="#fff";ctx.fillText(lbl,x,y-27*k)}ctx.restore()}
 }
 
 /* send dialog: pick who goes and from where, then draw the route */
@@ -2092,7 +2102,7 @@ function travelTime(from,to,units){
 async function buildAt(i,b){
   const o=ownerOf(i);if(!o||o.uid!==ME)throw new Error("ეს უჯრა შენი არ არის");
   await mutateMe(c=>{if(!(i in c.tiles))throw new Error("ეს უჯრა შენი არ არის");if(c.tiles[i])throw new Error("აქ უკვე რაღაც დგას");
-    if(castleGround(i))throw new Error("ეს სასახლის ეზოა, აქ ვერაფერს ააშენებ");if(!B[b].on.includes(TER[i])||(B[b].coast&&!N4(i).some(n=>TER[n]===WATER)))throw new Error(B[b].n+" აქ ვერ აშენდება");const before={...stats(c).cnt};pay(c,buildCost(c,b));c.tiles[i]=b;speedUpQueue(c,before);if(b!=="wall")pushLog(c,B[b].n+" აშენდა")});
+    if(castleGround(i))throw new Error("ეს სასახლის ეზოა, აქ ვერაფერს ააშენებ");if(!B[b].on.includes(TER[i])||(B[b].coast&&!N4(i).some(n=>TER[n]===WATER)))throw new Error(B[b].n+" აქ ვერ აშენდება");const before={...stats(c).cnt};pay(c,buildCost(c,b));c.tiles[i]=b;if(c.burnt)delete c.burnt[i];speedUpQueue(c,before);if(b!=="wall")pushLog(c,B[b].n+" აშენდა")});
 }
 const upQ=new Set();let upT=null,upBusy=false;
 function queueUpgrade(i){const c=countries[ME];if(i<0||!c||!UPG[c.tiles[i]]||upQ.has(i))return;upQ.add(i);clearTimeout(upT);upT=setTimeout(flushUpgrades,450)}
