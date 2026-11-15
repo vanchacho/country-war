@@ -323,7 +323,7 @@ const nearRiver=i=>N4(i).some(n=>TER[n]===RIVER);
 
 /* ================= icons (drawn, no emoji) ================= */
 const O="#1b1712";
-function drawIcon(g,k,x,y,s){
+function drawIcon(g,k,x,y,s){if(k==="lumber2"||k==="lumber3")k="lumber";
   g.save();g.translate(x,y);g.scale(s/32,s/32);g.translate(-16,-16);g.lineJoin="round";g.lineCap="round";
   const P=(c,f)=>{g.fillStyle=c;g.beginPath();f();g.fill()};
   const R=(c,a,b,w,h)=>{g.fillStyle=c;g.fillRect(a,b,w,h)};
@@ -430,6 +430,8 @@ const B={
   village3:{n:"ქალაქი",cost:{wood:150,stone:200,iron:20,gold:300},prod:{gold:40,food:15,wood:4,stone:2,iron:1},pop:70,noBuild:true},
   house:{n:"სახლი",cost:{wood:30,gold:15},pop:8,on:LAND,d:"+8 მოსახლე"},
   farm:{n:"ფერმა",cost:{wood:25,gold:15},prod:{food:8},on:[GRASS,SAND,DESERT,SNOW],d:"საკვები. მდინარესთან მეტი, ზომიერ რეგიონში ყველაზე მეტი"},
+  lumber2:{n:"დიდი სახერხი",cost:{wood:40,stone:30,gold:70},prod:{wood:13},on:[FOREST],noBuild:true},
+  lumber3:{n:"ხე-ტყის ქარხანა",cost:{wood:90,stone:80,iron:10,gold:160},prod:{wood:22},on:[FOREST],noBuild:true},
   lumber:{n:"სახერხი",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"ხე. მხოლოდ ტყეში"},
   quarry:{n:"ქვის სამტეხლო",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"ქვა. ბორცვზე ან მთაზე"},
   mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:ISLANDS?"რკინა. ბევრს მხოლოდ ზამთრის მთები იძლევა":"რკინა. მთაზე მეტი"},
@@ -444,7 +446,7 @@ const B={
   tower:{n:"საგუშაგო კოშკი",cost:{stone:70,wood:30,gold:20},on:[...LAND,MOUNTAIN],d:"აკონტროლებს საზღვარს 6 უჯრის რადიუსში. დაუცველ საზღვარზე შემოსულ მტერს ჯარის მხოლოდ ნაწილი დახვდება"},
   wall:{n:"გალავანი",cost:{stone:12},on:[...LAND,MOUNTAIN],d:"+12% დაცვა ახლოს"},
 };
-const UPG={village:"village2",village2:"village3"};
+const UPG={village:"village2",village2:"village3",lumber:"lumber2",lumber2:"lumber3"};
 function prodHTML(b){const d=B[b];const parts=[];if(d.prod)for(const r in d.prod)parts.push(`<span>${icn(r,1)}+${+(d.prod[r]*ECO_SPEED).toFixed(1)}/წთ</span>`);
   if(d.pop)parts.push(`<span>${icn("pop",1)}+${d.pop}</span>`);return parts.length?`<div class="cost" style="color:var(--ok)">${parts.join("")}</div>`:""}
 const SKIN=["#e8c39e","#d9a77c","#c68b5f","#f0d2b0"],CLOTH=["#6b4f8a","#7a5a3a","#4f6b3a","#3a5a7a","#8a3a3a","#8a7a4a"];
@@ -659,8 +661,8 @@ const ECO_SPEED=1,TRAIN_SPEED=1.2,MARCH_SPEED=1.6; // pace of the game
 function stats(c){
   let pop=0;const prod={gold:0,food:0,wood:0,stone:0,iron:0,mana:0},cnt={};
   for(const k in c.tiles||{}){const b=c.tiles[k];if(!b)continue;cnt[b]=(cnt[b]||0)+1;const d=B[b];if(!d)continue;if(d.pop)pop+=d.pop;
-    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b==="lumber"&&t!==FOREST)m=0;
-      if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=cl===1?1.8:.2;else if(b==="magetower")m*=cl===2?1.8:.2;else if(b==="farm"&&cl===1)m*=.4;else if(b==="lumber"&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}for(const r in d.prod)prod[r]+=d.prod[r]*m}}
+    if(d.prod){let m=1;const i=+k,t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b.startsWith("lumber")&&t!==FOREST)m=0;
+      if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=cl===1?1.8:.2;else if(b==="magetower")m*=cl===2?1.8:.2;else if(b==="farm"&&cl===1)m*=.4;else if(b.startsWith("lumber")&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}for(const r in d.prod)prod[r]+=d.prod[r]*m}}
   let army=0,up=0,units=0;for(const u of UK){const n=c.army?.[u]||0;army+=n*UNITS[u].pop;up+=n*UNITS[u].up;units+=n}
   let queued=0;for(const q of c.queue||[])queued+=q.n*UNITS[q.u].pop;
   const civ=Math.max(0,pop-army);
@@ -954,7 +956,7 @@ function drawTrees(g){
    Light comes from the north-west: soft blurred shadows fall south-east, roofs and towers are shaded with gradients,
    materials get texture (roof tiles, timber frames, stone courses) and a fine grain so nothing looks like plastic. */
 const BSPR={},BRES=3;
-function bsprite(b,v){const key=b+"_"+v;if(BSPR[key])return BSPR[key];const big=b==="capital"||b==="village3",S=big?96:64;
+function bsprite(b,v){if(b==="lumber2"||b==="lumber3")b="lumber";const key=b+"_"+v;if(BSPR[key])return BSPR[key];const big=b==="capital"||b==="village3",S=big?96:64;
   const c=document.createElement("canvas");c.width=S*BRES;c.height=S*BRES;const g=c.getContext("2d");g.scale(BRES,BRES);if(big)g.translate(16,16);paintBuilding(g,b,v);grain(c,v);BSPR[key]={c,S};return BSPR[key]}
 function grain(c,v){const g=c.getContext("2d"),img=g.getImageData(0,0,c.width,c.height),d=img.data;
   for(let i=0;i<d.length;i+=4){if(d[i+3]<40)continue;const n=(hash(i>>2,v,313)-.5)*18;d[i]=clamp(d[i]+n,0,255);d[i+1]=clamp(d[i+1]+n,0,255);d[i+2]=clamp(d[i+2]+n,0,255)}g.putImageData(img,0,0)}
@@ -1172,7 +1174,14 @@ function drawTerritory(){GLD.own=true;
       if(n===i-1)g.fillRect(x,y,2.5,TS);if(n===i+1)g.fillRect(x+TS-2.5,y,2.5,TS);if(n===i-W)g.fillRect(x,y,TS,2.5);if(n===i+W)g.fillRect(x,y+TS-2.5,TS,2.5)}
   }
 }
-function resize(){dpr=Math.min(2,window.devicePixelRatio||1);vw=cv.clientWidth;vh=cv.clientHeight;cv.width=vw*dpr|0;cv.height=vh*dpr|0;if(glc){glc.width=cv.width;glc.height=cv.height}}
+const QUAL={gl:1,waves:10,dprCap:TOUCH?1.5:2};
+function resize(){dpr=Math.min(QUAL.dprCap,window.devicePixelRatio||1);vw=cv.clientWidth;vh=cv.clientHeight;cv.width=vw*dpr|0;cv.height=vh*dpr|0;if(glc){glc.width=Math.max(1,vw*dpr*QUAL.gl|0);glc.height=Math.max(1,vh*dpr*QUAL.gl|0)}}
+// watch how long frames take; step quality down when the game stutters and back up when there is room
+const PERF={n:0,sum:0,t0:0,last:0};
+function perfTick(ts){if(PERF.last){const dt=ts-PERF.last;if(dt<250){PERF.sum+=dt;PERF.n++}}PERF.last=ts;
+  if(PERF.n>=90){const avg=PERF.sum/PERF.n;PERF.n=0;PERF.sum=0;if(!D3)return;
+    if(avg>24){if(QUAL.waves>6)QUAL.waves=6;else if(QUAL.gl>.55){QUAL.gl=Math.max(.55,QUAL.gl-.15);resize()}else if(QUAL.dprCap>1){QUAL.dprCap=1;resize()}}
+    else if(avg<15){if(QUAL.gl<1){QUAL.gl=Math.min(1,QUAL.gl+.15);resize()}else if(QUAL.waves<10)QUAL.waves=10}}}
 const glc=document.createElement("canvas");glc.id="gl";glc.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;background:#1d3f57";cv.parentNode.insertBefore(glc,cv);
 const GLD={terr:true,own:true,wfx:true,bld:true,trees:true};let GL=null;
 
@@ -1224,6 +1233,9 @@ function buildModel(B,b,i,ownerCol){const cx=tx(i)*TS+8,cy=ty(i)*TS+8,z=tileZ(i)
     case"village3":vil(6,.78);B.box(cx+.5,cy-.5,z-2,4,4,16,PAL.stone);B.pyr(cx+.5,cy-.5,z+14,4.8,4.8,6,PAL.slate);break;
     case"farm":{const cols=[PAL.field1,PAL.field2,PAL.field3,PAL.field1];for(let k=0;k<4;k++)B.box(cx-1.5,cy-6+k*3.6,z-1,11,3.2,1.5,cols[(k+sd)%4]);house(B,cx+5.2,cy+3.8,z,.7,sd,false);break}
     case"lumber":house(B,cx-2.5,cy-1,z,.8,sd,true);for(let k=0;k<3;k++)B.box(cx+4,cy+3-k*.2,z+k*1.1,6-k,2.2,1.1,PAL.wood,[.65,.5,.32]);break;
+    case"lumber2":house(B,cx-3,cy-2,z,.95,sd,true);house(B,cx+4.5,cy-3.5,z,.6,sd+1,false);for(let r=0;r<2;r++)for(let k=0;k<3;k++)B.box(cx+3+r*3.4,cy+3.6-k*.2,z+k*1.1,3-k*.3,2.2,1.1,PAL.wood,[.65,.5,.32]);break;
+    case"lumber3":B.box(cx-1,cy-2,z-2,11,7,7,PAL.timber);B.gable(cx-1,cy-2,z+5,12,8,4,PAL.roofB,true);B.cyl(cx-5,cy-4.5,z,.9,13,6,PAL.stone2);house(B,cx+5.2,cy+3.5,z,.55,sd,false);
+      for(let r=0;r<3;r++)for(let k=0;k<3;k++)B.box(cx-5+r*3.3,cy+4.6-k*.2,z+k*1.1,3-k*.3,2.2,1.1,PAL.wood,[.65,.5,.32]);break;
     case"quarry":B.box(cx,cy,z-2,13,11,3,PAL.stone2);B.box(cx-1.5,cy-1.5,z+1,9,7,3,PAL.stone);B.box(cx+3.5,cy+3.4,z+1,2.4,2,1.8,PAL.stone);B.box(cx+1,cy+4,z+1,2,1.6,1.4,PAL.stone);B.box(cx-5,cy+2,z+1,.6,.6,9,PAL.timber);B.box(cx-3,cy+2,z+9.6,4.5,.5,.5,PAL.timber);break;
     case"mine":B.pyr(cx,cy-1,z-2,14,12,10,PAL.stone2);B.box(cx,cy+4.4,z,4.6,1.2,5,PAL.timber);B.box(cx,cy+5.06,z,3.2,.1,3.8,PAL.dark);house(B,cx+5,cy+4.2,z,.55,sd,true);break;
     case"market":{B.box(cx,cy,z-1.5,13,12,1.7,[.68,.64,.56]);const aw=[[.75,.22,.2],[.9,.86,.78],[.2,.38,.65],[.85,.65,.2]];[[-3.6,-3],[3.6,-3],[-3.6,3],[3.6,3]].forEach(([ox,oy],k)=>{B.box(cx+ox,cy+oy,z,3.6,3,2.4,PAL.wood);B.gable(cx+ox,cy+oy,z+2.4,4.4,3.8,1.6,aw[(k+sd)%4],true)});B.cyl(cx,cy,z,1.2,1.4,8,PAL.stone);break}
@@ -1276,11 +1288,11 @@ precision mediump float;
 #endif
 float h2(vec2 q){return fract(sin(dot(q,vec2(127.1,311.7)))*43758.5453);}
 float vn(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(h2(i),h2(i+vec2(1,0)),f.x),mix(h2(i+vec2(0,1)),h2(i+vec2(1,1)),f.x),f.y);}
-uniform float zm;
+uniform float zm;uniform float qn;
 // the ocean: ten wave trains of falling length from a westerly wind, each tilting the surface; the deep water is dark,
 // the tilted faces mirror the sky, and the sun glitters on the facets that face it. Waves shorter than a few screen pixels fade out.
 vec3 seaCol(vec2 wp,float time){float px=1./max(zm,.05);vec2 g=vec2(0.);float h=0.,hs=0.;
-  for(int i=0;i<10;i++){float fi=float(i),lam=280.*pow(.69,fi),ang=.25+(h2(vec2(fi,3.))-.5)*2.4;vec2 d=vec2(cos(ang),sin(ang));
+  for(int i=0;i<10;i++){float fi=float(i);if(fi>=qn)break;float lam=280.*pow(.69,fi),ang=.25+(h2(vec2(fi,3.))-.5)*2.4;vec2 d=vec2(cos(ang),sin(ang));
     float k=6.2832/lam,w=sqrt(k*9.8*40.)*.5,a=.21/k,fade=smoothstep(2.,6.,lam/px),ph=dot(d,wp)*k+w*time+fi*1.7;
     h+=a*sin(ph)*fade;hs+=a*fade;g+=a*k*cos(ph)*d*fade;}
   vec3 n=normalize(vec3(-g.x,-g.y,1.)),V=normalize(vec3(0.,.62,.78)),L=normalize(vec3(-.45,.25,.85)),R=reflect(-V,n);
@@ -1306,13 +1318,14 @@ function glInit(){
       // deep water is drawn as the very same sea that lies around the map, so open water is one sea everywhere
       float deep=1.-smoothstep(.035,.13,distance(base,vec3(.086,.239,.408)));
       float bd=min(min(uv.x,1.-uv.x)*${PW}.,min(uv.y,1.-uv.y)*${PH}.);float isW=step(base.r+.06,base.b)*step(base.g,base.b);deep=max(deep,(1.-smoothstep(10.,200.,bd))*isW);
-      c=mix(c,seaCol(wp,time),deep);vec4 o=texture2D(t1,uv);c=mix(c,o.rgb,o.a);gl_FragColor=vec4(c,1.);}`));
+      vec4 o=texture2D(t1,uv);if(deep>.985&&o.a<.01)discard;
+      if(deep>.01)c=mix(c,seaCol(wp,time),deep);c=mix(c,o.rgb,o.a);gl_FragColor=vec4(c,1.);}`));
   gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));gl.useProgram(pr);
   const mk=()=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));return t};
   const G={gl,pr,terr:mk(),own:mk(),w:[mk(),mk(),mk()],buf:gl.createBuffer(),ib:gl.createBuffer(),n:0,
-    u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),rot:gl.getUniformLocation(pr,"rot"),wf:gl.getUniformLocation(pr,"wf"),time:gl.getUniformLocation(pr,"time"),zm:gl.getUniformLocation(pr,"zm"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
+    u:{cam:gl.getUniformLocation(pr,"cam"),vw:gl.getUniformLocation(pr,"vw"),rot:gl.getUniformLocation(pr,"rot"),wf:gl.getUniformLocation(pr,"wf"),time:gl.getUniformLocation(pr,"time"),zm:gl.getUniformLocation(pr,"zm"),qn:gl.getUniformLocation(pr,"qn"),t0:gl.getUniformLocation(pr,"t0"),t1:gl.getUniformLocation(pr,"t1"),w0:gl.getUniformLocation(pr,"w0"),w1:gl.getUniformLocation(pr,"w1")},a:gl.getAttribLocation(pr,"a")};
   gl.uniform1i(G.u.t0,0);gl.uniform1i(G.u.t1,1);gl.uniform1i(G.u.w0,2);gl.uniform1i(G.u.w1,3);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   const prog=(vs,fs)=>{const q=gl.createProgram();gl.attachShader(q,sh(gl.VERTEX_SHADER,vs));gl.attachShader(q,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(q);if(!gl.getProgramParameter(q,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(q));return q};
   const PROJ=`uniform vec4 cam;uniform vec4 vw;uniform vec4 rot;uniform vec3 L;uniform float shd;varying vec3 col;
@@ -1321,12 +1334,12 @@ function glInit(){
   const FS=`precision mediump float;varying vec3 col;uniform float alpha;void main(){gl_FragColor=vec4(col,alpha);}`;
   G.obj=prog(`attribute vec3 p;attribute vec3 n;attribute vec3 c;${PROJ}
     void main(){gl_Position=proj(p);float dif=max(dot(n,L),0.);col=shd>.5?vec3(0.):c*(.5+.66*dif);}`,FS);
-  G.sea=prog(`attribute vec2 p;${PROJ}varying vec2 wp;void main(){wp=p;gl_Position=proj(vec3(p,-1.5));col=vec3(0.);}`,
+  G.sea=prog(`attribute vec2 p;${PROJ}varying vec2 wp;void main(){wp=p;gl_Position=proj(vec3(p,-.6));col=vec3(0.);}`,
     `${SEA_GLSL}varying vec2 wp;uniform float time;uniform vec2 msz;
     void main(){vec3 c=seaCol(wp,time);
       vec2 dd=max(max(-wp,wp-msz),0.);float far=clamp((length(dd)-150.)/1600.,0.,1.);c*=1.-far*.25;
       gl_FragColor=vec4(c,1.);}`);
-  G.seaL={p:gl.getAttribLocation(G.sea,"p"),cam:gl.getUniformLocation(G.sea,"cam"),vw:gl.getUniformLocation(G.sea,"vw"),rot:gl.getUniformLocation(G.sea,"rot"),time:gl.getUniformLocation(G.sea,"time"),zm:gl.getUniformLocation(G.sea,"zm"),msz:gl.getUniformLocation(G.sea,"msz")};
+  G.seaL={p:gl.getAttribLocation(G.sea,"p"),cam:gl.getUniformLocation(G.sea,"cam"),vw:gl.getUniformLocation(G.sea,"vw"),rot:gl.getUniformLocation(G.sea,"rot"),time:gl.getUniformLocation(G.sea,"time"),zm:gl.getUniformLocation(G.sea,"zm"),qn:gl.getUniformLocation(G.sea,"qn"),msz:gl.getUniformLocation(G.sea,"msz")};
   G.seaB=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,G.seaB);{const M=5000;gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-M,-M,PW+M,-M,PW+M,PH+M,-M,-M,PW+M,PH+M,-M,PH+M]),gl.STATIC_DRAW)}
   G.ext=gl.getExtension("ANGLE_instanced_arrays");
   if(G.ext)G.tree=prog(`attribute vec3 p;attribute vec3 n;attribute vec3 c;attribute vec4 ip;attribute vec2 it;${PROJ}
@@ -1350,20 +1363,20 @@ function glDraw(now){const {gl}=GL;if(!GL.n)glMesh();if(!GL.n)return;gl.useProgr
   if(GLD.terr&&terrCv.width>1){up(GL.terr,terrCv);GLD.terr=false}if(GLD.own){up(GL.own,ownCv);GLD.own=false}
   if(GLD.wfx&&WFX.length===3){WFX.forEach((c,j)=>up(GL.w[j],c));GLD.wfx=false}
   gl.viewport(0,0,glc.width,glc.height);gl.clearColor(.06,.17,.29,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  {const L=GL.seaL,NRM=Math.hypot(PW,PH)+HS3*3;gl.useProgram(GL.sea);gl.uniform4f(L.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(L.vw,vw,vh,VIEW.hs,NRM+12000);gl.uniform4f(L.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);
-    gl.uniform1f(L.time,(now%600000)/1000);gl.uniform1f(L.zm,cam.z);gl.uniform2f(L.msz,PW,PH);gl.bindBuffer(gl.ARRAY_BUFFER,GL.seaB);gl.enableVertexAttribArray(L.p);gl.vertexAttribPointer(L.p,2,gl.FLOAT,false,0,0);
-    gl.depthMask(false);gl.drawArrays(gl.TRIANGLES,0,6);gl.depthMask(true);gl.disableVertexAttribArray(L.p);gl.useProgram(GL.pr)}
-  const NRM=Math.hypot(PW,PH)+HS3*3;gl.uniform4f(GL.u.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(GL.u.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(GL.u.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);
-  const t=now/1400,i=Math.floor(t)%3;gl.uniform1f(GL.u.wf,t%1);gl.uniform1f(GL.u.time,(now%600000)/1000);gl.uniform1f(GL.u.zm,cam.z);
+  const NRM=GL_NRM();gl.uniform4f(GL.u.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(GL.u.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(GL.u.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);
+  const t=now/1400,i=Math.floor(t)%3;gl.uniform1f(GL.u.wf,t%1);gl.uniform1f(GL.u.time,(now%600000)/1000);gl.uniform1f(GL.u.zm,cam.z);gl.uniform1f(GL.u.qn,QUAL.waves);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.terr);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,GL.own);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,GL.w[i]);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,GL.w[(i+1)%3]);
   gl.bindBuffer(gl.ARRAY_BUFFER,GL.buf);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,GL.ib);gl.enableVertexAttribArray(GL.a);gl.vertexAttribPointer(GL.a,4,gl.FLOAT,false,0,0);
   gl.drawElements(gl.TRIANGLES,GL.n,gl.UNSIGNED_SHORT,0);gl.disableVertexAttribArray(GL.a);
+  {const L=GL.seaL,NRM=GL_NRM();gl.useProgram(GL.sea);gl.uniform4f(L.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(L.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(L.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);
+    gl.uniform1f(L.time,(now%600000)/1000);gl.uniform1f(L.zm,cam.z);gl.uniform1f(L.qn,QUAL.waves);gl.uniform2f(L.msz,PW,PH);gl.bindBuffer(gl.ARRAY_BUFFER,GL.seaB);gl.enableVertexAttribArray(L.p);gl.vertexAttribPointer(L.p,2,gl.FLOAT,false,0,0);
+    gl.depthMask(false);gl.drawArrays(gl.TRIANGLES,0,6);gl.depthMask(true);gl.disableVertexAttribArray(L.p);gl.useProgram(GL.pr)}
   glObjects()}
 function glObjects(){const G=GL,gl=G.gl;
   if(GLD.bld){const m=buildingMesh();gl.bindBuffer(gl.ARRAY_BUFFER,G.bb);gl.bufferData(gl.ARRAY_BUFFER,m.v,gl.STATIC_DRAW);G.bn=m.v.length/9;gl.bindBuffer(gl.ARRAY_BUFFER,G.bs);gl.bufferData(gl.ARRAY_BUFFER,m.s,gl.STATIC_DRAW);G.sn=m.s.length/9;GLD.bld=false}
   if(G.ext&&GLD.trees){const t=treeInstances();for(const k of ["fir","leaf"]){gl.bindBuffer(gl.ARRAY_BUFFER,G.ti[k].b);gl.bufferData(gl.ARRAY_BUFFER,t[k],gl.STATIC_DRAW);G.ti[k].n=t[k].length/6}GLD.trees=false}
-  const NRM=Math.hypot(PW,PH)+HS3*3;const uni=(U)=>{gl.uniform4f(U.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(U.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(U.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);gl.uniform3f(U.L,...LDIR)};
+  const NRM=GL_NRM();const uni=(U)=>{gl.uniform4f(U.cam,cam.x,cam.y,cam.z,VIEW.cy);gl.uniform4f(U.vw,vw,vh,VIEW.hs,NRM);gl.uniform4f(U.rot,VIEW.ca,VIEW.sa,VIEW.st,VIEW.ct);gl.uniform3f(U.L,...LDIR)};
   const attrs=(U,stride)=>{gl.enableVertexAttribArray(U.p);gl.vertexAttribPointer(U.p,3,gl.FLOAT,false,36,0);
     if(U.n>=0){gl.enableVertexAttribArray(U.n);gl.vertexAttribPointer(U.n,3,gl.FLOAT,false,36,12)}if(U.c>=0){gl.enableVertexAttribArray(U.c);gl.vertexAttribPointer(U.c,3,gl.FLOAT,false,36,24)}};
   const off=U=>{for(const a of [U.p,U.n,U.c,U.ip,U.it])if(a>=0)gl.disableVertexAttribArray(a)};
@@ -1393,7 +1406,7 @@ let hoverTile=-1,selectedArmy=null;const FX=[];
 function pathOf(a){return a.path&&a.path.length>1?a.path:[a.fromTile,a.target]}
 /* ===== 3D: the ground is a raised, lit height field drawn with WebGL beneath the 2D layer; the camera looks down at a tilt.
    Everything standing on the map is lifted by the height of its tile and drawn upright. ===== */
-let D3=false;const CY3=.78,HS3=60,TILT0=Math.acos(.78),LIFT=new Float32Array(W*H);
+let D3=false;const CY3=.78,HS3=60,GL_NRM=()=>Math.hypot(PW,PH)+HS3*3+12000,TILT0=Math.acos(.78),LIFT=new Float32Array(W*H);
 // VIEW is recomputed whenever the camera changes: ca/sa turn the map, cy squashes it by the tilt, hs scales heights, (lx,ly) is "up" on screen in map units per unit of height
 const VIEW={ca:1,sa:0,cy:1,hs:0,st:0,ct:1,lx:0,ly:0};
 function updView(){const yaw=D3?(cam.yaw||0):0,t=D3?(cam.tilt??TILT0):0;VIEW.ca=Math.cos(yaw);VIEW.sa=Math.sin(yaw);VIEW.cy=Math.cos(t);VIEW.st=Math.sin(t);VIEW.ct=Math.cos(t);VIEW.hs=VIEW.st/.626;
@@ -1427,7 +1440,7 @@ function heading(a,now){const P1=armyPos(a,now),P2=armyPos(a,now+700);if(!P1||!P
 function heel(a,now){let d=heading(a,now+900)-heading(a,now);while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return clamp(d*.5,-.22,.22)}
 function armyAt(sx,sy){const now=Date.now();let best=null,bd=18;for(const a of Object.values(attacks)){const P=armyPos(a,now);if(!P)continue;
   const [X,Y]=w2s(P.x,P.y),d=Math.hypot(X-sx,Y-sy);if(d<bd){bd=d;best=a}}return best}
-function frame(){requestAnimationFrame(frame);try{frame1()}catch(e){if(!frame.errT||Date.now()-frame.errT>5000){frame.errT=Date.now();console.warn("frame",e)}try{ctx.restore()}catch{}}}
+function frame(ts){requestAnimationFrame(frame);if(ts)perfTick(ts);try{frame1()}catch(e){if(!frame.errT||Date.now()-frame.errT>5000){frame.errT=Date.now();console.warn("frame",e)}try{ctx.restore()}catch{}}}
 function frame1(){
   const now=Date.now();
   updView();ctx.setTransform(dpr,0,0,dpr,0,0);const z=cam.z;
@@ -1805,7 +1818,7 @@ function renderTile(){
     if(!b){const opts=castleGround(i)?[]:BUILD_ORDER.filter(k=>B[k].on.includes(t)&&(!B[k].coast||N4(i).some(n=>TER[n]===WATER)));
       h+=opts.length?`<div class="list" style="margin-top:10px">`+opts.map(k=>{const cost=buildCost(c,k);return `<div class="item" style="padding:6px 8px">${icn(k)}<span class="tx"><b>${B[k].n}</b>${prodHTML(k)||`<span>${esc(B[k].d)}</span>`}${costHTML(cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,cost)?"gold":""}" data-build="${k}">აშენება</button><button class="btn sm" data-paint="${k}">ბევრი</button></span></div>`}).join("")+`</div>`
         :`<p class="muted">${castleGround(i)?"ეს სასახლის ეზოა, აქ ვერაფერს ააშენებ.":"აქ ვერაფერს ააშენებ."}</p>`}
-    else if(UPG[b]){const nx=UPG[b];h+=`<div class="item" style="margin-top:10px">${icn(nx)}<span class="tx"><b>${B[nx].n}</b><span>+${B[nx].prod.gold} ოქრო/წთ, +${B[nx].pop} მოსახლე</span>${costHTML(B[nx].cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,B[nx].cost)?"gold":""}" data-upg="1">გაუმჯობესება</button><button class="btn sm" data-upgpaint="1">ბევრი</button><button class="btn sm" data-upgall="${b}">ყველა · ${Object.values(c.tiles).filter(x=>x===b).length}</button></span></div>
+    else if(UPG[b]){const nx=UPG[b];h+=`<div class="item" style="margin-top:10px">${icn(nx)}<span class="tx"><b>${B[nx].n}</b><span>${Object.entries(B[nx].prod||{}).map(([r,v])=>`+${+(v*ECO_SPEED).toFixed(1)} ${r==="gold"?"ოქრო":RES[r].n}/წთ`).join(", ")}${B[nx].pop?`, +${B[nx].pop} მოსახლე`:""}</span>${costHTML(B[nx].cost,c)}</span><span class="btns"><button class="btn sm ${canPay(c,B[nx].cost)?"gold":""}" data-upg="1">გაუმჯობესება</button><button class="btn sm" data-upgpaint="1">ბევრი</button><button class="btn sm" data-upgall="${b}">ყველა · ${Object.values(c.tiles).filter(x=>x===b).length}</button></span></div>
       <div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`}
     else if(b==="port")h+=`<div class="item" style="margin-top:10px">${icn("ship")}<span class="tx"><b>გემები: ${c.ships||0}</b><span>თითო გემი ${SHIP_CAP} ჯარისკაცს გადაიყვანს</span>${costHTML(SHIP_COST,c)}</span><button class="btn sm gold" data-ship="1">გემის აშენება</button></div><div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`;
     else if(b!=="capital")h+=`<div class="acts"><button class="btn sm red" data-demolish="1">დანგრევა</button></div>`;
