@@ -209,7 +209,7 @@ const W=150,H=96,TS=16,SEED=MAP_OVERRIDE?+String(MAP_OVERRIDE).split(":")[0]:ISL
 const WATER=0,SAND=1,GRASS=2,FOREST=3,HILL=4,MOUNTAIN=5,RIVER=6,DESERT=7,SNOW=8;
 const TNAME=["ზღვა","სანაპირო","მინდორი","ტყე","ბორცვი","მთა","მდინარე","უდაბნო","თოვლიანი ველი"];
 // climate of every tile: 0 temperate, 1 winter, 2 hot desert (only on island worlds; older worlds are all temperate)
-const CLIMATE=new Uint8Array(W*H),CLIM_NAME=["ზომიერი","ზამთარი","უდაბნო"],CLIM_RICH=["საკვები და ცხენები (თავლა მხოლოდ აქ)","რკინა და ხე","მანა და ოქრო"];
+const CLIMATE=new Uint8Array(W*H),CLIM_NAME=["ზომიერი","ზამთარი","უდაბნო"],CLIM_RICH=["საკვები და ცხენები (თავლა მხოლოდ აქ)","ხე (ნაძვნარი)","მანა და ოქრო"];
 const TER=new Uint8Array(W*H), ELEV=new Float32Array(W*H);
 const idx=(x,y)=>y*W+x, tx=i=>i%W, ty=i=>(i/W)|0;
 const N4=i=>{const x=tx(i),y=ty(i),r=[];if(x>0)r.push(i-1);if(x<W-1)r.push(i+1);if(y>0)r.push(i-W);if(y<H-1)r.push(i+W);return r};
@@ -434,7 +434,7 @@ const B={
   lumber3:{n:"ხე-ტყის ქარხანა",cost:{wood:90,stone:80,iron:10,gold:160},prod:{wood:22},on:[FOREST],noBuild:true},
   lumber:{n:"სახერხი",cost:{gold:25},prod:{wood:6},on:[FOREST],d:"ხე. მხოლოდ ტყეში"},
   quarry:{n:"ქვის სამტეხლო",cost:{wood:40,gold:25},prod:{stone:4},on:[HILL,MOUNTAIN],d:"ქვა. ბორცვზე ან მთაზე"},
-  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:ISLANDS?"რკინა. ზამთრის მთებზე ყველაზე მეტი":"რკინა. მთაზე მეტი"},
+  mine:{n:"რკინის მაღარო",cost:{wood:50,stone:30,gold:40},prod:{iron:2.5},on:[MOUNTAIN,HILL],d:"რკინა. მთაზე მეტი, ბორცვზე ნაკლები"},
   market:{n:"ბაზარი",cost:{wood:80,stone:50,gold:60},prod:{gold:10},on:LAND,d:"ოქრო და ვაჭრობა"},
   barracks:{n:"ყაზარმა",cost:{wood:90,stone:40,gold:50},on:LAND,d:"ქვეითი ჯარი"},
   range:{n:"სასროლეთი",cost:{wood:110,gold:60},on:LAND,d:"მშვილდოსნები"},
@@ -449,7 +449,7 @@ const B={
 const UPG={village:"village2",village2:"village3",lumber:"lumber2",lumber2:"lumber3"};
 // how much of its normal output a building gives on this tile: river farms do better, hill mines worse, and on island worlds each region favours its own goods
 function tileMult(b,i){let m=1;const t=TER[i];if(b==="farm"){if(nearRiver(i))m=1.5;if(t===DESERT)m*=.5}if(b==="mine"&&t===HILL)m=.6;if(b.startsWith("lumber")&&t!==FOREST)m=0;
-  if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=cl===1?1.6:.6;else if(b==="magetower")m*=cl===2?1.6:.6;else if(b==="farm"&&cl===1)m*=.4;else if(b.startsWith("lumber")&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}return m}
+  if(ISLANDS){const cl=CLIMATE[i];if(b==="mine")m*=1.6;else if(b==="magetower")m*=cl===2?1.6:.6;else if(b==="farm"&&cl===1)m*=.4;else if(b.startsWith("lumber")&&cl===1)m*=1.4;else if(b==="market"&&cl===2)m*=1.6;else if(b==="farm"&&cl===0)m*=1.15}return m}
 // what a building would give if built on tile i (its real number, with a note when the place is poor or rich for it)
 function prodAtHTML(b,i){const d=B[b];if(!d.prod)return"";const m=tileMult(b,i);const parts=Object.keys(d.prod).map(r=>`<span>${icn(r,1)}+${+(d.prod[r]*m*ECO_SPEED).toFixed(1)}/წთ</span>`);
   const note=m<.95?` <span style="color:var(--danger)">აქ ${Math.round(m*100)}%</span>`:m>1.05?` <span style="color:var(--ok)">აქ ${Math.round(m*100)}%</span>`:"";return `<div class="cost">${parts.join("")}${note}</div>`}
